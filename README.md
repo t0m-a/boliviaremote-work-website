@@ -56,14 +56,14 @@ Esta herramienta es una **solución pública y gratuita** en **Español (Bolivia
 ### Principales Características y Novedades (v5.8)
 
 - **Interfaz 100% Español (Bolivia) y Diseño Responsivo:** Adaptación fluida a escritorio, tabletas (`<= 1200px`, `<= 820px`) y celulares (`<= 640px`), con botón flotante translúcido **Arriba** en la esquina inferior derecha, grillas KPI balanceadas de 3 tarjetas (`POSTULAR`, `EXPLORAR`, `BAJA COINCIDENCIA`) y cierre automático suave al retirar el puntero en todos los menús desplegables.
-- **Menú Hamburguesa `Información Utiles` y Modo Claro/Oscuro:** La barra superior muestra **Bolivia Remote Work** a la izquierda y, a la derecha, el selector discreto de modo claro/oscuro junto al botón destacado en verde **Información Utiles** (que repliega automáticamente todas sus subsecciones al cerrarse). Está organizado en orden: **Aviso** (con enlace directo a [Language Transfer](https://www.languagetransfer.org)), **Manual de Uso**, **Información Financiera** (AirTM, Wise, Payoneer, Tipalti y Dólar Bolivia Hoy), **Categorías De Plataformas**, **Plataformas Monitoreadas** y **Sobre el creador** (con información del proyecto comunitario **Minka Lab** en [minkalab.net](https://minkalab.net) y enlaces de contacto).
+- **Menú Hamburguesa `Información Útil` y Modo Claro/Oscuro:** La barra superior muestra **Bolivia Remote Work** a la izquierda y, a la derecha, el selector discreto de modo claro/oscuro junto al botón destacado en verde **Información Útil** (que repliega automáticamente todas sus subsecciones al cerrarse). Está organizado en orden: **Aviso** (con enlace directo a [Language Transfer](https://www.languagetransfer.org)), **Manual de Uso**, **Información Financiera** (AirTM, Wise, Payoneer, Tipalti y Dólar Bolivia Hoy), **Categorías De Plataformas**, **Plataformas Monitoreadas** y **Sobre el creador** (con información del proyecto comunitario **Minka Lab** en [minkalab.net](https://minkalab.net) y enlaces de contacto).
 - **Filtro Estricto de Idiomas (`Español` e `Inglés`):** Por defecto inicia con **Español** seleccionado. Soporta tres modos simétricos con refresco inmediato de resultados y tarjetas KPI:
   - **Solo Español:** Muestra y prioriza únicamente vacantes compatibles con español, descartando ofertas exclusivas en inglés.
   - **Solo Inglés:** Muestra y prioriza únicamente vacantes compatibles con inglés, descartando ofertas exclusivas en español.
   - **Ambos (`Español` + `Inglés`):** Muestra la unión completa de ofertas en español, inglés y bilingües con puntaje completo de idioma (`20/20`).
 - **25 Categorías Profesionales Enriquecidas:** Desplegable responsivo multi-selección (`Tipo de Posición / Área Profesional`) ampliado para cubrir áreas técnicas, administrativas, comerciales, creativas, de salud, legales, e-commerce, producto, ciberseguridad, IA/ML y traducción.
 - **Filtro 100% Remoto desde Bolivia Obligatorio en Toda la Tubería:** El escáner, el evaluador, el índice vectorial y el analizador IA filtran automáticamente cualquier restricción geográfica (`US Only`, `EU Only`, `W-2`, presencial/híbrido) antes de importar o mostrar vacantes.
-- **Panel Contextual `Más información con IA` (Cloudflare Workers AI):** En cada tarjeta de oferta, el botón destacado en verde **Más información con IA** (con el mismo estilo visual que **Información Utiles**) despliega un panel inmediatamente debajo de la vacante (y se cierra automáticamente al salir de la pantalla al hacer scroll) con análisis estructurado en español mediante Llama 3.1 y respaldo determinístico de borde (`POST /api/ai/analyze-position`):
+- **Panel Contextual `Más información con IA` (Cloudflare Workers AI):** En cada tarjeta de oferta, el botón destacado en verde **Más información con IA** (con el mismo estilo visual que **Información Útil**) despliega un panel inmediatamente debajo de la vacante (y se cierra automáticamente al salir de la pantalla al hacer scroll) con análisis estructurado en español mediante Llama 3.1 y respaldo determinístico de borde (`POST /api/ai/analyze-position`):
   - Resumen informativo de la posición.
   - **Requisitos de la posición**.
   - **Experiencia y habilidades útiles**.
@@ -96,8 +96,8 @@ Si estás utilizando la versión alojada públicamente en línea, esta guía te 
 
 Al abrir el portal, la aplicación carga completamente en **Español (Bolivia)** (`es-BO`) bajo la marca **Bolivia Remote Work**.
 
-- En la esquina superior derecha tienes el botón discreto de **Modo Claro / Modo Oscuro** junto al botón destacado **Información Utiles** (que se cierra suavemente al retirar el puntero y repliega automáticamente todas sus subsecciones).
-- Dentro de **Información Utiles** encontrarás:
+- En la esquina superior derecha tienes el botón discreto de **Modo Claro / Modo Oscuro** junto al botón destacado **Información Útil** (que se cierra suavemente al retirar el puntero y repliega automáticamente todas sus subsecciones).
+- Dentro de **Información Útil** encontrarás:
   1. **Aviso** (con recomendación formativa y enlace a [Language Transfer](https://www.languagetransfer.org)).
   2. **Manual de Uso**.
   3. **Información Financiera** (plataformas de cobro internacional: AirTM, Wise, Payoneer, Tipalti y Dólar Bolivia Hoy).
@@ -182,7 +182,7 @@ Al final de la página encontrarás el panel **"Agregar y Escanear tu Propia URL
 
 ### Paso 6: Sección interactiva "Manual de Uso" integrada
 
-Desde **Información Utiles → Manual de Uso** accedes a la guía de 8 pasos integrada dentro de la propia aplicación, cubriendo configuración de idiomas (`Español` / `Inglés`), experiencia, contratos, áreas profesionales, filtro automático 100% remoto desde Bolivia, interpretación del semáforo, postulación directa y uso de **"Más información con IA"** junto con **"Buscar con IA"**.
+Desde **Información Útil → Manual de Uso** accedes a la guía de 8 pasos integrada dentro de la propia aplicación, cubriendo configuración de idiomas (`Español` / `Inglés`), experiencia, contratos, áreas profesionales, filtro automático 100% remoto desde Bolivia, interpretación del semáforo, postulación directa y uso de **"Más información con IA"** junto con **"Buscar con IA"**.
 
 ---
 
@@ -334,7 +334,7 @@ Puedes alojar tu propia instancia en Cloudflare en menos de 5 minutos utilizando
    npm run build-html && npm test
    ```
    *Ejecuta 8 grupos de prueba automáticos que validan:*
-   - Interfaz web en Español (Bolivia), menú **Información Utiles**, auto-cierre suave de desplegables, botón **Arriba**, modo oscuro, panel contextual `#ai-position-details` y ejecución real en sandbox VM del cambio en vivo de idiomas (`Solo Español`, `Ambos`, `Solo Inglés`).
+   - Interfaz web en Español (Bolivia), menú **Información Útil**, auto-cierre suave de desplegables, botón **Arriba**, modo oscuro, panel contextual `#ai-position-details` y ejecución real en sandbox VM del cambio en vivo de idiomas (`Solo Español`, `Ambos`, `Solo Inglés`).
    - Estado general del servicio con 86 plataformas monitoreadas y garantía de elegibilidad 100% remota desde Bolivia.
    - Evaluación simétrica de idiomas (`['es']`, `['en']`, `['es', 'en']` y respaldo limpio de valores heredados).
    - Cobertura de las 25 categorías profesionales y filtro estricto de área (`strict_position_match`).

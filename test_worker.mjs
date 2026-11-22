@@ -67,13 +67,15 @@ async function runTests() {
   assert.ok(navListHtml.includes('id="nav-hdr-creator">Sobre el creador</span>') && navListHtml.includes('onclick="toggleCreatorMenu()"'), 'Hamburger menu must include collapsible Sobre el creador section');
   assert.ok(
     navListHtml.includes('id="nav-creator-desc"') &&
+    navListHtml.includes('dedicada a la educación digital, las competencias en IA y el aprendizaje de idiomas.') &&
+    !navListHtml.includes('espacios maker con IA e idiomas, y hardware abierto accesible') &&
     navListHtml.includes('https://minkalab.net') &&
     navListHtml.includes('mailto:contact@tsimon.me') &&
     navListHtml.includes('https://tsimon.me') &&
     navListHtml.includes('https://www.facebook.com/thomas.mathieu.simon') &&
     navListHtml.includes('https://www.linkedin.com/in/tsimonfreelance/') &&
     navListHtml.includes('https://github.com/t0m-a'),
-    'Sobre el creador must describe Minka Lab and include minkalab.net, contact/site, Facebook, LinkedIn, and GitHub links'
+    'Sobre el creador must describe Minka Lab with updated mission text and include minkalab.net, contact/site, Facebook, LinkedIn, and GitHub links'
   );
   assert.ok(/#sidebar-unfold-btn\s*\{[\s\S]*?border:\s*1px solid #10b981;[\s\S]*?background:\s*#ecfdf5;[\s\S]*?color:\s*#065f46;/.test(html), 'Información Utiles button must use the .bolivia-only-label green highlight design');
   assert.ok(!html.includes('Exporta tus Resultados y Sincroniza en Segundo Plano') && !html.includes('<!-- PASO 9 -->'), 'User Manual must remove section 9');
@@ -205,7 +207,8 @@ async function runTests() {
   assert.ok(!html.includes('id="nav-report"'), 'Must NOT have id="nav-report" in navbar (removed as requested)');
   assert.ok(html.includes('id="sidebar-unfold-btn"'), 'Must have sidebar unfold button');
   assert.ok(html.includes('<body class="sidebar-collapsed">'), 'Navbar must start folded in hamburger menu by default');
-  assert.ok(/<div class="navbar-header">[\s\S]*?id="nav-brand-title">Bolivia Remote Work<\/span>[\s\S]*?id="sidebar-unfold-btn"[\s\S]*?<span class="hamburger-label" id="lbl-unfold-nav">Información Utiles<\/span>[\s\S]*?<span class="hamburger-icon">/.test(html), 'Hamburger button must be inside navbar-header on the right with Información Utiles on the left of hamburger icon');
+  assert.ok(/<div class="navbar-header">[\s\S]*?id="nav-brand-title">Bolivia Remote Work<\/span>[\s\S]*?id="sidebar-unfold-btn"[\s\S]*?<span class="hamburger-label" id="lbl-unfold-nav">Información Útil<\/span>[\s\S]*?<span class="hamburger-icon">/.test(html), 'Hamburger button must be inside navbar-header on the right with Información Útil on the left of hamburger icon');
+  assert.ok(!html.includes('Información Utiles'), 'Must replace Información Utiles with Información Útil');
   assert.ok(html.includes('id="exp-dropdown"') && html.includes('id="exp-dropdown-menu"'), 'Experience Level must use a multi-select dropdown');
   assert.ok(html.includes('id="contract-dropdown"') && html.includes('id="contract-dropdown-menu"'), 'Target Contract Types must use a multi-select dropdown');
   assert.ok(html.includes('onclick="toggleCategoriesMenu(event)"'), 'Categories button inside footer must be collapsible');
@@ -292,9 +295,17 @@ async function runTests() {
   );
   assert.ok(
     html.includes('.opp-card.card-reveal-pending') &&
+    html.includes('.opp-card.card-reveal-pending-up') &&
     html.includes('.opp-card.card-reveal-visible') &&
     html.includes('function initCardScrollReveal('),
-    'Must include IntersectionObserver scroll-reveal transition animation for cards'
+    'Must include bidirectional IntersectionObserver scroll-reveal transition animation for scrolling down and back up'
+  );
+  assert.ok(
+    html.includes('overflow-x: clip;') &&
+    /#navbar\.navbar-scrolled\s*\{[\s\S]*?backdrop-filter:\s*blur\(12px\)/.test(html) &&
+    /body\.dark-mode #navbar\.navbar-scrolled\s*\{[\s\S]*?backdrop-filter:\s*blur\(12px\)/.test(html) &&
+    html.includes('function updateNavbarStickyState()'),
+    'Navbar must stick on scroll (overflow-x: clip) with frosted translucent blur backdrop in light and dark modes'
   );
   assert.ok(!html.slice(0, footerIdx).includes('id="pill-bolivia"'), 'Status pills must be removed from top banner');
   assert.ok(!html.includes('Public Remote Job Scout & Evaluator from Bolivia (UTC-4)'), 'Must remove old English footer intro text');
@@ -447,6 +458,13 @@ async function runTests() {
   vmSandbox.window.updateBackToTopPosition();
   assert.equal(domElements['btn-back-to-top'].style.bottom, '', 'On desktop, Arriba button must reset custom bottom offset');
   assert.equal(typeof vmSandbox.window.initCardScrollReveal, 'function', 'initCardScrollReveal must be bound');
+  assert.equal(typeof vmSandbox.window.updateNavbarStickyState, 'function', 'updateNavbarStickyState must be bound');
+  vmSandbox.window.scrollY = 40;
+  vmSandbox.window.updateNavbarStickyState();
+  assert.equal(domElements['navbar'].classList.contains('navbar-scrolled'), true, 'Scrolling down must add .navbar-scrolled frosted blur state to #navbar');
+  vmSandbox.window.scrollY = 0;
+  vmSandbox.window.updateNavbarStickyState();
+  assert.equal(domElements['navbar'].classList.contains('navbar-scrolled'), false, 'Scrolling back to top must remove .navbar-scrolled from #navbar');
   assert.equal(typeof vmSandbox.window.toggleNoticeMenu, 'function', 'toggleNoticeMenu must be bound');
   assert.equal(typeof vmSandbox.window.toggleCreatorMenu, 'function', 'toggleCreatorMenu must be bound');
   assert.equal(typeof vmSandbox.window.toggleCategoriesMenu, 'function', 'toggleCategoriesMenu must be bound');

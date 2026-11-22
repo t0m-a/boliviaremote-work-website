@@ -91,7 +91,7 @@ export function renderAppHtml(initialState) {
       background-color: var(--bg-page);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       line-height: 1.5;
-      overflow-x: hidden;
+      overflow-x: clip;
       max-width: 100%;
     }
     h1, h2, h3, h4, h5, p, span, a, li, label, .opp-card, .panel-card, .manual-card, .radar-box, .scan-alert, footer {
@@ -111,6 +111,7 @@ export function renderAppHtml(initialState) {
       position: sticky;
       top: 5px;
       left: 0;
+      margin-top: 5px;
       width: 100%;
       height: auto;
       border-bottom: 1px solid #e2e8f0;
@@ -118,6 +119,14 @@ export function renderAppHtml(initialState) {
       z-index: 900;
       display: flex;
       flex-direction: column;
+      transition: background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    #navbar.navbar-scrolled {
+      background: rgba(248, 250, 252, 0.72);
+      -webkit-backdrop-filter: blur(12px) saturate(150%);
+      backdrop-filter: blur(12px) saturate(150%);
+      border-bottom-color: rgba(203, 213, 225, 0.75);
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
     }
     .navbar-header {
       display: flex;
@@ -128,6 +137,10 @@ export function renderAppHtml(initialState) {
       padding: 10px 24px;
       background: #f8fafc;
       width: 100%;
+      transition: background 0.2s ease;
+    }
+    #navbar.navbar-scrolled .navbar-header {
+      background: transparent;
     }
     .header-title {
       font-size: 1.38em;
@@ -1142,6 +1155,13 @@ export function renderAppHtml(initialState) {
       transform: translateY(18px) scale(0.99);
       will-change: opacity, transform;
     }
+    .opp-card.card-reveal-pending-up,
+    .radar-box.card-reveal-pending-up,
+    .guide-step.card-reveal-pending-up {
+      opacity: 0;
+      transform: translateY(-18px) scale(0.99);
+      will-change: opacity, transform;
+    }
     .opp-card.card-reveal-visible,
     .radar-box.card-reveal-visible,
     .guide-step.card-reveal-visible {
@@ -1155,7 +1175,10 @@ export function renderAppHtml(initialState) {
     @media (prefers-reduced-motion: reduce) {
       .opp-card.card-reveal-pending,
       .radar-box.card-reveal-pending,
-      .guide-step.card-reveal-pending {
+      .guide-step.card-reveal-pending,
+      .opp-card.card-reveal-pending-up,
+      .radar-box.card-reveal-pending-up,
+      .guide-step.card-reveal-pending-up {
         opacity: 1;
         transform: none;
       }
@@ -1819,9 +1842,19 @@ export function renderAppHtml(initialState) {
       background: #0f172a;
       border-bottom-color: #1e293b;
     }
+    body.dark-mode #navbar.navbar-scrolled {
+      background: rgba(15, 23, 42, 0.72);
+      -webkit-backdrop-filter: blur(12px) saturate(150%);
+      backdrop-filter: blur(12px) saturate(150%);
+      border-bottom-color: rgba(51, 65, 85, 0.75);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.38);
+    }
     body.dark-mode .navbar-header {
       background: #131d2e;
       border-bottom-color: #1e293b;
+    }
+    body.dark-mode #navbar.navbar-scrolled .navbar-header {
+      background: transparent;
     }
     body.dark-mode .header-title {
       color: #f8fafc;
@@ -2644,7 +2677,7 @@ export function renderAppHtml(initialState) {
           </span>
         </button>
         <button type="button" id="sidebar-unfold-btn" class="sidebar-fold-btn" onclick="toggleSidebar()" title="Mostrar información" aria-label="Mostrar información" aria-expanded="false">
-          <span class="hamburger-label" id="lbl-unfold-nav">Información Utiles</span>
+          <span class="hamburger-label" id="lbl-unfold-nav">Información Útil</span>
           <span class="hamburger-icon"><span></span><span></span><span></span></span>
         </button>
       </div>
@@ -2680,7 +2713,7 @@ export function renderAppHtml(initialState) {
       <li class="nav-creator-item nav-creator-folded nav-creator-desc">
         <div id="nav-creator-desc">
           <p>Soy <strong>Thomas Simon</strong>, Cloud Systems Architect, NOC &amp; AI Engineer radicado en La Paz, Bolivia. Creé esta herramienta abierta y gratuita para facilitar el acceso al empleo remoto internacional desde Bolivia.</p>
-          <p>Este proyecto forma parte de <strong>Minka Lab</strong> (<em>Laboratorio Abierto de Experimentación Tecnológica y Social</em>), una iniciativa comunitaria sin fines de lucro en La Paz y El Alto inspirada en la tradición andina de la <em>Minka</em>, dedicada a la higiene y seguridad digital, espacios maker con IA e idiomas, y hardware abierto accesible.</p>
+          <p>Este proyecto forma parte de <strong>Minka Lab</strong> (<em>Laboratorio Abierto de Experimentación Tecnológica y Social</em>), una iniciativa comunitaria sin fines de lucro en La Paz y El Alto inspirada en la tradición andina de la <em>Minka</em>, dedicada a la educación digital, las competencias en IA y el aprendizaje de idiomas.</p>
           <p><strong>Minka Lab:</strong> <a href="https://minkalab.net" title="Minka Lab · Laboratorio Abierto de Experimentación Tecnológica y Social" target="_blank" rel="noopener noreferrer">minkalab.net</a><br><strong>Contacto:</strong> <a href="mailto:contact@tsimon.me">Thomas Simon</a> · <a href="https://tsimon.me" title="Thomas Mathieu Simon · Cloud Systems Architect · NOC &amp; AI Engineer" target="_blank" rel="noopener noreferrer">tsimon.me</a><br><strong>Redes:</strong> <a href="https://www.facebook.com/thomas.mathieu.simon" title="Facebook de Thomas Simon" target="_blank" rel="noopener noreferrer">Facebook</a> · <a href="https://www.linkedin.com/in/tsimonfreelance/" title="LinkedIn de Thomas Simon" target="_blank" rel="noopener noreferrer">LinkedIn</a> · <a href="https://github.com/t0m-a" title="GitHub de Thomas Simon" target="_blank" rel="noopener noreferrer">GitHub</a></p>
         </div>
       </li>
@@ -3208,7 +3241,7 @@ export function renderAppHtml(initialState) {
       es: {
         pageTitle: 'Empleos Remotos desde Bolivia — Buscador y Evaluador en Vivo',
         navBrand: 'Bolivia Remote Work',
-        unfoldNav: 'Información Utiles',
+        unfoldNav: 'Información Útil',
         navViews: 'Vistas Principales',
         navResults: 'Resultados en Vivo',
         navManual: 'Guía del Usuario: Bolivia Remote Work',
@@ -4074,7 +4107,7 @@ export function renderAppHtml(initialState) {
         window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       if (reducedMotion || typeof IntersectionObserver !== 'function') {
         cards.forEach(c => {
-          c.classList.remove('card-reveal-pending');
+          c.classList.remove('card-reveal-pending', 'card-reveal-pending-up');
           c.classList.add('card-reveal-visible');
         });
         return;
@@ -4084,42 +4117,52 @@ export function renderAppHtml(initialState) {
         cardRevealObserver = new IntersectionObserver((entries) => {
           let batchIdx = 0;
           entries.forEach(entry => {
+            const el = entry.target;
             if (entry.isIntersecting) {
-              const el = entry.target;
-              el.style.transitionDelay = Math.min(batchIdx * 45, 180) + 'ms';
+              el.style.transitionDelay = Math.min(batchIdx * 40, 140) + 'ms';
               batchIdx++;
-              el.classList.remove('card-reveal-pending');
+              el.classList.remove('card-reveal-pending', 'card-reveal-pending-up');
               el.classList.add('card-reveal-visible');
-              cardRevealObserver.unobserve(el);
+            } else {
+              el.style.transitionDelay = '0ms';
+              el.classList.remove('card-reveal-visible');
+              const isAbove = entry.boundingClientRect && entry.boundingClientRect.top < 0;
+              el.classList.toggle('card-reveal-pending-up', !!isAbove);
+              el.classList.toggle('card-reveal-pending', !isAbove);
             }
           });
         }, {
           root: null,
-          rootMargin: '0px 0px -24px 0px',
+          rootMargin: '0px 0px -20px 0px',
           threshold: 0.04
         });
       }
 
       const vh = window.innerHeight || 900;
       cards.forEach((card, idx) => {
-        card.classList.remove('card-reveal-visible');
-        card.classList.add('card-reveal-pending');
+        card.classList.remove('card-reveal-visible', 'card-reveal-pending-up');
         const rect = typeof card.getBoundingClientRect === 'function' ? card.getBoundingClientRect() : null;
-        if (rect && rect.top < vh * 0.96 && rect.bottom > 0) {
+        if (rect && rect.bottom <= 0) {
+          card.classList.remove('card-reveal-pending');
+          card.classList.add('card-reveal-pending-up');
+          card.style.transitionDelay = '0ms';
+        } else if (rect && rect.top < vh * 0.96 && rect.bottom > 0) {
+          card.classList.add('card-reveal-pending');
           card.style.transitionDelay = Math.min(idx * 40, 160) + 'ms';
           if (typeof requestAnimationFrame === 'function') {
             requestAnimationFrame(() => {
-              card.classList.remove('card-reveal-pending');
+              card.classList.remove('card-reveal-pending', 'card-reveal-pending-up');
               card.classList.add('card-reveal-visible');
             });
           } else {
-            card.classList.remove('card-reveal-pending');
+            card.classList.remove('card-reveal-pending', 'card-reveal-pending-up');
             card.classList.add('card-reveal-visible');
           }
         } else {
+          card.classList.add('card-reveal-pending');
           card.style.transitionDelay = '0ms';
-          cardRevealObserver.observe(card);
         }
+        cardRevealObserver.observe(card);
       });
     }
     window.initCardScrollReveal = initCardScrollReveal;
@@ -4315,8 +4358,17 @@ export function renderAppHtml(initialState) {
     }
     window.updateBackToTopPosition = updateBackToTopPosition;
 
+    function updateNavbarStickyState() {
+      const nav = document.getElementById('navbar');
+      if (!nav || !nav.classList) return;
+      const y = typeof window.scrollY === 'number' ? window.scrollY : 0;
+      nav.classList.toggle('navbar-scrolled', y > 4);
+    }
+    window.updateNavbarStickyState = updateNavbarStickyState;
+
     if (typeof window.addEventListener === 'function') {
       window.addEventListener('scroll', updateBackToTopPosition, { passive: true });
+      window.addEventListener('scroll', updateNavbarStickyState, { passive: true });
       window.addEventListener('resize', updateBackToTopPosition, { passive: true });
     }
 
@@ -4997,6 +5049,7 @@ export function renderAppHtml(initialState) {
     setUiLanguage(userFilters.ui_lang || 'es');
     syncSearchClearButton();
     updateBackToTopPosition();
+    updateNavbarStickyState();
 
     // Auto-trigger background sync every 15 minutes while page is open
     setInterval(() => {
