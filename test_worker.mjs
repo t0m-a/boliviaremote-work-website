@@ -110,8 +110,15 @@ async function runTests() {
     /body\.dark-mode #man-p-intro,\s*body\.dark-mode \.guide-step-body\s*\{[\s\S]*?color:\s*#cbd5e1;/.test(html),
     'Manual de Uso intro paragraph must share the same dark-mode text color (#cbd5e1) as .guide-step-body'
   );
-  assert.ok(!html.includes('id="tab-view-platforms"'), 'Must move Monitored Platforms button out of toolbar into Information menu');
-  assert.ok(/<section class="toolbar">[\s\S]*?id="tab-view-results"[\s\S]*?class="btn-tab btn-tab-scan" id="btn-scan-now"/.test(html), 'Scan Offers Now button must replace Monitored Platforms in toolbar with green btn-tab styling');
+  assert.ok(!html.includes('id="tab-view-platforms"'), 'Must move Monitored Platforms button out of toolbar into footer');
+  assert.ok(!html.includes('id="tab-view-results"'), 'Must remove no-op Resultados button from toolbar');
+  assert.ok(/<section class="toolbar">[\s\S]*?class="filter-group toolbar-scan-group"[\s\S]*?class="btn-tab btn-tab-scan" id="btn-scan-now"/.test(html), 'Toolbar must include Scan Offers Now button inside .toolbar-scan-group with green btn-tab styling');
+  assert.ok(
+    html.includes('grid-template-columns: repeat(2, minmax(0, 1fr))') &&
+    html.includes('.toolbar-scan-group .btn-tab') &&
+    html.includes('#verdictFilterBar .btn-tab'),
+    'Mobile toolbar must use responsive full-width scan button, 2-column verdict button grid, and full-width search field'
+  );
   assert.ok(html.includes('id="btn-v-all">Todas las Elegibles</button>'), 'Spanish toolbar filter must say Todas las Elegibles');
   assert.ok(!html.includes('Todos los Elegibles'), 'Must replace Todos los Elegibles with Todas las Elegibles');
   assert.ok(/\.btn-ai-info\s*\{[\s\S]*?background:\s*#ecfdf5;[\s\S]*?color:\s*#065f46 !important;[\s\S]*?border:\s*1px solid #10b981;/.test(html), 'Más información con IA button must use the same green design as Información Utiles');

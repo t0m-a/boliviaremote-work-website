@@ -2182,10 +2182,12 @@ export function renderAppHtml(initialState) {
       }
       .toolbar-search-group {
         flex: 1 1 100%;
+        width: 100%;
       }
       .toolbar #searchInput {
         max-width: none;
-        flex: 1 1 auto;
+        width: 100%;
+        min-width: 0;
       }
     }
 
@@ -2241,19 +2243,41 @@ export function renderAppHtml(initialState) {
       .toolbar {
         flex-direction: column;
         align-items: stretch;
+        gap: 10px;
+        padding: 12px 14px;
       }
       .toolbar .filter-group {
         width: 100%;
       }
+      .toolbar-scan-group .btn-tab {
+        width: 100%;
+      }
+      #verdictFilterBar {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+        width: 100%;
+      }
+      #verdictFilterBar .btn-tab {
+        width: 100%;
+        min-width: 0;
+        padding: 8px 8px;
+      }
       .toolbar-search-group {
         width: 100%;
         flex: 1 1 auto;
+        gap: 8px;
+      }
+      .search-input-wrap {
+        flex: 1 1 auto;
+        min-width: 0;
+        width: 100%;
       }
       .toolbar #searchInput,
       #searchInput {
         max-width: none !important;
-        width: auto;
-        flex: 1 1 auto;
+        width: 100%;
+        min-width: 0;
       }
       .kpi-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2338,18 +2362,48 @@ export function renderAppHtml(initialState) {
       .kpi-value {
         font-size: 1.35em;
       }
-      .toolbar .filter-group .btn-tab {
-        flex: 1 1 auto;
+      .toolbar {
+        padding: 12px;
+        gap: 8px;
+      }
+      .toolbar-scan-group .btn-tab {
+        width: 100%;
+        padding: 8px 12px;
+      }
+      #verdictFilterBar {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        width: 100%;
+      }
+      #verdictFilterBar .btn-tab {
+        width: 100%;
+        min-width: 0;
+        padding: 8px 10px;
+        font-size: 0.83em;
       }
       .toolbar-search-group {
         flex-wrap: wrap;
+        gap: 8px;
+        width: 100%;
       }
       .search-input-wrap {
         width: 100%;
         flex: 1 1 100%;
+        min-width: 0;
+      }
+      .search-input-wrap.has-value #searchInput {
+        padding-right: 118px;
+      }
+      .btn-clear-search-inline {
+        font-size: 0.72em;
+        padding: 3px 8px;
       }
       .toolbar-search-group > .btn-action {
+        flex: 1 1 calc(50% - 4px);
+        min-width: 0;
         width: 100%;
+        justify-content: center;
       }
       .opp-header {
         flex-direction: column;
@@ -2382,6 +2436,14 @@ export function renderAppHtml(initialState) {
     @media only screen and (max-width: 400px) {
       .kpi-grid {
         grid-template-columns: 1fr;
+      }
+      #verdictFilterBar .btn-tab {
+        padding: 7px 6px;
+        font-size: 0.8em;
+      }
+      .toolbar-search-group > .btn-action {
+        flex: 1 1 100%;
+        width: 100%;
       }
       .lang-switch-group .btn-scan-now {
         width: 100%;
@@ -2602,8 +2664,7 @@ export function renderAppHtml(initialState) {
 
     <!-- TOOLBAR -->
     <section class="toolbar">
-      <div class="filter-group">
-        <button type="button" class="btn-tab active" id="tab-view-results" onclick="switchMainView('results')"><span id="tab-lbl-results">Resultados</span></button>
+      <div class="filter-group toolbar-scan-group">
         <button type="button" class="btn-tab btn-tab-scan" id="btn-scan-now" onclick="triggerOnDemandScan()"><span id="lbl-scan-now">Escanear Ofertas Ahora</span></button>
       </div>
       <div class="filter-group" id="verdictFilterBar">
