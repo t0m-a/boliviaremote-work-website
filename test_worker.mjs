@@ -49,14 +49,16 @@ async function runTests() {
   const idxNotice = navListHtml.indexOf('id="nav-hdr-notice-item"');
   const idxManual = navListHtml.indexOf('id="nav-manual"');
   const idxPayments = navListHtml.indexOf('id="nav-hdr-payments-item"');
-  const idxTracks = navListHtml.indexOf('id="nav-hdr-tracks-item"');
-  const idxPlatforms = navListHtml.indexOf('id="nav-platforms"');
   const idxCreator = navListHtml.indexOf('id="nav-hdr-creator-item"');
   assert.ok(!navListHtml.includes('id="nav-results"'), 'Must remove Live Results item from Information hamburger menu');
+  assert.ok(!navListHtml.includes('id="nav-hdr-tracks-item"'), 'Must move Categorías De Plataformas out of Información Utiles menu');
+  assert.ok(!navListHtml.includes('id="nav-platforms"'), 'Must move Plataformas Monitoreadas out of Información Utiles menu');
   assert.ok(
-    idxNotice > -1 && idxNotice < idxManual && idxManual < idxPayments && idxPayments < idxTracks && idxTracks < idxPlatforms && idxPlatforms < idxCreator,
-    'Hamburger menu order must be: 1. Notice, 2. User Manual, 3. Financial Information, 4. Platform Categories, 5. Monitored Platforms, 6. Sobre el creador'
+    idxNotice > -1 && idxNotice < idxManual && idxManual < idxPayments && idxPayments < idxCreator,
+    'Hamburger menu order must be: 1. Notice, 2. User Manual, 3. Financial Information, 4. Sobre el creador'
   );
+  assert.ok(/#navbar a#nav-manual\s*\{[\s\S]*?background:\s*#f1f5f9;/.test(html), 'Manual de Uso must share the same light-mode background color (#f1f5f9) as Aviso');
+  assert.ok(/body\.dark-mode #navbar a#nav-manual\s*\{[\s\S]*?background:\s*#131d2e;/.test(html), 'Manual de Uso must share the same dark-mode background color (#131d2e) as Aviso');
   assert.ok(navListHtml.includes('id="nav-hdr-creator">Sobre el creador</span>') && navListHtml.includes('onclick="toggleCreatorMenu()"'), 'Hamburger menu must include collapsible Sobre el creador section');
   assert.ok(navListHtml.includes('id="nav-creator-desc"') && navListHtml.includes('https://minkalab.net') && navListHtml.includes('mailto:contact@tsimon.me') && navListHtml.includes('https://tsimon.me'), 'Sobre el creador must describe Minka Lab and include minkalab.net and creator contact/site links');
   assert.ok(/#sidebar-unfold-btn\s*\{[\s\S]*?border:\s*1px solid #10b981;[\s\S]*?background:\s*#ecfdf5;[\s\S]*?color:\s*#065f46;/.test(html), 'Información Utiles button must use the .bolivia-only-label green highlight design');
@@ -129,7 +131,7 @@ async function runTests() {
   assert.ok(!/[\uD83C][\uDDE6-\uDDFF][\uD83C][\uDDE6-\uDDFF]/.test(html), 'Must NOT contain any flag emoji anywhere in HTML');
   assert.ok(!EMOJI_REGEX.test(html), 'Must NOT contain any emoji icons anywhere in HTML (excluding favicon)');
   assert.ok(!html.includes('id="tab-view-report"'), 'Must NOT have id="tab-view-report" in toolbar');
-  assert.ok(html.includes('id="nav-platforms"'), 'Must have id="nav-platforms" under Platform Categories in navbar');
+  assert.ok(html.includes('id="nav-platforms"'), 'Must have id="nav-platforms" in footer status pills');
   assert.ok(!html.includes('id="nav-hdr-views"'), 'Must NOT have Vistas Principales header in navbar');
   assert.ok(html.includes('Manual de Uso'), 'Must include Manual de Uso in sidebar');
   assert.ok(html.includes('id="nav-manual"'), 'Must have #nav-manual link in navbar');
@@ -139,8 +141,8 @@ async function runTests() {
   assert.ok(/<div class="navbar-header">[\s\S]*?id="nav-brand-title">Bolivia Remote Work<\/span>[\s\S]*?id="sidebar-unfold-btn"[\s\S]*?<span class="hamburger-label" id="lbl-unfold-nav">Información Utiles<\/span>[\s\S]*?<span class="hamburger-icon">/.test(html), 'Hamburger button must be inside navbar-header on the right with Información Utiles on the left of hamburger icon');
   assert.ok(html.includes('id="exp-dropdown"') && html.includes('id="exp-dropdown-menu"'), 'Experience Level must use a multi-select dropdown');
   assert.ok(html.includes('id="contract-dropdown"') && html.includes('id="contract-dropdown-menu"'), 'Target Contract Types must use a multi-select dropdown');
-  assert.ok(html.includes('onclick="toggleCategoriesMenu()"'), 'Categories header inside menu must be collapsible');
-  assert.ok(html.includes('class="nav-track-item nav-track-folded"'), 'Categories inside menu must start folded');
+  assert.ok(html.includes('onclick="toggleCategoriesMenu(event)"'), 'Categories button inside footer must be collapsible');
+  assert.ok(html.includes('class="nav-track-item nav-track-folded"'), 'Categories inside footer menu must start folded');
   assert.ok(html.includes('id="nav-hdr-payments">Información Financiera</span>'), 'Must include Información Financiera section header under Categorías de Plataformas');
   assert.ok(html.includes('href="https://www.airtm.com/"'), 'Must include AirTM link');
   assert.ok(html.includes('href="https://www.payoneer.com/"'), 'Must include Payoneer link');
@@ -175,6 +177,20 @@ async function runTests() {
   assert.ok(footerHtml.includes('id="pill-schedule"'), 'Schedule pill must be inside footer');
   assert.ok(footerHtml.includes('id="lbl-last-sync"') && footerHtml.includes('id="val-last-sync"'), 'Last synced pill must be inside footer');
   assert.ok(footerHtml.includes('id="lbl-monitored-count"') && footerHtml.includes('id="val-platforms-count"'), 'Active platforms pill must be inside footer');
+  const footerPillsStart = footerHtml.indexOf('<div class="footer-status-pills">');
+  const footerCreditStart = footerHtml.indexOf('<div id="footer-credit"');
+  const footerPillsHtml = footerHtml.slice(footerPillsStart, footerCreditStart);
+  assert.ok(
+    footerPillsHtml.includes('class="banner-pill footer-pill-btn" id="nav-hdr-tracks-item"') &&
+    footerPillsHtml.includes('id="nav-hdr-tracks">Categorías De Plataformas</span>') &&
+    footerPillsHtml.includes('id="footer-categories-menu"'),
+    'Categorías De Plataformas must be in footer-status-pills with banner-pill design and collapsible menu'
+  );
+  assert.ok(
+    footerPillsHtml.includes('class="banner-pill footer-pill-btn" id="nav-platforms"') &&
+    footerPillsHtml.includes('id="nav-lbl-platforms">Plataformas Monitoreadas</span>'),
+    'Plataformas Monitoreadas must be in footer-status-pills with banner-pill design at the same level as Plataformas activas'
+  );
   assert.ok(!html.slice(0, footerIdx).includes('id="pill-bolivia"'), 'Status pills must be removed from top banner');
   assert.ok(!html.includes('Public Remote Job Scout & Evaluator from Bolivia (UTC-4)'), 'Must remove old English footer intro text');
   assert.ok(!html.includes('Buscador y Evaluador Público de Empleos Remotos desde Bolivia (UTC-4)'), 'Must remove old Spanish footer intro text');
@@ -318,6 +334,15 @@ async function runTests() {
   assert.equal(typeof vmSandbox.window.scrollToTop, 'function', 'scrollToTop must be bound');
   assert.equal(typeof vmSandbox.window.toggleNoticeMenu, 'function', 'toggleNoticeMenu must be bound');
   assert.equal(typeof vmSandbox.window.toggleCreatorMenu, 'function', 'toggleCreatorMenu must be bound');
+  assert.equal(typeof vmSandbox.window.toggleCategoriesMenu, 'function', 'toggleCategoriesMenu must be bound');
+  assert.equal(typeof vmSandbox.window.closeCategoriesMenu, 'function', 'closeCategoriesMenu must be bound');
+  assert.equal(typeof vmSandbox.window.selectFooterTrack, 'function', 'selectFooterTrack must be bound');
+  vmSandbox.window.toggleCategoriesMenu();
+  assert.equal(domElements['footer-categories-dropdown'].classList.contains('open'), true, 'toggleCategoriesMenu must open footer categories dropdown');
+  assert.equal(domElements['nav-hdr-tracks-item'].attributes['aria-expanded'], 'true', 'toggleCategoriesMenu must set aria-expanded=true');
+  vmSandbox.window.closeCategoriesMenu();
+  assert.equal(domElements['footer-categories-dropdown'].classList.contains('open'), false, 'closeCategoriesMenu must close footer categories dropdown');
+  assert.equal(domElements['nav-hdr-tracks-item'].attributes['aria-expanded'], 'false', 'closeCategoriesMenu must reset aria-expanded=false');
   assert.equal(typeof vmSandbox.window.closeAiDiagnosticPanel, 'function', 'closeAiDiagnosticPanel must be bound');
   assert.equal(typeof vmSandbox.window.handleAiPanelScrollAutoClose, 'function', 'handleAiPanelScrollAutoClose must be bound');
   assert.equal(typeof vmSandbox.window.setAiCvPanelFolded, 'function', 'setAiCvPanelFolded must be bound');

@@ -264,12 +264,10 @@ export function renderAppHtml(initialState) {
       transform: rotate(45deg);
     }
     #navbar li.nav-notice-item.nav-notice-folded,
-    #navbar li.nav-track-item.nav-track-folded,
     #navbar li.nav-payment-item.nav-payment-folded,
     #navbar li.nav-creator-item.nav-creator-folded {
       display: none !important;
     }
-    #navbar li.nav-track-item a,
     #navbar li.nav-payment-item a {
       padding-left: 26px;
       font-size: 0.85em;
@@ -324,6 +322,21 @@ export function renderAppHtml(initialState) {
       background: #e0f2fe;
       color: #0369a1;
       font-weight: 700;
+      border-left: 3px solid var(--accent-primary);
+    }
+    #navbar a#nav-manual {
+      background: #f1f5f9;
+      color: #475569;
+      font-weight: 700;
+    }
+    #navbar a#nav-manual:hover {
+      background: #e2e8f0;
+      color: #0f172a;
+      border-left: none;
+    }
+    #navbar a#nav-manual.active-nav {
+      background: #e2e8f0;
+      color: #0f172a;
       border-left: 3px solid var(--accent-primary);
     }
     #main-doc,
@@ -1440,6 +1453,88 @@ export function renderAppHtml(initialState) {
       gap: 8px;
       margin-bottom: 12px;
     }
+    .footer-pill-btn {
+      font-family: inherit;
+      cursor: pointer;
+      margin: 0;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+    .footer-pill-btn:hover,
+    .footer-pill-btn:focus-visible,
+    .footer-pill-btn.expanded,
+    .footer-pill-btn.active-nav {
+      background: #e2e8f0;
+      border-color: #94a3b8;
+      color: #0f172a;
+      outline: none;
+    }
+    .footer-pill-caret {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-right: 1.8px solid currentColor;
+      border-bottom: 1.8px solid currentColor;
+      transform: rotate(-135deg);
+      margin-left: 3px;
+      margin-top: 2px;
+      transition: transform 0.2s ease;
+      flex-shrink: 0;
+    }
+    .footer-pill-btn.expanded .footer-pill-caret {
+      transform: rotate(45deg);
+      margin-top: -2px;
+    }
+    .footer-categories-dropdown {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      max-width: 100%;
+    }
+    .footer-categories-menu {
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(260px, calc(100vw - 32px));
+      margin: 0;
+      padding: 4px 0;
+      list-style: none;
+      text-align: left;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.14);
+      z-index: 950;
+      display: none;
+    }
+    .footer-categories-dropdown.open .footer-categories-menu {
+      display: block;
+    }
+    .footer-categories-menu li {
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .footer-categories-menu li:last-child {
+      border-bottom: none;
+    }
+    .footer-categories-menu li.nav-track-item.nav-track-folded {
+      display: none;
+    }
+    footer .footer-categories-menu a {
+      display: block;
+      padding: 8px 14px;
+      color: #334155;
+      text-decoration: none;
+      font-size: 1.02em;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    footer .footer-categories-menu a:hover,
+    footer .footer-categories-menu a.active-track {
+      background: #e0f2fe;
+      color: #0369a1;
+      font-weight: 700;
+    }
     .footer-credit {
       line-height: 1.5;
     }
@@ -1586,6 +1681,20 @@ export function renderAppHtml(initialState) {
     body.dark-mode #navbar a:hover, body.dark-mode #navbar a.active-nav {
       background: #1e293b;
       color: #38bdf8;
+      border-left-color: #38bdf8;
+    }
+    body.dark-mode #navbar a#nav-manual {
+      background: #131d2e;
+      color: #94a3b8;
+    }
+    body.dark-mode #navbar a#nav-manual:hover {
+      background: #1e293b;
+      color: #f8fafc;
+      border-left: none;
+    }
+    body.dark-mode #navbar a#nav-manual.active-nav {
+      background: #1e293b;
+      color: #f8fafc;
       border-left-color: #38bdf8;
     }
     body.dark-mode #navbar li.nav-notice-desc,
@@ -1929,6 +2038,30 @@ export function renderAppHtml(initialState) {
     body.dark-mode footer a:hover {
       color: #7dd3fc;
     }
+    body.dark-mode .footer-pill-btn:hover,
+    body.dark-mode .footer-pill-btn:focus-visible,
+    body.dark-mode .footer-pill-btn.expanded,
+    body.dark-mode .footer-pill-btn.active-nav {
+      background: #1e293b;
+      border-color: #475569;
+      color: #f8fafc;
+    }
+    body.dark-mode .footer-categories-menu {
+      background: #0f172a;
+      border-color: #334155;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    }
+    body.dark-mode .footer-categories-menu li {
+      border-bottom-color: #1e293b;
+    }
+    body.dark-mode footer .footer-categories-menu a {
+      color: #cbd5e1;
+    }
+    body.dark-mode footer .footer-categories-menu a:hover,
+    body.dark-mode footer .footer-categories-menu a.active-track {
+      background: #1e293b;
+      color: #38bdf8;
+    }
 
     @media only screen and (max-width: 1080px) {
       .url-scanner-form {
@@ -2183,20 +2316,6 @@ export function renderAppHtml(initialState) {
       <li class="nav-payment-item nav-payment-folded nav-payment-desc">
         <p id="nav-payments-desc">Las empresas suelen liquidar mediante plataformas de nómina global como <strong>AirTM. Wise, Payoneer o Tipalti</strong>. Desde estas cuentas puedes transferir vía SWIFT O transferancia ACH hacia tu cuenta bancaria boliviana en Boliviano o en USD, usar tarjetas de débito internacionales, o liquidar honorarios a través de pasarelas reguladas entre tus cuentas globales y locales.</p>
       </li>
-
-      <li class="nav-group-header nav-collapsible-header" id="nav-hdr-tracks-item" onclick="toggleCategoriesMenu()" role="button" tabindex="0" aria-expanded="false">
-        <span id="nav-hdr-tracks">Categorías De Plataformas</span>
-        <span class="nav-caret" id="nav-tracks-caret" aria-hidden="true"></span>
-      </li>
-      <li class="nav-track-item nav-track-folded"><a onclick="switchMainView('results'); filterByTrack('ALL'); closeNavbarMenu();"><span id="nav-track-all">Todas las Categorías</span></a></li>
-      <li class="nav-track-item nav-track-folded"><a onclick="switchMainView('results'); filterByTrack('TRACK A'); closeNavbarMenu();"><span id="nav-track-a">B2B Directo &amp; Freelance</span></a></li>
-      <li class="nav-track-item nav-track-folded"><a onclick="switchMainView('results'); filterByTrack('TRACK B'); closeNavbarMenu();"><span id="nav-track-b">Entrenamiento IA &amp; RLHF</span></a></li>
-      <li class="nav-track-item nav-track-folded"><a onclick="switchMainView('results'); filterByTrack('TRACK C'); closeNavbarMenu();"><span id="nav-track-c">Redes LATAM &amp; Globales</span></a></li>
-      <li class="nav-track-item nav-track-folded"><a onclick="switchMainView('results'); filterByTrack('TRACK D'); closeNavbarMenu();"><span id="nav-track-d">Portales Europeos &amp; Globales</span></a></li>
-      <li class="nav-track-item nav-track-folded"><a onclick="switchMainView('results'); filterByTrack('TRACK E'); closeNavbarMenu();"><span id="nav-track-e">Redes de Consultoría Experta</span></a></li>
-      <li class="nav-track-item nav-track-folded"><a onclick="switchMainView('results'); filterByTrack('TRACK F'); closeNavbarMenu();"><span id="nav-track-f">Bolsas de Empleo Remoto</span></a></li>
-
-      <li><a id="nav-platforms" onclick="switchMainView('platforms'); closeNavbarMenu();"><span id="nav-lbl-platforms">Plataformas Monitoreadas</span></a></li>
 
       <li class="nav-group-header nav-collapsible-header" id="nav-hdr-creator-item" onclick="toggleCreatorMenu()" role="button" tabindex="0" aria-expanded="false">
         <span id="nav-hdr-creator">Sobre el creador</span>
@@ -2619,6 +2738,24 @@ export function renderAppHtml(initialState) {
         <span class="banner-pill" id="pill-schedule">Ejecución: Bajo Demanda + Automático cada 15 min</span>
         <span class="banner-pill"><span id="lbl-last-sync">Última sincronización:</span> <span id="val-last-sync">-</span></span>
         <span class="banner-pill"><span id="lbl-monitored-count">Plataformas activas:</span> <span id="val-platforms-count">0</span></span>
+        <div class="footer-categories-dropdown" id="footer-categories-dropdown">
+          <button type="button" class="banner-pill footer-pill-btn" id="nav-hdr-tracks-item" onclick="toggleCategoriesMenu(event)" aria-expanded="false" aria-haspopup="true" aria-controls="footer-categories-menu">
+            <span id="nav-hdr-tracks">Categorías De Plataformas</span>
+            <span class="footer-pill-caret" id="nav-tracks-caret" aria-hidden="true"></span>
+          </button>
+          <ul id="footer-categories-menu" class="footer-categories-menu" role="menu">
+            <li class="nav-track-item nav-track-folded"><a data-track="ALL" class="active-track" onclick="selectFooterTrack('ALL')"><span id="nav-track-all">Todas las Categorías</span></a></li>
+            <li class="nav-track-item nav-track-folded"><a data-track="TRACK A" onclick="selectFooterTrack('TRACK A')"><span id="nav-track-a">B2B Directo &amp; Freelance</span></a></li>
+            <li class="nav-track-item nav-track-folded"><a data-track="TRACK B" onclick="selectFooterTrack('TRACK B')"><span id="nav-track-b">Entrenamiento IA &amp; RLHF</span></a></li>
+            <li class="nav-track-item nav-track-folded"><a data-track="TRACK C" onclick="selectFooterTrack('TRACK C')"><span id="nav-track-c">Redes LATAM &amp; Globales</span></a></li>
+            <li class="nav-track-item nav-track-folded"><a data-track="TRACK D" onclick="selectFooterTrack('TRACK D')"><span id="nav-track-d">Portales Europeos &amp; Globales</span></a></li>
+            <li class="nav-track-item nav-track-folded"><a data-track="TRACK E" onclick="selectFooterTrack('TRACK E')"><span id="nav-track-e">Redes de Consultoría Experta</span></a></li>
+            <li class="nav-track-item nav-track-folded"><a data-track="TRACK F" onclick="selectFooterTrack('TRACK F')"><span id="nav-track-f">Bolsas de Empleo Remoto</span></a></li>
+          </ul>
+        </div>
+        <button type="button" class="banner-pill footer-pill-btn" id="nav-platforms" onclick="switchMainView('platforms')">
+          <span id="nav-lbl-platforms">Plataformas Monitoreadas</span>
+        </button>
       </div>
       <div id="footer-credit" class="footer-credit">
         Designed, engineered and hosted by <a href="mailto:contact@tsimon.me">Thomas Simon</a> · <a href="https://tsimon.me" title="Thomas Mathieu Simon  · Cloud Systems Architect · NOC &amp; AI Engineer" target="_blank" rel="noopener noreferrer">tsimon.me</a>
@@ -3220,6 +3357,10 @@ export function renderAppHtml(initialState) {
             if (btn) btn.setAttribute('aria-expanded', 'false');
           }
         }
+        const catDd = document.getElementById('footer-categories-dropdown');
+        if (catDd && catDd.classList.contains('open') && typeof catDd.contains === 'function' && !catDd.contains(e.target)) {
+          closeCategoriesMenu();
+        }
       });
     }
 
@@ -3254,6 +3395,7 @@ export function renderAppHtml(initialState) {
       userFilters = Object.assign({}, PAYLOAD.DEFAULT_FILTERS, { ui_lang: currentLang });
       currentVerdictFilter = 'ALL';
       currentTrackFilter = 'ALL';
+      updateActiveTrackHighlight();
       document.getElementById('searchInput').value = '';
       saveFilters();
       renderFilterChips();
@@ -3546,12 +3688,22 @@ export function renderAppHtml(initialState) {
       renderResultsCards();
     }
 
+    function updateActiveTrackHighlight() {
+      if (typeof document.querySelectorAll === 'function') {
+        document.querySelectorAll('#footer-categories-menu a[data-track]').forEach(link => {
+          link.classList.toggle('active-track', link.getAttribute('data-track') === currentTrackFilter);
+        });
+      }
+    }
+
     function filterByTrack(trackCode) {
       currentTrackFilter = trackCode;
+      updateActiveTrackHighlight();
       renderResultsCards();
     }
 
     function switchMainView(viewName) {
+      closeCategoriesMenu();
       const vResults = document.getElementById('view-results');
       const vManual = document.getElementById('view-manual');
       const vReport = document.getElementById('view-report');
@@ -3608,6 +3760,7 @@ export function renderAppHtml(initialState) {
       document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') {
           closePositionsDropdown();
+          closeCategoriesMenu();
         }
       });
     }
@@ -3673,7 +3826,6 @@ export function renderAppHtml(initialState) {
       const sections = [
         { hdrId: 'nav-hdr-notice-item', itemSelector: '#navbar li.nav-notice-item', foldedClass: 'nav-notice-folded' },
         { hdrId: 'nav-hdr-payments-item', itemSelector: '#navbar li.nav-payment-item', foldedClass: 'nav-payment-folded' },
-        { hdrId: 'nav-hdr-tracks-item', itemSelector: '#navbar li.nav-track-item', foldedClass: 'nav-track-folded' },
         { hdrId: 'nav-hdr-creator-item', itemSelector: '#navbar li.nav-creator-item', foldedClass: 'nav-creator-folded' }
       ];
       sections.forEach(sec => {
@@ -3731,20 +3883,98 @@ export function renderAppHtml(initialState) {
       });
     })();
 
-    function toggleCategoriesMenu() {
+    let footerCategoriesAutoCloseTimer = null;
+
+    function cancelFooterCategoriesAutoClose() {
+      if (footerCategoriesAutoCloseTimer) {
+        clearTimeout(footerCategoriesAutoCloseTimer);
+        footerCategoriesAutoCloseTimer = null;
+      }
+    }
+    window.cancelFooterCategoriesAutoClose = cancelFooterCategoriesAutoClose;
+
+    function closeCategoriesMenu() {
+      cancelFooterCategoriesAutoClose();
+      const dd = document.getElementById('footer-categories-dropdown');
       const hdr = document.getElementById('nav-hdr-tracks-item');
-      const items = document.querySelectorAll('#navbar li.nav-track-item');
-      let nowExpanded = false;
+      const items = typeof document.querySelectorAll === 'function'
+        ? document.querySelectorAll('#footer-categories-menu li.nav-track-item')
+        : [];
+      if (dd && dd.classList && typeof dd.classList.remove === 'function') {
+        dd.classList.remove('open');
+      }
+      if (hdr) {
+        if (hdr.classList && typeof hdr.classList.remove === 'function') {
+          hdr.classList.remove('expanded');
+        }
+        if (typeof hdr.setAttribute === 'function') {
+          hdr.setAttribute('aria-expanded', 'false');
+        }
+      }
       items.forEach(item => {
-        const isFolded = item.classList.toggle('nav-track-folded');
-        if (!isFolded) nowExpanded = true;
+        if (item && item.classList && typeof item.classList.add === 'function') {
+          item.classList.add('nav-track-folded');
+        }
+      });
+    }
+    window.closeCategoriesMenu = closeCategoriesMenu;
+
+    function scheduleFooterCategoriesAutoClose() {
+      cancelFooterCategoriesAutoClose();
+      const dd = document.getElementById('footer-categories-dropdown');
+      if (!dd || (dd.classList && typeof dd.classList.contains === 'function' && !dd.classList.contains('open'))) return;
+      footerCategoriesAutoCloseTimer = setTimeout(() => {
+        closeCategoriesMenu();
+        footerCategoriesAutoCloseTimer = null;
+      }, 320);
+    }
+    window.scheduleFooterCategoriesAutoClose = scheduleFooterCategoriesAutoClose;
+
+    function toggleCategoriesMenu(event) {
+      if (event && typeof event.stopPropagation === 'function') {
+        event.stopPropagation();
+      }
+      cancelFooterCategoriesAutoClose();
+      const dd = document.getElementById('footer-categories-dropdown');
+      const hdr = document.getElementById('nav-hdr-tracks-item');
+      const items = typeof document.querySelectorAll === 'function'
+        ? document.querySelectorAll('#footer-categories-menu li.nav-track-item')
+        : [];
+      const nowExpanded = dd && dd.classList ? dd.classList.toggle('open') : false;
+      items.forEach(item => {
+        if (item && item.classList && typeof item.classList.toggle === 'function') {
+          item.classList.toggle('nav-track-folded', !nowExpanded);
+        }
       });
       if (hdr) {
-        hdr.classList.toggle('expanded', nowExpanded);
-        hdr.setAttribute('aria-expanded', nowExpanded ? 'true' : 'false');
+        if (hdr.classList && typeof hdr.classList.toggle === 'function') {
+          hdr.classList.toggle('expanded', nowExpanded);
+        }
+        if (typeof hdr.setAttribute === 'function') {
+          hdr.setAttribute('aria-expanded', nowExpanded ? 'true' : 'false');
+        }
       }
     }
     window.toggleCategoriesMenu = toggleCategoriesMenu;
+
+    function selectFooterTrack(trackCode) {
+      switchMainView('results');
+      filterByTrack(trackCode);
+      closeCategoriesMenu();
+      const resultsEl = document.getElementById('view-results');
+      if (resultsEl && typeof resultsEl.scrollIntoView === 'function') {
+        resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+    window.selectFooterTrack = selectFooterTrack;
+
+    (function initFooterCategoriesHoverAutoClose() {
+      const dd = document.getElementById('footer-categories-dropdown');
+      if (dd && typeof dd.addEventListener === 'function') {
+        dd.addEventListener('mouseenter', cancelFooterCategoriesAutoClose);
+        dd.addEventListener('mouseleave', scheduleFooterCategoriesAutoClose);
+      }
+    })();
 
     function togglePaymentsMenu() {
       const hdr = document.getElementById('nav-hdr-payments-item');
