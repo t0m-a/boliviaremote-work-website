@@ -36,8 +36,8 @@ export const MCP_TOOLS = [
       properties: {
         languages: {
           type: 'array',
-          items: { type: 'string', enum: ['es', 'en', 'pt', 'de'] },
-          description: 'Languages spoken by the candidate (e.g. ["es", "en"]). If only ["es"], strictly filters for Spanish roles.'
+          items: { type: 'string', enum: ['es', 'en'] },
+          description: 'Languages spoken by the candidate (["es"], ["en"], or ["es", "en"]). Strictly filters results to the selected language(s).'
         },
         position_types: {
           type: 'array',

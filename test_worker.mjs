@@ -223,6 +223,39 @@ async function runTests() {
   new vm.Script(allScripts[0][1], { filename: 'theme-init.js' }).runInContext(vmSandbox);
   new vm.Script(allScripts[2][1], { filename: 'client-main.js' }).runInContext(vmSandbox);
   assert.ok(domElements['chips-languages'].innerHTML.includes('toggleLanguageChip'), 'Must render interactive language chips on load');
+  assert.ok(domElements['chips-languages'].innerHTML.includes("toggleLanguageChip('es')") && domElements['chips-languages'].innerHTML.includes("toggleLanguageChip('en')"), 'Languages filter must render Español and Inglés chips');
+  assert.ok(!domElements['chips-languages'].innerHTML.includes("toggleLanguageChip('pt')") && !domElements['chips-languages'].innerHTML.includes('Portugués'), 'Must remove Portugués from languages filter');
+  assert.equal(typeof vmSandbox.window.toggleLanguageChip, 'function', 'toggleLanguageChip must be bound on window');
+
+  // Verify live language chip toggling refreshes KPI counts and rendered cards across ES-only, Both, and EN-only
+  const countCards = () => (domElements['resultsCardsContainer'].innerHTML.match(/class="opp-card /g) || []).length;
+  const esOnlyCards = countCards();
+  const esOnlyApply = Number(domElements['kpi-apply-cnt'].textContent);
+  assert.ok(esOnlyCards > 0, 'Initial Spanish-only mode must render Spanish-compatible job cards');
+
+  // Toggle English ON -> Both ['es', 'en']
+  vmSandbox.window.toggleLanguageChip('en');
+  const bothCards = countCards();
+  const bothApply = Number(domElements['kpi-apply-cnt'].textContent);
+  assert.ok(bothCards > esOnlyCards, `Selecting both ES+EN must expand results (${bothCards} > ${esOnlyCards})`);
+  assert.ok(bothApply >= esOnlyApply, `Selecting both ES+EN must not drop APPLY count (${bothApply} >= ${esOnlyApply})`);
+
+  // Toggle Spanish OFF -> English-only ['en']
+  vmSandbox.window.toggleLanguageChip('es');
+  const enOnlyCards = countCards();
+  const enOnlyApply = Number(domElements['kpi-apply-cnt'].textContent);
+  assert.ok(enOnlyCards > esOnlyCards && enOnlyCards < bothCards, `Selecting EN-only must exclude Spanish-only offers (${esOnlyCards} < ${enOnlyCards} < ${bothCards})`);
+  assert.ok(enOnlyApply > 0 && enOnlyApply <= bothApply, `EN-only APPLY count (${enOnlyApply}) must be positive and <= Both (${bothApply})`);
+
+  // Attempt to deselect last active language ('en') -> must keep 'en' selected
+  vmSandbox.window.toggleLanguageChip('en');
+  assert.equal(countCards(), enOnlyCards, 'Cannot deselect the last remaining active language');
+
+  // Switch back to Spanish-only ['es']
+  vmSandbox.window.toggleLanguageChip('es');
+  vmSandbox.window.toggleLanguageChip('en');
+  assert.equal(countCards(), esOnlyCards, 'Switching back to Spanish-only must restore exact Spanish-only card count');
+  assert.equal(Number(domElements['kpi-apply-cnt'].textContent), esOnlyApply, 'Switching back to Spanish-only must restore exact APPLY count');
   assert.ok(domElements['chips-experience'].innerHTML.includes('toggleExperienceChip'), 'Must render interactive experience options on load');
   assert.ok(domElements['chips-experience'].innerHTML.includes('type="checkbox"'), 'Experience dropdown options must be multi-select checkboxes');
   assert.ok(domElements['chips-contracts'].innerHTML.includes('toggleContractChip'), 'Must render interactive contract options on load');
@@ -293,7 +326,7 @@ async function runTests() {
   assert.equal(forcedEval.surfaced.length, 1, 'Evaluator must enforce 100% remote Bolivia eligibility even if require_bolivia_remote=false');
   assert.equal(forcedEval.all.length, 1, 'Evaluator all-list must contain only Bolivia-eligible offers');
 
-  console.log('3. Testing POST /api/evaluate with Spanish-only filter (strict language weighting)...');
+  console.log('3. Testing POST /api/evaluate across Spanish-only, English-only, Both, and legacy Portuguese fallback...');
   const reqEvalEs = new Request('https://bolivia-remote-scout.workers.dev/api/evaluate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -317,6 +350,69 @@ async function runTests() {
       `Surfaced offer "${opp.title}" must be detected as Spanish-compatible, but got [${opp.detected_languages.join(', ')}]`
     );
   }
+
+  // English-only ['en']
+  const respEvalEn = await worker.fetch(
+    new Request('https://bolivia-remote-scout.workers.dev/api/evaluate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filters: { ui_lang: 'es', require_bolivia_remote: true, languages: ['en'] }
+      })
+    }),
+    {},
+    {}
+  );
+  assert.equal(respEvalEn.status, 200);
+  const evalEnData = await respEvalEn.json();
+  assert.equal(evalEnData.ok, true);
+  assert.ok(evalEnData.counts.surfaced > evalEsData.counts.surfaced, 'English-only must surface English offers');
+  for (const opp of evalEnData.results) {
+    assert.ok(
+      opp.detected_languages.includes('en'),
+      `Surfaced offer "${opp.title}" under EN-only must include en, got [${opp.detected_languages.join(', ')}]`
+    );
+  }
+  const primaryEnTop = evalEnData.results.find(r => r.primary_language === 'en');
+  assert.ok(primaryEnTop && primaryEnTop.language_score === 20, 'Primary English offers must score 20/20 under EN-only');
+
+  // Both Spanish & English ['es', 'en']
+  const respEvalBoth = await worker.fetch(
+    new Request('https://bolivia-remote-scout.workers.dev/api/evaluate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filters: { ui_lang: 'es', require_bolivia_remote: true, languages: ['es', 'en'] }
+      })
+    }),
+    {},
+    {}
+  );
+  assert.equal(respEvalBoth.status, 200);
+  const evalBothData = await respEvalBoth.json();
+  assert.equal(evalBothData.ok, true);
+  assert.ok(
+    evalBothData.counts.surfaced > evalEnData.counts.surfaced && evalBothData.counts.surfaced > evalEsData.counts.surfaced,
+    `Both ES+EN (${evalBothData.counts.surfaced}) must surface strictly more than EN-only (${evalEnData.counts.surfaced}) and ES-only (${evalEsData.counts.surfaced})`
+  );
+  assert.ok(
+    evalBothData.counts.apply >= evalEnData.counts.apply && evalBothData.counts.apply >= evalEsData.counts.apply,
+    'Selecting both ES+EN must yield >= APPLY offers than either single language alone'
+  );
+
+  // Legacy Portuguese-only ['pt'] falls back cleanly to ['es']
+  const respEvalPtLegacy = await worker.fetch(
+    new Request('https://bolivia-remote-scout.workers.dev/api/evaluate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filters: { languages: ['pt'] } })
+    }),
+    {},
+    {}
+  );
+  assert.equal(respEvalPtLegacy.status, 200);
+  const evalPtLegacyData = await respEvalPtLegacy.json();
+  assert.equal(evalPtLegacyData.counts.surfaced, evalEsData.counts.surfaced, 'Legacy pt language filter must fall back cleanly to default Spanish-only');
 
   console.log('4. Testing POST /api/evaluate with Virtual Assistant, Coordinator, and Languages/Translation roles...');
   const reqEvalVA = new Request('https://bolivia-remote-scout.workers.dev/api/evaluate', {

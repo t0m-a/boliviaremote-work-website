@@ -320,8 +320,7 @@ export const POSITION_CATEGORIES = [
 
 export const LANGUAGE_OPTIONS = [
   { id: 'es', label_es: 'Español', label_en: 'Spanish' },
-  { id: 'en', label_es: 'Inglés', label_en: 'English' },
-  { id: 'pt', label_es: 'Portugués', label_en: 'Portuguese' }
+  { id: 'en', label_es: 'Inglés', label_en: 'English' }
 ];
 
 export const EXPERIENCE_OPTIONS = [
@@ -715,23 +714,29 @@ export function evaluateOpportunity(item, rawFilters = {}) {
   // ---------------------------------------------------------------------------
   // 4. Language Match Score (0 - 20 pts)
   // ---------------------------------------------------------------------------
-  const selectedLangs = Array.isArray(filters.languages) && filters.languages.length > 0
-    ? filters.languages
-    : ['es', 'en'];
+  const allowedLangIds = LANGUAGE_OPTIONS.map(l => l.id);
+  const normalizedLangs = Array.isArray(filters.languages)
+    ? Array.from(new Set(filters.languages.filter(l => allowedLangIds.includes(l))))
+    : [];
+  const selectedLangs = normalizedLangs.length > 0 ? normalizedLangs : ['es'];
 
   const langOverlap = attrs.languages.filter(l => selectedLangs.includes(l));
   let languageScore = 0;
   const isOnlySpanishSelected = selectedLangs.length === 1 && selectedLangs[0] === 'es';
+  const isOnlyEnglishSelected = selectedLangs.length === 1 && selectedLangs[0] === 'en';
   const hasSpanish = attrs.languages.includes('es');
+  const hasEnglish = attrs.languages.includes('en');
 
   if (langOverlap.length > 0) {
     if (isOnlySpanishSelected && hasSpanish) {
-      // User only wants Spanish: give full bonus for Spanish offers
+      // User only wants Spanish: give full bonus for primary-Spanish offers
       languageScore = attrs.primaryLanguage === 'es' ? 20 : 17;
-    } else if (langOverlap.length >= 2) {
-      languageScore = 20;
+    } else if (isOnlyEnglishSelected && hasEnglish) {
+      // User only wants English: give full bonus for primary-English offers
+      languageScore = attrs.primaryLanguage === 'en' ? 20 : 17;
     } else {
-      languageScore = 15;
+      // Both Spanish and English selected: candidate covers all ES, EN, and bilingual roles
+      languageScore = 20;
     }
   } else {
     languageScore = 0;
@@ -757,6 +762,12 @@ export function evaluateOpportunity(item, rawFilters = {}) {
     verdict = 'SKIP';
     disqualifyReasonEs = 'Requiere inglés (la oferta está en inglés y no coincide con tu selección de solo Español).';
     disqualifyReasonEn = 'Requires English (job is English-first and does not match your Spanish-only selection).';
+  } else if (isOnlyEnglishSelected && !hasEnglish) {
+    // HARD PENALTY: User specifically selected ONLY English, but this offer is Spanish-only
+    totalScore = Math.min(totalScore, 30);
+    verdict = 'SKIP';
+    disqualifyReasonEs = 'Requiere español (la oferta es solo en español y no coincide con tu selección de solo Inglés).';
+    disqualifyReasonEn = 'Requires Spanish (job is Spanish-only and does not match your English-only selection).';
   } else if (langOverlap.length === 0) {
     totalScore = Math.min(totalScore, 35);
     verdict = 'SKIP';
@@ -864,10 +875,19 @@ export function evaluateOpportunity(item, rawFilters = {}) {
  */
 export function evaluateAllOpportunities(opportunities, filters = {}) {
   // Always enforce 100% remote eligibility from Bolivia across all evaluations
-  const effectiveFilters = { ...DEFAULT_FILTERS, ...filters, require_bolivia_remote: true };
-  const isOnlySpanishSelected = Array.isArray(effectiveFilters.languages) &&
-    effectiveFilters.languages.length === 1 &&
-    effectiveFilters.languages[0] === 'es';
+  const allowedLangIds = LANGUAGE_OPTIONS.map(l => l.id);
+  const rawLangs = Array.isArray(filters.languages)
+    ? Array.from(new Set(filters.languages.filter(l => allowedLangIds.includes(l))))
+    : [];
+  const normalizedLangs = rawLangs.length > 0 ? rawLangs : DEFAULT_FILTERS.languages.slice();
+  const effectiveFilters = {
+    ...DEFAULT_FILTERS,
+    ...filters,
+    languages: normalizedLangs,
+    require_bolivia_remote: true
+  };
+  const isOnlySpanishSelected = normalizedLangs.length === 1 && normalizedLangs[0] === 'es';
+  const isOnlyEnglishSelected = normalizedLangs.length === 1 && normalizedLangs[0] === 'en';
   const hasActivePositionFilter = (Array.isArray(effectiveFilters.position_types) && effectiveFilters.position_types.length > 0) ||
     Boolean(effectiveFilters.custom_keywords && String(effectiveFilters.custom_keywords).trim());
   const strictPos = Boolean(effectiveFilters.strict_position_match) && hasActivePositionFilter;
@@ -903,9 +923,16 @@ export function evaluateAllOpportunities(opportunities, filters = {}) {
     return String(b.discovered_at || '').localeCompare(String(a.discovered_at || ''));
   });
 
-  // Only 100% remote Bolivia-eligible offers are ever surfaced or reported
+  // Only 100% remote Bolivia-eligible offers matching the selected language(s) are surfaced
   const surfaced = eligibleOnly.filter(r => {
-    if (isOnlySpanishSelected && !(r.detected_languages || []).includes('es')) {
+    const detLangs = r.detected_languages || [];
+    if (isOnlySpanishSelected && !detLangs.includes('es')) {
+      return false;
+    }
+    if (isOnlyEnglishSelected && !detLangs.includes('en')) {
+      return false;
+    }
+    if (!isOnlySpanishSelected && !isOnlyEnglishSelected && !normalizedLangs.some(l => detLangs.includes(l))) {
       return false;
     }
     if (strictPos && r.position_score === 0) {
@@ -933,7 +960,7 @@ export function generateResultsMarkdown(evalResult, filters = {}, lang = 'es', p
   const syncStr = lastSyncIso || new Date().toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
 
   const { apply, possible, skip, geo_excluded } = evalResult;
-  const langsSelected = (filters.languages || ['es', 'en']).map(l => l.toUpperCase()).join(', ');
+  const langsSelected = (filters.languages || DEFAULT_FILTERS.languages).map(l => l.toUpperCase()).join(', ');
   const contractsSelected = (filters.contract_types || []).join(', ') || (isEs ? 'Todos' : 'All');
   const expSelected = (filters.experience_levels || ['all']).join(', ');
   const customKw = filters.custom_keywords || (isEs ? 'Ninguna (Todas las áreas)' : 'None (All areas)');

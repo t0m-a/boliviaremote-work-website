@@ -2373,10 +2373,11 @@ export function renderAppHtml(initialState) {
               <h5 class="guide-step-title">Configura tus Idiomas de Trabajo</h5>
             </div>
             <div class="guide-step-body">
-              En la sección <strong>1. Tus Idiomas</strong>, haz clic sobre las etiquetas interactivas de los idiomas que dominas (<code>Español</code>, <code>Inglés</code>, <code>Portugués</code>):
+              En la sección <strong>1. Tus Idiomas</strong>, haz clic sobre las etiquetas interactivas de los idiomas que dominas (<code>Español</code>, <code>Inglés</code>):
               <ul>
-                <li><strong>Solo Español:</strong> Si seleccionas únicamente <em>Español (BO)</em>, el evaluador activa una regla estricta que prioriza vacantes en español y excluye ofertas redactadas en inglés.</li>
-                <li><strong>Bilingüe / Multilingüe:</strong> Si activas también <em>Inglés</em> o <em>Portugués</em>, el sistema evaluará y sumará oportunidades internacionales que requieren fluidez en esos idiomas.</li>
+                <li><strong>Solo Español:</strong> Si seleccionas únicamente <em>Español</em>, el evaluador activa una regla estricta que prioriza vacantes en español y excluye ofertas exclusivamente en inglés.</li>
+                <li><strong>Solo Inglés:</strong> Si seleccionas únicamente <em>Inglés</em>, el evaluador prioriza vacantes en inglés y excluye ofertas exclusivamente en español.</li>
+                <li><strong>Ambos (Español + Inglés):</strong> Si activas ambos idiomas, el sistema muestra y evalúa todas las oportunidades en español, inglés y bilingües.</li>
               </ul>
             </div>
           </div>
@@ -2618,6 +2619,13 @@ export function renderAppHtml(initialState) {
         userFilters = Object.assign({}, PAYLOAD.DEFAULT_FILTERS, parsed, { ui_lang: 'es', require_bolivia_remote: true });
       }
     } catch (e) {}
+    const validLanguageIds = LANGUAGE_OPTIONS.map(o => o.id);
+    userFilters.languages = Array.isArray(userFilters.languages)
+      ? Array.from(new Set(userFilters.languages.filter(id => validLanguageIds.includes(id))))
+      : [];
+    if (userFilters.languages.length === 0) {
+      userFilters.languages = PAYLOAD.DEFAULT_FILTERS.languages.slice();
+    }
 
     let currentVerdictFilter = 'ALL';
     let currentTrackFilter = 'ALL';
@@ -3044,17 +3052,20 @@ export function renderAppHtml(initialState) {
     }
 
     function toggleLanguageChip(id) {
-      const set = new Set(userFilters.languages || []);
+      const allowedIds = LANGUAGE_OPTIONS.map(o => o.id);
+      if (!allowedIds.includes(id)) return;
+      const set = new Set((userFilters.languages || []).filter(x => allowedIds.includes(x)));
       if (set.has(id)) {
         if (set.size > 1) set.delete(id);
       } else {
         set.add(id);
       }
-      userFilters.languages = Array.from(set);
+      userFilters.languages = set.size > 0 ? Array.from(set) : PAYLOAD.DEFAULT_FILTERS.languages.slice();
       saveFilters();
       renderFilterChips();
       recomputeAndRender();
     }
+    window.toggleLanguageChip = toggleLanguageChip;
 
     function toggleExperienceChip(id) {
       if (id === 'all') {
@@ -3203,6 +3214,8 @@ export function renderAppHtml(initialState) {
       recomputeAndRender();
     }
 
+    let semanticOverrideResults = null;
+
     function resetFilters() {
       const currentLang = userFilters.ui_lang || 'es';
       userFilters = Object.assign({}, PAYLOAD.DEFAULT_FILTERS, { ui_lang: currentLang });
@@ -3213,8 +3226,16 @@ export function renderAppHtml(initialState) {
       renderFilterChips();
       recomputeAndRender();
     }
+    window.resetFilters = resetFilters;
 
     function recomputeAndRender() {
+      if (semanticOverrideResults !== null) {
+        semanticOverrideResults = null;
+        const clearBtn = document.getElementById('btn-clear-semantic');
+        const statusBar = document.getElementById('semantic-status-bar');
+        if (clearBtn) clearBtn.style.display = 'none';
+        if (statusBar) statusBar.style.display = 'none';
+      }
       lastEvaluationResult = evaluateAllOpportunities(opportunitiesState, userFilters);
 
       document.getElementById('kpi-apply-cnt').textContent = lastEvaluationResult.apply.length;
@@ -3248,8 +3269,6 @@ export function renderAppHtml(initialState) {
       const m = String(trackStr || '').match(/^(Track\\s+[A-F])/i);
       return m ? m[1].toUpperCase() : 'OTHER';
     }
-
-    let semanticOverrideResults = null;
 
     function onSearchInputChange(val) {
       if (!String(val || '').trim() && semanticOverrideResults) {
