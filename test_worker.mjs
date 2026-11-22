@@ -129,6 +129,11 @@ async function runTests() {
   assert.ok(/\.btn-ai-info\s*\{[\s\S]*?background:\s*#ecfdf5;[\s\S]*?color:\s*#065f46 !important;[\s\S]*?border:\s*1px solid #10b981;/.test(html), 'Más información con IA button must use the same green design as Información Utiles');
   assert.ok(/body\.dark-mode \.btn-ai-info\s*\{[\s\S]*?background:\s*#064e3b;[\s\S]*?color:\s*#a7f3d0 !important;[\s\S]*?border-color:\s*#10b981;/.test(html), 'Más información con IA dark mode must match Información Utiles');
   assert.ok(/\.chip\.selected\s*\{[\s\S]*?background:\s*rgba\(2,\s*132,\s*199,\s*0\.12\);[\s\S]*?color:\s*#0369a1;[\s\S]*?border-color:\s*#0ea5e9;/.test(html), 'Selected language chips (Español/Inglés) must use light translucent blue tinted design');
+  assert.ok(
+    /@media \(hover: hover\) and \(pointer: fine\)\s*\{[\s\S]*?\.chip:hover\s*\{/.test(html) &&
+    /@media \(hover: hover\) and \(pointer: fine\)\s*\{[\s\S]*?body\.dark-mode \.chip:hover\s*\{/.test(html),
+    'Language chip :hover styles must be scoped to fine-pointer hover devices so touchscreens immediately revert deselected chips to grey'
+  );
   assert.ok(/\.btn-tab:hover,\s*\.btn-tab\.active\s*\{[\s\S]*?background:\s*rgba\(2,\s*132,\s*199,\s*0\.12\);[\s\S]*?color:\s*#0369a1;[\s\S]*?border-color:\s*#0ea5e9;/.test(html), 'Toolbar tabs (Resultados, Todas las Elegibles, etc.) must use light translucent blue tinted design');
   assert.ok(/\.btn-tab\.btn-tab-scan\s*\{[\s\S]*?background:\s*rgba\(16,\s*185,\s*129,\s*0\.11\);[\s\S]*?color:\s*#065f46;[\s\S]*?border-color:\s*#10b981;/.test(html), 'Escanear Ofertas Ahora must use light translucent green tinted design');
   assert.ok(/\.btn-primary\s*\{[\s\S]*?background:\s*rgba\(2,\s*132,\s*199,\s*0\.12\);[\s\S]*?color:\s*#0369a1 !important;[\s\S]*?border:\s*1px solid #0ea5e9;/.test(html), 'Primary action buttons (Buscar con IA, Ver Oferta y Postular, etc.) must use light translucent blue tinted design');

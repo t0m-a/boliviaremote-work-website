@@ -879,21 +879,23 @@ export function renderAppHtml(initialState) {
       line-height: 1.35;
       overflow-wrap: anywhere;
     }
-    .chip:hover {
-      background: rgba(2, 132, 199, 0.08);
-      border-color: #0ea5e9;
-      color: #0369a1;
-    }
     .chip.selected {
       background: rgba(2, 132, 199, 0.12);
       color: #0369a1;
       border-color: #0ea5e9;
       font-weight: 700;
     }
-    .chip.selected:hover {
-      background: rgba(2, 132, 199, 0.20);
-      color: #0c4a6e;
-      border-color: #0284c7;
+    @media (hover: hover) and (pointer: fine) {
+      .chip:hover {
+        background: rgba(2, 132, 199, 0.08);
+        border-color: #0ea5e9;
+        color: #0369a1;
+      }
+      .chip.selected:hover {
+        background: rgba(2, 132, 199, 0.20);
+        color: #0c4a6e;
+        border-color: #0284c7;
+      }
     }
     .input-text, .input-select {
       width: 100%;
@@ -2014,20 +2016,36 @@ export function renderAppHtml(initialState) {
       color: #cbd5e1;
       border-color: #334155;
     }
-    body.dark-mode .chip:hover {
-      background: rgba(14, 165, 233, 0.14);
-      border-color: #38bdf8;
-      color: #7dd3fc;
-    }
     body.dark-mode .chip.selected {
       background: rgba(14, 165, 233, 0.18);
       color: #7dd3fc;
       border-color: #0ea5e9;
     }
-    body.dark-mode .chip.selected:hover {
-      background: rgba(14, 165, 233, 0.28);
-      color: #e0f2fe;
-      border-color: #38bdf8;
+    @media (hover: hover) and (pointer: fine) {
+      body.dark-mode .chip:hover {
+        background: rgba(14, 165, 233, 0.14);
+        border-color: #38bdf8;
+        color: #7dd3fc;
+      }
+      body.dark-mode .chip.selected:hover {
+        background: rgba(14, 165, 233, 0.28);
+        color: #e0f2fe;
+        border-color: #38bdf8;
+      }
+    }
+    @media (hover: none), (pointer: coarse) {
+      .btn-tab:not(.active):not(.btn-tab-scan):hover {
+        background: rgba(100, 116, 139, 0.08);
+        color: #334155;
+        border-color: #cbd5e1;
+        font-weight: 600;
+      }
+      body.dark-mode .btn-tab:not(.active):not(.btn-tab-scan):hover {
+        background: rgba(148, 163, 184, 0.10);
+        color: #cbd5e1;
+        border-color: #334155;
+        font-weight: 600;
+      }
     }
     body.dark-mode .input-text, body.dark-mode .input-select {
       background: #0f172a;
@@ -3528,13 +3546,15 @@ export function renderAppHtml(initialState) {
       if (existingLangChips.length === LANGUAGE_OPTIONS.length) {
         existingLangChips.forEach(chipEl => {
           const optId = chipEl.getAttribute('data-opt-id');
-          chipEl.classList.toggle('selected', (userFilters.languages || []).includes(optId));
+          const isSelected = (userFilters.languages || []).includes(optId);
+          chipEl.classList.toggle('selected', isSelected);
+          chipEl.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
         });
       } else {
         langContainer.innerHTML = LANGUAGE_OPTIONS.map(opt => {
           const selected = (userFilters.languages || []).includes(opt.id);
           const label = isEs ? opt.label_es : opt.label_en;
-          return '<span class="chip ' + (selected ? 'selected' : '') + '" data-opt-id="' + escapeHtml(opt.id) + '" onclick="toggleLanguageChip(\\'' + opt.id + '\\')">' +
+          return '<span class="chip ' + (selected ? 'selected' : '') + '" data-opt-id="' + escapeHtml(opt.id) + '" role="button" aria-pressed="' + (selected ? 'true' : 'false') + '" onclick="toggleLanguageChip(\\'' + opt.id + '\\')">' +
             escapeHtml(label) + '</span>';
         }).join('');
       }
