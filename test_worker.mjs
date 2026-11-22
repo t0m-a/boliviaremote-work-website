@@ -46,12 +46,15 @@ async function runTests() {
   const idxNotice = navListHtml.indexOf('id="nav-hdr-notice-item"');
   const idxManual = navListHtml.indexOf('id="nav-manual"');
   const idxPayments = navListHtml.indexOf('id="nav-hdr-payments-item"');
-  const idxResults = navListHtml.indexOf('id="nav-results"');
   const idxTracks = navListHtml.indexOf('id="nav-hdr-tracks-item"');
+  assert.ok(!navListHtml.includes('id="nav-results"'), 'Must remove Live Results item from Information hamburger menu');
   assert.ok(
-    idxNotice > -1 && idxNotice < idxManual && idxManual < idxPayments && idxPayments < idxResults && idxResults < idxTracks,
-    'Hamburger menu order must be: 1. Notice, 2. User Manual, 3. Financial Information, 4. Live Results, 5. Platform Categories'
+    idxNotice > -1 && idxNotice < idxManual && idxManual < idxPayments && idxPayments < idxTracks,
+    'Hamburger menu order must be: 1. Notice, 2. User Manual, 3. Financial Information, 4. Platform Categories'
   );
+  assert.ok(html.includes("navPayments: 'Financial Information'"), 'English menu must use Financial Information');
+  assert.ok(!html.includes('(UTC-4 / W-8BEN)'), 'Must remove (UTC-4 / W-8BEN) from AI Profile Matcher subtitle');
+  assert.ok(html.includes("aiCvSub: 'Paste your CV summary or key skills to evaluate remote fit and draft a tailored application letter'"), 'English AI subtitle must not contain (UTC-4 / W-8BEN)');
   assert.ok(!html.includes('id="tab-view-manual"'), 'Must remove User Manual button from toolbar');
   assert.ok(!html.includes('data-verdict="GEO"'), 'Must remove Geo-Blocked button from verdictFilterBar');
   assert.ok(html.includes('class="toolbar-search-group"'), 'Search with AI input group must use responsive .toolbar-search-group');

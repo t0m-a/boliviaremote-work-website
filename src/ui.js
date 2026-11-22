@@ -2027,8 +2027,6 @@ export function renderAppHtml(initialState) {
         <p id="nav-payments-desc">Las empresas suelen liquidar mediante plataformas de nómina global como <strong>AirTM. Wise, Payoneer o Tipalti</strong>. Desde estas cuentas puedes transferir vía SWIFT O transferancia ACH hacia tu cuenta bancaria boliviana en Boliviano o en USD, usar tarjetas de débito internacionales, o liquidar honorarios a través de pasarelas reguladas entre tus cuentas globales y locales.</p>
       </li>
 
-      <li><a id="nav-results" class="active-nav" onclick="switchMainView('results'); closeNavbarMenu();"><span id="nav-lbl-results">Resultados en Vivo</span> (<span id="nav-cnt-results">0</span>)</a></li>
-
       <li class="nav-group-header nav-collapsible-header" id="nav-hdr-tracks-item" onclick="toggleCategoriesMenu()" role="button" tabindex="0" aria-expanded="false">
         <span id="nav-hdr-tracks">Categorías De Plataformas</span>
         <span class="nav-caret" id="nav-tracks-caret" aria-hidden="true"></span>
@@ -2202,7 +2200,7 @@ export function renderAppHtml(initialState) {
       >
         <div class="panel-collapsible-text">
           <h2 class="panel-title"><span id="lbl-ai-cv-title">Asistente IA de Perfil y Generador de Cartas de Postulación</span></h2>
-          <span class="panel-subtitle" id="lbl-ai-cv-sub">Pega tu resumen profesional o habilidades para detectar tu afinidad y redactar una carta de presentación a medida (UTC-4 / W-8BEN)</span>
+          <span class="panel-subtitle" id="lbl-ai-cv-sub">Pega tu resumen profesional o habilidades para detectar tu afinidad y redactar una carta de presentación a medida</span>
         </div>
         <span class="panel-caret" id="ai-cv-caret" aria-hidden="true"></span>
       </div>
@@ -2692,7 +2690,7 @@ export function renderAppHtml(initialState) {
         btnSubmitUrl: 'Escanear y Evaluar URL',
         scanningUrl: 'Escaneando URL...',
         aiCvTitle: 'Asistente IA de Perfil y Generador de Cartas de Postulación',
-        aiCvSub: 'Pega tu resumen profesional o habilidades para detectar tu afinidad y redactar una carta de presentación a medida (UTC-4 / W-8BEN)',
+        aiCvSub: 'Pega tu resumen profesional o habilidades para detectar tu afinidad y redactar una carta de presentación a medida',
         aiCvField: 'Tu Resumen Profesional, Experiencia o Habilidades Clave *',
         aiCvPlaceholder: 'Ej: Ingeniero de Software / Analista de Datos / Asistente Virtual Bilingüe con 4 años de experiencia en Python, SQL, React, Soporte Técnico, Gestión de Proyectos y Atención al Cliente...',
         btnAiCv: 'Analizar CV y Redactar Carta IA',
@@ -2765,7 +2763,7 @@ export function renderAppHtml(initialState) {
         navTrackD: 'European & Global Portals',
         navTrackE: 'Expert Consulting Networks',
         navTrackF: 'Remote Job Boards',
-        navPayments: 'Información Financiera',
+        navPayments: 'Financial Information',
         navPaymentsDesc: 'Las empresas suelen liquidar mediante plataformas de nómina global como <strong>AirTM. Wise, Payoneer o Tipalti</strong>. Desde estas cuentas puedes transferir vía SWIFT O transferancia ACH hacia tu cuenta bancaria boliviana en Boliviano o en USD, usar tarjetas de débito internacionales, o liquidar honorarios a través de pasarelas reguladas entre tus cuentas globales y locales.',
         categoryLabel: 'Category',
         themeDarkTitle: 'Switch to dark mode',
@@ -2805,7 +2803,7 @@ export function renderAppHtml(initialState) {
         btnSubmitUrl: 'Scan & Evaluate URL',
         scanningUrl: 'Scanning URL...',
         aiCvTitle: 'AI Profile Matcher & Cover Letter Generator',
-        aiCvSub: 'Paste your CV summary or key skills to evaluate remote fit and draft a tailored application letter (UTC-4 / W-8BEN)',
+        aiCvSub: 'Paste your CV summary or key skills to evaluate remote fit and draft a tailored application letter',
         aiCvField: 'Your Professional Summary, Experience, or Key Skills *',
         aiCvPlaceholder: 'E.g., Software Engineer / Data Analyst / Bilingual Virtual Assistant with 4 years of experience in Python, SQL, React, Technical Support, Project Management, and Customer Success...',
         btnAiCv: 'Analyze CV & Draft AI Cover Letter',
@@ -3299,7 +3297,8 @@ export function renderAppHtml(initialState) {
       document.getElementById('kpi-geo-cnt').textContent = lastEvaluationResult.geo_excluded.length;
       document.getElementById('kpi-total-cnt').textContent = lastEvaluationResult.surfaced.length;
 
-      document.getElementById('nav-cnt-results').textContent = lastEvaluationResult.surfaced.length;
+      const navCntEl = document.getElementById('nav-cnt-results');
+      if (navCntEl) navCntEl.textContent = lastEvaluationResult.surfaced.length;
       const navPlatCntEl = document.getElementById('nav-cnt-platforms');
       if (navPlatCntEl) navPlatCntEl.textContent = platformsState.length;
       document.getElementById('val-platforms-count').textContent = platformsState.length;
