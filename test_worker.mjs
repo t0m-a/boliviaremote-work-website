@@ -254,8 +254,7 @@ async function runTests() {
     '1. Tus Idiomas must size to its actual content width while other panel-card filter blocks flex-wrap responsively'
   );
   const footerPillsStart = footerHtml.indexOf('<div class="footer-status-pills">');
-  const footerCreditStart = footerHtml.indexOf('<div id="footer-credit"');
-  const footerPillsHtml = footerHtml.slice(footerPillsStart, footerCreditStart);
+  const footerPillsHtml = footerHtml.slice(footerPillsStart);
   assert.ok(
     footerPillsHtml.includes('class="banner-pill footer-pill-btn" id="nav-hdr-tracks-item"') &&
     footerPillsHtml.includes('id="nav-hdr-tracks">Categorías De Plataformas</span>') &&
@@ -266,6 +265,21 @@ async function runTests() {
     footerPillsHtml.includes('class="banner-pill footer-pill-btn" id="nav-platforms"') &&
     footerPillsHtml.includes('id="nav-lbl-platforms">Plataformas Monitoreadas</span>'),
     'Plataformas Monitoreadas must be in footer-status-pills with banner-pill design at the same level as Plataformas activas'
+  );
+  assert.ok(
+    footerPillsHtml.includes('<span id="footer-credit" class="banner-pill footer-credit">Designed, engineered and hosted by <a href="mailto:contact@tsimon.me">Thomas Simon</a>'),
+    'Footer attribution must sit inside .footer-status-pills using the same .banner-pill design on the same line'
+  );
+  assert.ok(
+    /\.header-title\s*\{[\s\S]*?font-size:\s*1\.38em;[\s\S]*?font-weight:\s*500;[\s\S]*?letter-spacing:\s*0\.04em;/.test(html) &&
+    /#nav-brand-title\s*\{[\s\S]*?background-clip:\s*text;/.test(html),
+    'Bolivia Remote Work header title must stand out with refined lighter weight (500), larger size inside header height, and gradient styling'
+  );
+  assert.ok(
+    html.includes('.opp-card.card-reveal-pending') &&
+    html.includes('.opp-card.card-reveal-visible') &&
+    html.includes('function initCardScrollReveal('),
+    'Must include IntersectionObserver scroll-reveal transition animation for cards'
   );
   assert.ok(!html.slice(0, footerIdx).includes('id="pill-bolivia"'), 'Status pills must be removed from top banner');
   assert.ok(!html.includes('Public Remote Job Scout & Evaluator from Bolivia (UTC-4)'), 'Must remove old English footer intro text');
@@ -408,6 +422,7 @@ async function runTests() {
   assert.equal(typeof vmSandbox.window.scheduleNavbarAutoClose, 'function', 'scheduleNavbarAutoClose must be bound');
   assert.equal(typeof vmSandbox.window.cancelNavbarAutoClose, 'function', 'cancelNavbarAutoClose must be bound');
   assert.equal(typeof vmSandbox.window.scrollToTop, 'function', 'scrollToTop must be bound');
+  assert.equal(typeof vmSandbox.window.initCardScrollReveal, 'function', 'initCardScrollReveal must be bound');
   assert.equal(typeof vmSandbox.window.toggleNoticeMenu, 'function', 'toggleNoticeMenu must be bound');
   assert.equal(typeof vmSandbox.window.toggleCreatorMenu, 'function', 'toggleCreatorMenu must be bound');
   assert.equal(typeof vmSandbox.window.toggleCategoriesMenu, 'function', 'toggleCategoriesMenu must be bound');

@@ -130,8 +130,10 @@ export function renderAppHtml(initialState) {
       width: 100%;
     }
     .header-title {
-      font-size: 1.05em;
-      font-weight: 800;
+      font-size: 1.38em;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      line-height: 1.1;
       color: #0f172a;
       margin: 0;
       display: flex;
@@ -139,6 +141,13 @@ export function renderAppHtml(initialState) {
       gap: 6px;
       min-width: 0;
       overflow-wrap: anywhere;
+    }
+    #nav-brand-title {
+      background: linear-gradient(100deg, #0f172a 0%, #0369a1 58%, #059669 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      display: inline-block;
     }
     .navbar-header-actions {
       display: inline-flex;
@@ -1097,6 +1106,36 @@ export function renderAppHtml(initialState) {
     .opp-card.verdict-POSSIBLE { border-left-color: var(--possible-border); }
     .opp-card.verdict-SKIP { border-left-color: var(--skip-border); opacity: 0.88; }
     .opp-card.verdict-GEO { border-left-color: var(--geo-border); opacity: 0.78; }
+    .opp-card.card-reveal-pending,
+    .radar-box.card-reveal-pending,
+    .guide-step.card-reveal-pending {
+      opacity: 0;
+      transform: translateY(18px) scale(0.99);
+      will-change: opacity, transform;
+    }
+    .opp-card.card-reveal-visible,
+    .radar-box.card-reveal-visible,
+    .guide-step.card-reveal-visible {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      transition: opacity 0.44s cubic-bezier(0.22, 1, 0.36, 1), transform 0.44s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .opp-card.verdict-SKIP.card-reveal-visible {
+      opacity: 0.88;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .opp-card.card-reveal-pending,
+      .radar-box.card-reveal-pending,
+      .guide-step.card-reveal-pending {
+        opacity: 1;
+        transform: none;
+      }
+      .opp-card.card-reveal-visible,
+      .radar-box.card-reveal-visible,
+      .guide-step.card-reveal-visible {
+        transition: none;
+      }
+    }
     .opp-header {
       display: flex;
       flex-wrap: wrap;
@@ -1559,8 +1598,8 @@ export function renderAppHtml(initialState) {
       flex-wrap: wrap;
       justify-content: center;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 12px;
+      gap: 6px;
+      margin-bottom: 0;
     }
     .footer-pill-btn {
       font-family: inherit;
@@ -1645,7 +1684,11 @@ export function renderAppHtml(initialState) {
       font-weight: 700;
     }
     .footer-credit {
-      line-height: 1.5;
+      line-height: 1.45;
+    }
+    .banner-pill.footer-credit {
+      display: inline-block;
+      gap: 0;
     }
     footer a {
       color: var(--accent-primary);
@@ -1753,6 +1796,12 @@ export function renderAppHtml(initialState) {
     }
     body.dark-mode .header-title {
       color: #f8fafc;
+    }
+    body.dark-mode #nav-brand-title {
+      background: linear-gradient(100deg, #f8fafc 0%, #7dd3fc 58%, #6ee7b7 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
     }
     body.dark-mode .sidebar-fold-btn,
     body.dark-mode #sidebar-unfold-btn {
@@ -2320,6 +2369,10 @@ export function renderAppHtml(initialState) {
     @media only screen and (max-width: 640px) {
       .navbar-header {
         padding: 10px 14px;
+      }
+      .header-title {
+        font-size: 1.18em;
+        letter-spacing: 0.025em;
       }
       #main-doc, body.sidebar-collapsed #main-doc {
         padding: 12px;
@@ -2975,9 +3028,7 @@ export function renderAppHtml(initialState) {
         <button type="button" class="banner-pill footer-pill-btn" id="nav-platforms" onclick="switchMainView('platforms')">
           <span id="nav-lbl-platforms">Plataformas Monitoreadas</span>
         </button>
-      </div>
-      <div id="footer-credit" class="footer-credit">
-        Designed, engineered and hosted by <a href="mailto:contact@tsimon.me">Thomas Simon</a> · <a href="https://tsimon.me" title="Thomas Mathieu Simon  · Cloud Systems Architect · NOC &amp; AI Engineer" target="_blank" rel="noopener noreferrer">tsimon.me</a>
+        <span id="footer-credit" class="banner-pill footer-credit">Designed, engineered and hosted by <a href="mailto:contact@tsimon.me">Thomas Simon</a> · <a href="https://tsimon.me" title="Thomas Mathieu Simon  · Cloud Systems Architect · NOC &amp; AI Engineer" target="_blank" rel="noopener noreferrer">tsimon.me</a></span>
       </div>
     </footer>
   </main>
@@ -3924,7 +3975,69 @@ export function renderAppHtml(initialState) {
           '</div>' +
         '</article>';
       }).join('');
+      initCardScrollReveal(container);
     }
+
+    let cardRevealObserver = null;
+
+    function initCardScrollReveal(rootEl) {
+      if (!rootEl || typeof rootEl.querySelectorAll !== 'function') return;
+      const cards = rootEl.querySelectorAll('.opp-card, .radar-box, .guide-step');
+      if (!cards || cards.length === 0) return;
+
+      const reducedMotion = typeof window.matchMedia === 'function' &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reducedMotion || typeof IntersectionObserver !== 'function') {
+        cards.forEach(c => {
+          c.classList.remove('card-reveal-pending');
+          c.classList.add('card-reveal-visible');
+        });
+        return;
+      }
+
+      if (!cardRevealObserver) {
+        cardRevealObserver = new IntersectionObserver((entries) => {
+          let batchIdx = 0;
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              const el = entry.target;
+              el.style.transitionDelay = Math.min(batchIdx * 45, 180) + 'ms';
+              batchIdx++;
+              el.classList.remove('card-reveal-pending');
+              el.classList.add('card-reveal-visible');
+              cardRevealObserver.unobserve(el);
+            }
+          });
+        }, {
+          root: null,
+          rootMargin: '0px 0px -24px 0px',
+          threshold: 0.04
+        });
+      }
+
+      const vh = window.innerHeight || 900;
+      cards.forEach((card, idx) => {
+        card.classList.remove('card-reveal-visible');
+        card.classList.add('card-reveal-pending');
+        const rect = typeof card.getBoundingClientRect === 'function' ? card.getBoundingClientRect() : null;
+        if (rect && rect.top < vh * 0.96 && rect.bottom > 0) {
+          card.style.transitionDelay = Math.min(idx * 40, 160) + 'ms';
+          if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(() => {
+              card.classList.remove('card-reveal-pending');
+              card.classList.add('card-reveal-visible');
+            });
+          } else {
+            card.classList.remove('card-reveal-pending');
+            card.classList.add('card-reveal-visible');
+          }
+        } else {
+          card.style.transitionDelay = '0ms';
+          cardRevealObserver.observe(card);
+        }
+      });
+    }
+    window.initCardScrollReveal = initCardScrollReveal;
 
     function renderPlatformsDirectory() {
       const t = I18N[userFilters.ui_lang] || I18N.es;
@@ -3944,6 +4057,7 @@ export function renderAppHtml(initialState) {
           '</div>' +
         '</div>';
       }).join('');
+      initCardScrollReveal(container);
     }
 
     function setVerdictFilter(verdict) {
@@ -4001,6 +4115,11 @@ export function renderAppHtml(initialState) {
 
       if (isDedicatedPage) {
         window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      if (viewName === 'manual' && vManual) {
+        initCardScrollReveal(vManual);
+      } else if (viewName === 'platforms' && vPlatforms) {
+        initCardScrollReveal(vPlatforms);
       }
 
       const tabResults = document.getElementById('tab-view-results');
