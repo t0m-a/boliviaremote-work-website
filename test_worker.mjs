@@ -35,7 +35,10 @@ async function runTests() {
   assert.ok(html.includes('text-transform: capitalize'), 'Hamburger menu group headers must keep only the first letter of each word capitalized');
   assert.ok(!html.includes('text-transform: uppercase'), 'Hamburger menu group headers must be decapitalized from uppercase');
   assert.ok(html.includes('id="nav-hdr-tracks">Categorías De Plataformas</span>'), 'Must include Categorías De Plataformas with first letter of each word capitalized');
-  assert.ok(html.includes('id="banner-disclaimer"'), 'Must include banner disclaimer below subtitle');
+  assert.ok(html.includes('id="banner-disclaimer"'), 'Must include banner disclaimer');
+  assert.ok(/<p class="banner-subtitle-line">[\s\S]*?<span id="banner-subtitle">[\s\S]*?<span id="banner-disclaimer"/.test(html), 'Notice/Aviso link must stay inline on the same line as banner subtitle');
+  assert.ok(html.includes('Management (8+ yrs)'), 'Experience option must be Management (8+ yrs)');
+  assert.ok(!html.includes('Lead / Manager (8+ yrs)'), 'Must replace Lead / Manager (8+ yrs) with Management (8+ yrs)');
   assert.ok(html.includes('id="btn-open-notice"'), 'Must render Notice/Aviso as clickable link');
   assert.ok(html.includes('id="notice-overlay"'), 'Must include Notice overlay container');
   assert.ok(html.includes('id="notice-overlay-body"'), 'Must include Notice overlay body');

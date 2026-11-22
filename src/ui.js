@@ -339,8 +339,7 @@ export function renderAppHtml(initialState) {
       line-height: 1.3;
     }
     .top-banner p,
-    #banner-subtitle,
-    .banner-disclaimer {
+    .banner-subtitle-line {
       margin: 4px 0;
       color: #334155;
       font-family: inherit;
@@ -348,8 +347,16 @@ export function renderAppHtml(initialState) {
       font-weight: 400;
       line-height: 1.5;
     }
+    #banner-subtitle,
     .banner-disclaimer {
-      margin-top: 6px;
+      display: inline;
+      margin: 0;
+      font-size: inherit;
+      line-height: inherit;
+    }
+    .banner-disclaimer {
+      margin-left: 6px;
+      white-space: nowrap;
     }
     .banner-disclaimer a {
       color: var(--accent-primary);
@@ -1412,6 +1419,7 @@ export function renderAppHtml(initialState) {
       color: #f8fafc;
     }
     body.dark-mode .top-banner p,
+    body.dark-mode .banner-subtitle-line,
     body.dark-mode #banner-subtitle,
     body.dark-mode .banner-disclaimer {
       color: #cbd5e1;
@@ -1791,8 +1799,7 @@ export function renderAppHtml(initialState) {
         font-size: 1.18em;
         line-height: 1.3;
       }
-      #banner-subtitle,
-      .banner-disclaimer {
+      .banner-subtitle-line {
         font-size: 0.88em;
       }
       .banner-pill {
@@ -1923,11 +1930,9 @@ export function renderAppHtml(initialState) {
     <section class="top-banner">
       <div class="banner-header-block">
         <h1 id="banner-title">Buscador y Evaluador de Empleos Remotos desde Bolivia</h1>
-        <p id="banner-subtitle">
-          Filtra y evalúa ofertas globales y regionales que permiten trabajar remoto desde Bolivia. Personaliza tus idiomas, área profesional, experiencia y modalidad de contrato.
-        </p>
-        <p id="banner-disclaimer" class="banner-disclaimer">
-          <a href="#notice" id="btn-open-notice" onclick="openNoticeOverlay(event)">Aviso</a>
+        <p class="banner-subtitle-line">
+          <span id="banner-subtitle">Filtra y evalúa ofertas globales y regionales que permiten trabajar remoto desde Bolivia. Personaliza tus idiomas, área profesional, experiencia y modalidad de contrato.</span>
+          <span id="banner-disclaimer" class="banner-disclaimer"><a href="#notice" id="btn-open-notice" onclick="openNoticeOverlay(event)">Aviso</a></span>
         </p>
       </div>
       <div class="banner-pills banner-actions-row">

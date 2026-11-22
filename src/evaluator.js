@@ -183,7 +183,7 @@ export const EXPERIENCE_OPTIONS = [
   { id: 'junior', label_es: 'Junior (1-2 años)', label_en: 'Junior (1-2 yrs)' },
   { id: 'mid', label_es: 'Semi-Senior / Mid (3-5 años)', label_en: 'Mid-Level (3-5 yrs)' },
   { id: 'senior', label_es: 'Senior (5+ años)', label_en: 'Senior (5+ yrs)' },
-  { id: 'lead', label_es: 'Lead / Principal / Manager (8+ años)', label_en: 'Lead / Manager (8+ yrs)' }
+  { id: 'lead', label_es: 'Management (8+ años)', label_en: 'Management (8+ yrs)' }
 ];
 
 export const CONTRACT_OPTIONS = [
@@ -658,14 +658,14 @@ export function evaluateOpportunity(item, rawFilters = {}) {
     junior: 'Junior',
     mid: 'Semi-Senior / Intermedio',
     senior: 'Senior',
-    lead: 'Lead / Manager'
+    lead: 'Management'
   };
   const expLabelsEn = {
     entry: 'Entry-Level',
     junior: 'Junior',
     mid: 'Mid-Level',
     senior: 'Senior',
-    lead: 'Lead / Manager'
+    lead: 'Management'
   };
 
   const cStrEs = attrs.contracts.map(c => contractLabelsEs[c] || c).join(', ');
