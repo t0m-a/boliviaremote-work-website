@@ -197,9 +197,17 @@ export function renderAppHtml(initialState) {
       border-radius: 0 0 10px 10px;
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.14);
       z-index: 950;
+      opacity: 1;
+      transform: translateY(0);
+      visibility: visible;
+      pointer-events: auto;
+      transition: opacity 0.28s ease, transform 0.28s ease, visibility 0.28s ease, max-height 0.28s ease;
     }
     body.sidebar-collapsed #navbar ul {
-      display: none !important;
+      opacity: 0;
+      transform: translateY(-8px);
+      visibility: hidden;
+      pointer-events: none;
     }
     #navbar li {
       border-bottom: 1px solid #f1f5f9;
@@ -832,7 +840,7 @@ export function renderAppHtml(initialState) {
     }
     .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 12px;
       margin-bottom: 18px;
       width: 100%;
@@ -1394,6 +1402,46 @@ export function renderAppHtml(initialState) {
     footer a:hover {
       color: var(--accent-hover);
     }
+    .btn-back-to-top {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 900;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 13px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.45);
+      background: rgba(255, 255, 255, 0.55);
+      backdrop-filter: blur(4px);
+      color: #0f172a;
+      font-size: 0.8em;
+      font-weight: 700;
+      cursor: pointer;
+      opacity: 0.65;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+      transition: opacity 0.2s ease, background 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+    }
+    .btn-back-to-top:hover,
+    .btn-back-to-top:focus-visible {
+      opacity: 0.96;
+      background: rgba(2, 132, 199, 0.88);
+      color: #ffffff;
+      border-color: var(--accent-primary);
+      transform: translateY(-2px);
+      outline: none;
+    }
+    .back-to-top-chevron {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-top: 2px solid currentColor;
+      border-left: 2px solid currentColor;
+      transform: rotate(45deg);
+      margin-top: 3px;
+      flex-shrink: 0;
+    }
     /* THEME TOGGLE BUTTON */
     .btn-theme-toggle {
       display: inline-flex;
@@ -1646,6 +1694,18 @@ export function renderAppHtml(initialState) {
     body.dark-mode .kpi-value {
       color: #f8fafc;
     }
+    body.dark-mode .btn-back-to-top {
+      background: rgba(15, 23, 42, 0.55);
+      color: #e2e8f0;
+      border-color: rgba(71, 85, 105, 0.55);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
+    }
+    body.dark-mode .btn-back-to-top:hover,
+    body.dark-mode .btn-back-to-top:focus-visible {
+      background: rgba(2, 132, 199, 0.88);
+      color: #ffffff;
+      border-color: #38bdf8;
+    }
     body.dark-mode .toolbar {
       background: var(--bg-card);
       border-color: #1e293b;
@@ -1835,6 +1895,11 @@ export function renderAppHtml(initialState) {
         border-top-color: #1e293b;
         box-shadow: none;
       }
+      body.sidebar-collapsed #navbar ul {
+        max-height: 0;
+        border-top-width: 0;
+        overflow: hidden;
+      }
       #main-doc, body.sidebar-collapsed #main-doc {
         margin-left: 0;
         padding: 16px;
@@ -1869,7 +1934,7 @@ export function renderAppHtml(initialState) {
         flex: 1 1 auto;
       }
       .kpi-grid {
-        grid-template-columns: repeat(auto-fit, minmax(min(100%, 155px), 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 10px;
       }
       .radar-grid {
@@ -1939,8 +2004,14 @@ export function renderAppHtml(initialState) {
         justify-content: center;
       }
       .kpi-grid {
-        grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 8px;
+      }
+      .btn-back-to-top {
+        right: 12px;
+        bottom: 14px;
+        padding: 7px 11px;
+        font-size: 0.76em;
       }
       .kpi-value {
         font-size: 1.35em;
@@ -2261,10 +2332,6 @@ export function renderAppHtml(initialState) {
         <div class="kpi-value" style="color:#475569;"><span id="kpi-skip-cnt">0</span></div>
         <div class="kpi-label"><strong id="kpi-skip-title">BAJA COINCIDENCIA</strong> (<span id="kpi-skip-sub">Fuera de tus filtros</span>)</div>
       </div>
-      <div class="kpi-card geo" onclick="switchMainView('results'); setVerdictFilter('GEO');">
-        <div class="kpi-value" style="color:#dc2626;"><span id="kpi-geo-cnt">0</span></div>
-        <div class="kpi-label"><strong id="kpi-geo-title">NO ELEGIBLES BOLIVIA</strong> (<span id="kpi-geo-sub">Restringidas por país</span>)</div>
-      </div>
       <div class="kpi-card" onclick="switchMainView('report');">
         <div class="kpi-value" style="color:#0284c7;"><span id="kpi-total-cnt">0</span></div>
         <div class="kpi-label"><strong id="kpi-report-title">Reporte de Resultados</strong> (<span id="kpi-report-sub">Generado al instante</span>)</div>
@@ -2559,6 +2626,11 @@ export function renderAppHtml(initialState) {
     </footer>
   </main>
 
+  <button type="button" id="btn-back-to-top" class="btn-back-to-top" onclick="scrollToTop()" title="Volver arriba" aria-label="Volver arriba">
+    <span class="back-to-top-chevron" aria-hidden="true"></span>
+    <span id="lbl-btn-top">Arriba</span>
+  </button>
+
   <script id="initial-payload" type="application/json">${clientPayload}</script>
   <script>
     const PAYLOAD = JSON.parse(document.getElementById('initial-payload').textContent);
@@ -2745,6 +2817,8 @@ export function renderAppHtml(initialState) {
         openPlatformBtn: 'Abrir Portal',
         noResults: 'No se encontraron ofertas con los filtros actuales. Prueba ampliando los tipos de posición, contrato o palabras clave.',
         manBtnBack: 'Ver Resultados en Vivo',
+        btnTop: 'Arriba',
+        btnTopTitle: 'Volver arriba',
         footerText: 'Designed, engineered and hosted by <a href="mailto:contact@tsimon.me">Thomas Simon</a> · <a href="https://tsimon.me" title="Thomas Mathieu Simon  · Cloud Systems Architect · NOC &amp; AI Engineer" target="_blank" rel="noopener noreferrer">tsimon.me</a>'
       },
       en: {
@@ -2858,6 +2932,8 @@ export function renderAppHtml(initialState) {
         openPlatformBtn: 'Open Portal',
         noResults: 'No offers matched your current filters. Try broadening your position types, contract modalities, or keywords.',
         manBtnBack: 'View Live Results',
+        btnTop: 'Top',
+        btnTopTitle: 'Back to top',
         footerText: 'Designed, engineered and hosted by <a href="mailto:contact@tsimon.me">Thomas Simon</a> · <a href="https://tsimon.me" title="Thomas Mathieu Simon  · Cloud Systems Architect · NOC &amp; AI Engineer" target="_blank" rel="noopener noreferrer">tsimon.me</a>'
       }
     };
@@ -2988,6 +3064,7 @@ export function renderAppHtml(initialState) {
         'lbl-platforms-heading': t.platformsHeading,
         'lbl-platforms-sub': t.platformsSub,
         'man-btn-back': t.manBtnBack,
+        'lbl-btn-top': t.btnTop,
         'footer-credit': t.footerText
       };
       for (const [id, text] of Object.entries(map)) {
@@ -2999,6 +3076,11 @@ export function renderAppHtml(initialState) {
             el.textContent = text;
           }
         }
+      }
+      const topBtn = document.getElementById('btn-back-to-top');
+      if (topBtn) {
+        topBtn.title = t.btnTopTitle;
+        topBtn.setAttribute('aria-label', t.btnTopTitle);
       }
       const unfoldBtn = document.getElementById('sidebar-unfold-btn');
       if (unfoldBtn) {
@@ -3294,7 +3376,8 @@ export function renderAppHtml(initialState) {
       document.getElementById('kpi-apply-cnt').textContent = lastEvaluationResult.apply.length;
       document.getElementById('kpi-possible-cnt').textContent = lastEvaluationResult.possible.length;
       document.getElementById('kpi-skip-cnt').textContent = lastEvaluationResult.skip.length;
-      document.getElementById('kpi-geo-cnt').textContent = lastEvaluationResult.geo_excluded.length;
+      const kpiGeoEl = document.getElementById('kpi-geo-cnt');
+      if (kpiGeoEl) kpiGeoEl.textContent = lastEvaluationResult.geo_excluded.length;
       document.getElementById('kpi-total-cnt').textContent = lastEvaluationResult.surfaced.length;
 
       const navCntEl = document.getElementById('nav-cnt-results');
@@ -3641,7 +3724,35 @@ export function renderAppHtml(initialState) {
     }
     window.toggleNoticeMenu = toggleNoticeMenu;
 
+    let navbarAutoCloseTimer = null;
+
+    function cancelNavbarAutoClose() {
+      if (navbarAutoCloseTimer) {
+        clearTimeout(navbarAutoCloseTimer);
+        navbarAutoCloseTimer = null;
+      }
+    }
+    window.cancelNavbarAutoClose = cancelNavbarAutoClose;
+
+    function scheduleNavbarAutoClose() {
+      cancelNavbarAutoClose();
+      if (document.body.classList.contains && document.body.classList.contains('sidebar-collapsed')) return;
+      navbarAutoCloseTimer = setTimeout(() => {
+        closeNavbarMenu();
+        navbarAutoCloseTimer = null;
+      }, 320);
+    }
+    window.scheduleNavbarAutoClose = scheduleNavbarAutoClose;
+
+    function scrollToTop() {
+      if (typeof window.scrollTo === 'function') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+    window.scrollToTop = scrollToTop;
+
     function toggleSidebar() {
+      cancelNavbarAutoClose();
       const isCollapsed = document.body.classList.toggle('sidebar-collapsed');
       const btn = document.getElementById('sidebar-unfold-btn');
       if (btn) {
@@ -3651,6 +3762,7 @@ export function renderAppHtml(initialState) {
     window.toggleSidebar = toggleSidebar;
 
     function closeNavbarMenu() {
+      cancelNavbarAutoClose();
       document.body.classList.add('sidebar-collapsed');
       const btn = document.getElementById('sidebar-unfold-btn');
       if (btn) {
@@ -3658,6 +3770,17 @@ export function renderAppHtml(initialState) {
       }
     }
     window.closeNavbarMenu = closeNavbarMenu;
+
+    (function initNavbarHoverAutoClose() {
+      const navList = document.getElementById('navbar-menu-list');
+      const navBtn = document.getElementById('sidebar-unfold-btn');
+      [navList, navBtn].forEach(el => {
+        if (el && typeof el.addEventListener === 'function') {
+          el.addEventListener('mouseenter', cancelNavbarAutoClose);
+          el.addEventListener('mouseleave', scheduleNavbarAutoClose);
+        }
+      });
+    })();
 
     function toggleCategoriesMenu() {
       const hdr = document.getElementById('nav-hdr-tracks-item');

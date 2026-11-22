@@ -57,6 +57,13 @@ async function runTests() {
   assert.ok(html.includes("aiCvSub: 'Paste your CV summary or key skills to evaluate remote fit and draft a tailored application letter'"), 'English AI subtitle must not contain (UTC-4 / W-8BEN)');
   assert.ok(!html.includes('id="tab-view-manual"'), 'Must remove User Manual button from toolbar');
   assert.ok(!html.includes('data-verdict="GEO"'), 'Must remove Geo-Blocked button from verdictFilterBar');
+  assert.ok(!html.includes('class="kpi-card geo"'), 'Must remove kpi-card geo from kpi-grid');
+  assert.ok(html.includes('grid-template-columns: repeat(4, minmax(0, 1fr))'), 'kpi-grid must balance 4 cards across full width on desktop');
+  assert.ok(html.includes('grid-template-columns: repeat(2, minmax(0, 1fr))'), 'kpi-grid must balance 4 cards in 2x2 grid on narrower viewports');
+  assert.ok(html.includes('id="btn-back-to-top"'), 'Must include bottom-right translucent Top button');
+  assert.ok(html.indexOf('id="btn-back-to-top"') > html.indexOf('</main>'), 'Top button must be outside </main> so it stays visible on both main page and User Manual');
+  assert.ok(html.includes("btnTop: 'Top'"), 'English Top button label must be Top');
+  assert.ok(html.includes('scheduleNavbarAutoClose') && html.includes("addEventListener('mouseleave', scheduleNavbarAutoClose)"), 'Hamburger menu must auto-close smoothly after pointer stops hovering');
   assert.ok(html.includes('class="toolbar-search-group"'), 'Search with AI input group must use responsive .toolbar-search-group');
   assert.ok(html.includes('Management (8+ yrs)'), 'Experience option must be Management (8+ yrs)');
   assert.ok(!html.includes('Lead / Manager (8+ yrs)'), 'Must replace Lead / Manager (8+ yrs) with Management (8+ yrs)');
@@ -178,7 +185,8 @@ async function runTests() {
     navigator: { clipboard: { writeText: async () => {} } },
     fetch: async () => ({ ok: true, json: async () => ({}) }),
     setInterval: () => {},
-    setTimeout: () => {},
+    setTimeout: () => 1,
+    clearTimeout: () => {},
     URL,
     Blob: class {},
     console
@@ -199,6 +207,9 @@ async function runTests() {
   assert.equal(typeof vmSandbox.window.closePositionsDropdown, 'function', 'closePositionsDropdown must be bound');
   assert.ok(domElements['resultsCardsContainer'].innerHTML.includes('opp-card'), 'Must render job cards on load');
   assert.equal(typeof vmSandbox.window.toggleSidebar, 'function', 'Menu button handler toggleSidebar must be bound');
+  assert.equal(typeof vmSandbox.window.scheduleNavbarAutoClose, 'function', 'scheduleNavbarAutoClose must be bound');
+  assert.equal(typeof vmSandbox.window.cancelNavbarAutoClose, 'function', 'cancelNavbarAutoClose must be bound');
+  assert.equal(typeof vmSandbox.window.scrollToTop, 'function', 'scrollToTop must be bound');
   assert.equal(typeof vmSandbox.window.toggleNoticeMenu, 'function', 'toggleNoticeMenu must be bound');
   assert.equal(typeof vmSandbox.window.toggleAiCvPanel, 'function', 'toggleAiCvPanel must be bound');
   assert.equal(typeof vmSandbox.window.setAiCvPanelFolded, 'function', 'setAiCvPanelFolded must be bound');
