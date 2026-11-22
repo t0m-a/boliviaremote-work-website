@@ -105,7 +105,11 @@ export function renderAppHtml(initialState) {
       top: 0;
       left: 0;
       right: 0;
-      z-index: 1000;
+      z-index: 1200;
+    }
+    button, a, label, input[type="checkbox"], .chip, .btn-tab, .btn-action, .pos-dropdown-toggle, .pos-dropdown-option {
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
     }
     #navbar {
       position: sticky;
@@ -116,7 +120,7 @@ export function renderAppHtml(initialState) {
       height: auto;
       border-bottom: 1px solid #e2e8f0;
       background: #ffffff;
-      z-index: 900;
+      z-index: 1100;
       display: flex;
       flex-direction: column;
       transition: background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
@@ -1145,23 +1149,21 @@ export function renderAppHtml(initialState) {
     .opp-card.card-reveal-pending,
     .radar-box.card-reveal-pending,
     .guide-step.card-reveal-pending {
-      opacity: 0;
-      transform: translateY(18px) scale(0.99);
-      will-change: opacity, transform;
+      opacity: 0.28;
+      transform: translateY(10px);
     }
     .opp-card.card-reveal-pending-up,
     .radar-box.card-reveal-pending-up,
     .guide-step.card-reveal-pending-up {
-      opacity: 0;
-      transform: translateY(-18px) scale(0.99);
-      will-change: opacity, transform;
+      opacity: 0.28;
+      transform: translateY(-10px);
     }
     .opp-card.card-reveal-visible,
     .radar-box.card-reveal-visible,
     .guide-step.card-reveal-visible {
       opacity: 1;
-      transform: translateY(0) scale(1);
-      transition: opacity 0.44s cubic-bezier(0.22, 1, 0.36, 1), transform 0.44s cubic-bezier(0.22, 1, 0.36, 1);
+      transform: translateY(0);
+      transition: opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1), transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
     }
     .opp-card.verdict-SKIP.card-reveal-visible {
       opacity: 0.88;
@@ -2379,24 +2381,29 @@ export function renderAppHtml(initialState) {
         display: none;
       }
       #navbar ul {
-        position: static;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
         width: 100%;
         max-width: 100%;
-        right: auto;
         border: none;
         border-top: 1px solid #e2e8f0;
-        border-radius: 0;
-        box-shadow: none;
-        max-height: 75vh;
+        border-bottom: 1px solid #cbd5e1;
+        border-radius: 0 0 10px 10px;
+        box-shadow: 0 12px 26px rgba(15, 23, 42, 0.16);
+        max-height: calc(100vh - 64px);
       }
       body.dark-mode #navbar ul {
         border-top-color: #1e293b;
-        box-shadow: none;
+        border-bottom-color: #334155;
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
       }
       body.sidebar-collapsed #navbar ul {
-        max-height: 0;
-        border-top-width: 0;
-        overflow: hidden;
+        opacity: 0;
+        transform: translateY(-6px);
+        visibility: hidden;
+        pointer-events: none;
       }
       #main-doc, body.sidebar-collapsed #main-doc {
         margin-left: 0;
@@ -2709,7 +2716,7 @@ export function renderAppHtml(initialState) {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
           </span>
         </button>
-        <button type="button" id="sidebar-unfold-btn" class="sidebar-fold-btn" onclick="toggleSidebar()" title="Mostrar información" aria-label="Mostrar información" aria-expanded="false">
+        <button type="button" id="sidebar-unfold-btn" class="sidebar-fold-btn" onclick="toggleSidebar(event)" title="Mostrar información" aria-label="Mostrar información" aria-expanded="false">
           <span class="hamburger-label" id="lbl-unfold-nav">Información Útil</span>
           <span class="hamburger-icon"><span></span><span></span><span></span></span>
         </button>
@@ -3511,29 +3518,53 @@ export function renderAppHtml(initialState) {
 
     function renderFilterChips() {
       const isEs = userFilters.ui_lang !== 'en';
+      const canQueryDom = (el) => el && typeof el.querySelectorAll === 'function';
 
-      // 1. Languages
+      // 1. Languages (in-place class sync after initial render for instant mobile reactivity)
       const langContainer = document.getElementById('chips-languages');
-      langContainer.innerHTML = LANGUAGE_OPTIONS.map(opt => {
-        const selected = (userFilters.languages || []).includes(opt.id);
-        const label = isEs ? opt.label_es : opt.label_en;
-        return '<span class="chip ' + (selected ? 'selected' : '') + '" onclick="toggleLanguageChip(\\'' + opt.id + '\\')">' +
-          escapeHtml(label) + '</span>';
-      }).join('');
+      const existingLangChips = canQueryDom(langContainer)
+        ? langContainer.querySelectorAll('.chip[data-opt-id]')
+        : [];
+      if (existingLangChips.length === LANGUAGE_OPTIONS.length) {
+        existingLangChips.forEach(chipEl => {
+          const optId = chipEl.getAttribute('data-opt-id');
+          chipEl.classList.toggle('selected', (userFilters.languages || []).includes(optId));
+        });
+      } else {
+        langContainer.innerHTML = LANGUAGE_OPTIONS.map(opt => {
+          const selected = (userFilters.languages || []).includes(opt.id);
+          const label = isEs ? opt.label_es : opt.label_en;
+          return '<span class="chip ' + (selected ? 'selected' : '') + '" data-opt-id="' + escapeHtml(opt.id) + '" onclick="toggleLanguageChip(\\'' + opt.id + '\\')">' +
+            escapeHtml(label) + '</span>';
+        }).join('');
+      }
 
-      // 2. Experience (Multi-select dropdown, default 'all')
+      // 2. Experience (Multi-select dropdown, default 'all' — in-place checkbox sync keeps scroll & focus)
       const selectedExpIds = (userFilters.experience_levels && userFilters.experience_levels.length > 0)
         ? userFilters.experience_levels
         : ['all'];
       const expContainer = document.getElementById('chips-experience');
-      expContainer.innerHTML = EXPERIENCE_OPTIONS.map(opt => {
-        const selected = selectedExpIds.includes(opt.id);
-        const label = isEs ? opt.label_es : opt.label_en;
-        return '<label class="pos-dropdown-option ' + (selected ? 'selected' : '') + '">' +
-          '<input type="checkbox" ' + (selected ? 'checked' : '') + ' onchange="toggleExperienceChip(\\'' + opt.id + '\\')">' +
-          '<span>' + escapeHtml(label) + '</span>' +
-        '</label>';
-      }).join('');
+      const existingExpOpts = canQueryDom(expContainer)
+        ? expContainer.querySelectorAll('.pos-dropdown-option[data-opt-id]')
+        : [];
+      if (existingExpOpts.length === EXPERIENCE_OPTIONS.length) {
+        existingExpOpts.forEach(optEl => {
+          const optId = optEl.getAttribute('data-opt-id');
+          const selected = selectedExpIds.includes(optId);
+          optEl.classList.toggle('selected', selected);
+          const cb = optEl.querySelector('input[type="checkbox"]');
+          if (cb) cb.checked = selected;
+        });
+      } else {
+        expContainer.innerHTML = EXPERIENCE_OPTIONS.map(opt => {
+          const selected = selectedExpIds.includes(opt.id);
+          const label = isEs ? opt.label_es : opt.label_en;
+          return '<label class="pos-dropdown-option ' + (selected ? 'selected' : '') + '" data-opt-id="' + escapeHtml(opt.id) + '">' +
+            '<input type="checkbox" ' + (selected ? 'checked' : '') + ' onchange="toggleExperienceChip(\\'' + opt.id + '\\')">' +
+            '<span>' + escapeHtml(label) + '</span>' +
+          '</label>';
+        }).join('');
+      }
 
       const expLabelEl = document.getElementById('exp-dropdown-label');
       if (expLabelEl) {
@@ -3554,19 +3585,32 @@ export function renderAppHtml(initialState) {
         if (expToggleBtn) expToggleBtn.title = expLabels.join(', ');
       }
 
-      // 3. Contracts (Multi-select dropdown, default all selected)
+      // 3. Contracts (Multi-select dropdown, default all selected — in-place checkbox sync)
       const selectedContractIds = (userFilters.contract_types && userFilters.contract_types.length > 0)
         ? userFilters.contract_types
         : CONTRACT_OPTIONS.map(c => c.id);
       const contractContainer = document.getElementById('chips-contracts');
-      contractContainer.innerHTML = CONTRACT_OPTIONS.map(opt => {
-        const selected = selectedContractIds.includes(opt.id);
-        const label = isEs ? opt.label_es : opt.label_en;
-        return '<label class="pos-dropdown-option ' + (selected ? 'selected' : '') + '">' +
-          '<input type="checkbox" ' + (selected ? 'checked' : '') + ' onchange="toggleContractChip(\\'' + opt.id + '\\')">' +
-          '<span>' + escapeHtml(label) + '</span>' +
-        '</label>';
-      }).join('');
+      const existingContractOpts = canQueryDom(contractContainer)
+        ? contractContainer.querySelectorAll('.pos-dropdown-option[data-opt-id]')
+        : [];
+      if (existingContractOpts.length === CONTRACT_OPTIONS.length) {
+        existingContractOpts.forEach(optEl => {
+          const optId = optEl.getAttribute('data-opt-id');
+          const selected = selectedContractIds.includes(optId);
+          optEl.classList.toggle('selected', selected);
+          const cb = optEl.querySelector('input[type="checkbox"]');
+          if (cb) cb.checked = selected;
+        });
+      } else {
+        contractContainer.innerHTML = CONTRACT_OPTIONS.map(opt => {
+          const selected = selectedContractIds.includes(opt.id);
+          const label = isEs ? opt.label_es : opt.label_en;
+          return '<label class="pos-dropdown-option ' + (selected ? 'selected' : '') + '" data-opt-id="' + escapeHtml(opt.id) + '">' +
+            '<input type="checkbox" ' + (selected ? 'checked' : '') + ' onchange="toggleContractChip(\\'' + opt.id + '\\')">' +
+            '<span>' + escapeHtml(label) + '</span>' +
+          '</label>';
+        }).join('');
+      }
 
       const contractLabelEl = document.getElementById('contract-dropdown-label');
       if (contractLabelEl) {
@@ -3589,17 +3633,30 @@ export function renderAppHtml(initialState) {
         if (contractToggleBtn) contractToggleBtn.title = contractLabels.join(', ');
       }
 
-      // 4. Position Categories (Multi-select dropdown)
+      // 4. Position Categories (Multi-select dropdown — in-place checkbox sync keeps scroll & selection)
       const selectedPosIds = userFilters.position_types || [];
       const posContainer = document.getElementById('chips-positions');
-      posContainer.innerHTML = POSITION_CATEGORIES.map(opt => {
-        const selected = selectedPosIds.includes(opt.id);
-        const label = isEs ? opt.label_es : opt.label_en;
-        return '<label class="pos-dropdown-option ' + (selected ? 'selected' : '') + '">' +
-          '<input type="checkbox" ' + (selected ? 'checked' : '') + ' onchange="togglePositionChip(\\'' + opt.id + '\\')">' +
-          '<span>' + escapeHtml(label) + '</span>' +
-        '</label>';
-      }).join('');
+      const existingPosOpts = canQueryDom(posContainer)
+        ? posContainer.querySelectorAll('.pos-dropdown-option[data-opt-id]')
+        : [];
+      if (existingPosOpts.length === POSITION_CATEGORIES.length) {
+        existingPosOpts.forEach(optEl => {
+          const optId = optEl.getAttribute('data-opt-id');
+          const selected = selectedPosIds.includes(optId);
+          optEl.classList.toggle('selected', selected);
+          const cb = optEl.querySelector('input[type="checkbox"]');
+          if (cb) cb.checked = selected;
+        });
+      } else {
+        posContainer.innerHTML = POSITION_CATEGORIES.map(opt => {
+          const selected = selectedPosIds.includes(opt.id);
+          const label = isEs ? opt.label_es : opt.label_en;
+          return '<label class="pos-dropdown-option ' + (selected ? 'selected' : '') + '" data-opt-id="' + escapeHtml(opt.id) + '">' +
+            '<input type="checkbox" ' + (selected ? 'checked' : '') + ' onchange="togglePositionChip(\\'' + opt.id + '\\')">' +
+            '<span>' + escapeHtml(label) + '</span>' +
+          '</label>';
+        }).join('');
+      }
 
       const posLabelEl = document.getElementById('pos-dropdown-label');
       if (posLabelEl) {
@@ -3642,7 +3699,7 @@ export function renderAppHtml(initialState) {
       userFilters.languages = set.size > 0 ? Array.from(set) : PAYLOAD.DEFAULT_FILTERS.languages.slice();
       saveFilters();
       renderFilterChips();
-      recomputeAndRender();
+      scheduleRecomputeAndRender();
     }
     window.toggleLanguageChip = toggleLanguageChip;
 
@@ -3657,7 +3714,7 @@ export function renderAppHtml(initialState) {
       }
       saveFilters();
       renderFilterChips();
-      recomputeAndRender();
+      scheduleRecomputeAndRender();
     }
 
     function toggleContractChip(id) {
@@ -3670,14 +3727,14 @@ export function renderAppHtml(initialState) {
       userFilters.contract_types = Array.from(set);
       saveFilters();
       renderFilterChips();
-      recomputeAndRender();
+      scheduleRecomputeAndRender();
     }
 
     function selectAllContracts() {
       userFilters.contract_types = CONTRACT_OPTIONS.map(c => c.id);
       saveFilters();
       renderFilterChips();
-      recomputeAndRender();
+      scheduleRecomputeAndRender();
     }
 
     const FILTER_DROPDOWN_PAIRS = [
@@ -3745,18 +3802,54 @@ export function renderAppHtml(initialState) {
     }
     window.closePositionsDropdown = closePositionsDropdown;
 
+    function supportsFineHover() {
+      return typeof window.matchMedia === 'function' &&
+        window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    }
+
+    function handleFilterDropdownScrollAutoClose() {
+      const vh = typeof window.innerHeight === 'number' ? window.innerHeight : 900;
+      for (const [ddId, btnId] of FILTER_DROPDOWN_PAIRS) {
+        const dd = document.getElementById(ddId);
+        if (!dd || !dd.classList || !dd.classList.contains('open')) continue;
+        if (typeof dd.getBoundingClientRect !== 'function') continue;
+        const rect = dd.getBoundingClientRect();
+        if (rect.bottom < 56 || rect.top > vh) {
+          cancelFilterDropdownAutoClose(ddId);
+          dd.classList.remove('open');
+          const btn = document.getElementById(btnId);
+          if (btn) btn.setAttribute('aria-expanded', 'false');
+        }
+      }
+      const catDd = document.getElementById('footer-categories-dropdown');
+      if (catDd && catDd.classList && catDd.classList.contains('open') && typeof catDd.getBoundingClientRect === 'function') {
+        const cRect = catDd.getBoundingClientRect();
+        if (cRect.bottom < 56 || cRect.top > vh) {
+          closeCategoriesMenu();
+        }
+      }
+    }
+    window.handleFilterDropdownScrollAutoClose = handleFilterDropdownScrollAutoClose;
+
     (function initFilterDropdownHoverAutoClose() {
       for (const [ddId, btnId] of FILTER_DROPDOWN_PAIRS) {
         const dd = document.getElementById(ddId);
         if (dd && typeof dd.addEventListener === 'function') {
-          dd.addEventListener('mouseenter', () => cancelFilterDropdownAutoClose(ddId));
-          dd.addEventListener('mouseleave', () => scheduleFilterDropdownAutoClose(ddId, btnId));
+          dd.addEventListener('mouseenter', () => {
+            if (supportsFineHover()) cancelFilterDropdownAutoClose(ddId);
+          });
+          dd.addEventListener('mouseleave', () => {
+            if (supportsFineHover()) scheduleFilterDropdownAutoClose(ddId, btnId);
+          });
         }
+      }
+      if (typeof window.addEventListener === 'function') {
+        window.addEventListener('scroll', handleFilterDropdownScrollAutoClose, { passive: true });
       }
     })();
 
     if (typeof document.addEventListener === 'function') {
-      document.addEventListener('click', function (e) {
+      const handleDropdownOutside = function (e) {
         for (const [ddId, btnId] of FILTER_DROPDOWN_PAIRS) {
           const dd = document.getElementById(ddId);
           if (dd && dd.classList.contains('open') && typeof dd.contains === 'function' && !dd.contains(e.target)) {
@@ -3770,7 +3863,9 @@ export function renderAppHtml(initialState) {
         if (catDd && catDd.classList.contains('open') && typeof catDd.contains === 'function' && !catDd.contains(e.target)) {
           closeCategoriesMenu();
         }
-      });
+      };
+      document.addEventListener('pointerdown', handleDropdownOutside, { passive: true });
+      document.addEventListener('click', handleDropdownOutside);
     }
 
     function togglePositionChip(id) {
@@ -3780,7 +3875,7 @@ export function renderAppHtml(initialState) {
       userFilters.position_types = Array.from(set);
       saveFilters();
       renderFilterChips();
-      recomputeAndRender();
+      scheduleRecomputeAndRender();
     }
 
     function clearPositions() {
@@ -3788,13 +3883,13 @@ export function renderAppHtml(initialState) {
       userFilters.custom_keywords = '';
       saveFilters();
       renderFilterChips();
-      recomputeAndRender();
+      scheduleRecomputeAndRender();
     }
 
     function onStrictPosToggle(checked) {
       userFilters.strict_position_match = checked;
       saveFilters();
-      recomputeAndRender();
+      scheduleRecomputeAndRender();
     }
 
     let semanticOverrideResults = null;
@@ -3809,9 +3904,50 @@ export function renderAppHtml(initialState) {
       syncSearchClearButton('');
       saveFilters();
       renderFilterChips();
-      recomputeAndRender();
+      scheduleRecomputeAndRender();
     }
     window.resetFilters = resetFilters;
+
+    let recomputeRafId = null;
+    let recomputeTimerId = null;
+    let reportMarkdownDirty = true;
+
+    function ensureReportMarkdownUpdated() {
+      if (!reportMarkdownDirty) return;
+      const box = document.getElementById('liveReportMarkdownBox');
+      if (!box) return;
+      box.textContent = generateResultsMarkdown(
+        lastEvaluationResult,
+        userFilters,
+        userFilters.ui_lang,
+        platformsState.length,
+        lastScanAtState
+      );
+      reportMarkdownDirty = false;
+    }
+
+    function scheduleRecomputeAndRender() {
+      if (typeof requestAnimationFrame !== 'function') {
+        recomputeAndRender();
+        return;
+      }
+      if (recomputeRafId) {
+        if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(recomputeRafId);
+        recomputeRafId = null;
+      }
+      if (recomputeTimerId) {
+        clearTimeout(recomputeTimerId);
+        recomputeTimerId = null;
+      }
+      recomputeRafId = requestAnimationFrame(() => {
+        recomputeRafId = null;
+        recomputeTimerId = setTimeout(() => {
+          recomputeTimerId = null;
+          recomputeAndRender();
+        }, 0);
+      });
+    }
+    window.scheduleRecomputeAndRender = scheduleRecomputeAndRender;
 
     function recomputeAndRender() {
       if (semanticOverrideResults !== null) {
@@ -3840,14 +3976,11 @@ export function renderAppHtml(initialState) {
 
       renderResultsCards();
 
-      const md = generateResultsMarkdown(
-        lastEvaluationResult,
-        userFilters,
-        userFilters.ui_lang,
-        platformsState.length,
-        lastScanAtState
-      );
-      document.getElementById('liveReportMarkdownBox').textContent = md;
+      reportMarkdownDirty = true;
+      const vReport = document.getElementById('view-report');
+      if (typeof requestAnimationFrame !== 'function' || (vReport && vReport.style && vReport.style.display !== 'none')) {
+        ensureReportMarkdownUpdated();
+      }
     }
 
     function extractTrackCode(trackStr) {
@@ -4118,6 +4251,20 @@ export function renderAppHtml(initialState) {
     }
 
     let cardRevealObserver = null;
+    let lastRevealScrollY = 0;
+    let lastRevealScrollTs = 0;
+    let isFastScrolling = false;
+
+    if (typeof window.addEventListener === 'function') {
+      window.addEventListener('scroll', () => {
+        const now = Date.now();
+        const y = typeof window.scrollY === 'number' ? window.scrollY : 0;
+        const dt = Math.max(1, now - lastRevealScrollTs);
+        isFastScrolling = (Math.abs(y - lastRevealScrollY) / dt) > 1.4;
+        lastRevealScrollY = y;
+        lastRevealScrollTs = now;
+      }, { passive: true });
+    }
 
     function initCardScrollReveal(rootEl) {
       if (!rootEl || typeof rootEl.querySelectorAll !== 'function') return;
@@ -4140,7 +4287,7 @@ export function renderAppHtml(initialState) {
           entries.forEach(entry => {
             const el = entry.target;
             if (entry.isIntersecting) {
-              el.style.transitionDelay = Math.min(batchIdx * 40, 140) + 'ms';
+              el.style.transitionDelay = isFastScrolling ? '0ms' : Math.min(batchIdx * 18, 54) + 'ms';
               batchIdx++;
               el.classList.remove('card-reveal-pending', 'card-reveal-pending-up');
               el.classList.add('card-reveal-visible');
@@ -4154,31 +4301,21 @@ export function renderAppHtml(initialState) {
           });
         }, {
           root: null,
-          rootMargin: '0px 0px -20px 0px',
-          threshold: 0.04
+          rootMargin: '60px 0px 60px 0px',
+          threshold: 0.01
         });
       }
 
       const vh = window.innerHeight || 900;
       cards.forEach((card, idx) => {
-        card.classList.remove('card-reveal-visible', 'card-reveal-pending-up');
+        card.classList.remove('card-reveal-visible', 'card-reveal-pending-up', 'card-reveal-pending');
         const rect = typeof card.getBoundingClientRect === 'function' ? card.getBoundingClientRect() : null;
-        if (rect && rect.bottom <= 0) {
-          card.classList.remove('card-reveal-pending');
+        if (rect && rect.bottom <= -60) {
           card.classList.add('card-reveal-pending-up');
           card.style.transitionDelay = '0ms';
-        } else if (rect && rect.top < vh * 0.96 && rect.bottom > 0) {
-          card.classList.add('card-reveal-pending');
-          card.style.transitionDelay = Math.min(idx * 40, 160) + 'ms';
-          if (typeof requestAnimationFrame === 'function') {
-            requestAnimationFrame(() => {
-              card.classList.remove('card-reveal-pending', 'card-reveal-pending-up');
-              card.classList.add('card-reveal-visible');
-            });
-          } else {
-            card.classList.remove('card-reveal-pending', 'card-reveal-pending-up');
-            card.classList.add('card-reveal-visible');
-          }
+        } else if (rect && rect.top < vh + 40 && rect.bottom > -40) {
+          card.classList.add('card-reveal-visible');
+          card.style.transitionDelay = '0ms';
         } else {
           card.classList.add('card-reveal-pending');
           card.style.transitionDelay = '0ms';
@@ -4269,6 +4406,8 @@ export function renderAppHtml(initialState) {
         initCardScrollReveal(vManual);
       } else if (viewName === 'platforms' && vPlatforms) {
         initCardScrollReveal(vPlatforms);
+      } else if (viewName === 'report') {
+        ensureReportMarkdownUpdated();
       }
       updateBackToTopPosition();
 
@@ -4404,8 +4543,12 @@ export function renderAppHtml(initialState) {
     window.foldAllNavbarSubsections = foldAllNavbarSubsections;
 
     let navbarOpenedScrollY = 0;
+    let navbarOpenedAt = 0;
 
-    function toggleSidebar() {
+    function toggleSidebar(event) {
+      if (event && typeof event.stopPropagation === 'function') {
+        event.stopPropagation();
+      }
       cancelNavbarAutoClose();
       const isCollapsed = document.body.classList.toggle('sidebar-collapsed');
       const btn = document.getElementById('sidebar-unfold-btn');
@@ -4416,6 +4559,7 @@ export function renderAppHtml(initialState) {
         foldAllNavbarSubsections();
       } else {
         navbarOpenedScrollY = (typeof window.scrollY === 'number' ? window.scrollY : 0);
+        navbarOpenedAt = Date.now();
       }
     }
     window.toggleSidebar = toggleSidebar;
@@ -4437,8 +4581,12 @@ export function renderAppHtml(initialState) {
       const navBtn = document.getElementById('sidebar-unfold-btn');
       [navList, navBtn].forEach(el => {
         if (el && typeof el.addEventListener === 'function') {
-          el.addEventListener('mouseenter', cancelNavbarAutoClose);
-          el.addEventListener('mouseleave', scheduleNavbarAutoClose);
+          el.addEventListener('mouseenter', () => {
+            if (supportsFineHover()) cancelNavbarAutoClose();
+          });
+          el.addEventListener('mouseleave', () => {
+            if (supportsFineHover()) scheduleNavbarAutoClose();
+          });
         }
       });
 
@@ -4447,6 +4595,7 @@ export function renderAppHtml(initialState) {
         if (document.body.classList && typeof document.body.classList.contains === 'function' && document.body.classList.contains('sidebar-collapsed')) {
           return;
         }
+        if ((Date.now() - navbarOpenedAt) < 120) return;
         if (nav && typeof nav.contains === 'function' && e && e.target && !nav.contains(e.target)) {
           closeNavbarMenu();
         }
@@ -4472,8 +4621,9 @@ export function renderAppHtml(initialState) {
           if (document.body.classList && typeof document.body.classList.contains === 'function' && document.body.classList.contains('sidebar-collapsed')) {
             return;
           }
+          if ((Date.now() - navbarOpenedAt) < 400) return;
           const currentY = typeof window.scrollY === 'number' ? window.scrollY : 0;
-          if (Math.abs(currentY - navbarOpenedScrollY) > 18) {
+          if (Math.abs(currentY - navbarOpenedScrollY) > 32) {
             closeNavbarMenu();
           }
         }, { passive: true });
@@ -4584,8 +4734,12 @@ export function renderAppHtml(initialState) {
     (function initFooterCategoriesHoverAutoClose() {
       const dd = document.getElementById('footer-categories-dropdown');
       if (dd && typeof dd.addEventListener === 'function') {
-        dd.addEventListener('mouseenter', cancelFooterCategoriesAutoClose);
-        dd.addEventListener('mouseleave', scheduleFooterCategoriesAutoClose);
+        dd.addEventListener('mouseenter', () => {
+          if (supportsFineHover()) cancelFooterCategoriesAutoClose();
+        });
+        dd.addEventListener('mouseleave', () => {
+          if (supportsFineHover()) scheduleFooterCategoriesAutoClose();
+        });
       }
     })();
 
@@ -5003,6 +5157,7 @@ export function renderAppHtml(initialState) {
     window.analyzePositionWithAi = submitAiCvMatch;
 
     function copyReportMarkdown(btn) {
+      ensureReportMarkdownUpdated();
       const t = I18N[userFilters.ui_lang] || I18N.es;
       const text = document.getElementById('liveReportMarkdownBox').textContent;
       navigator.clipboard.writeText(text).then(() => {
@@ -5014,6 +5169,7 @@ export function renderAppHtml(initialState) {
     }
 
     function downloadReportMarkdown() {
+      ensureReportMarkdownUpdated();
       const text = document.getElementById('liveReportMarkdownBox').textContent;
       const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
       const a = document.createElement('a');

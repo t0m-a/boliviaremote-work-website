@@ -167,8 +167,21 @@ async function runTests() {
   assert.ok(html.includes('id="btn-back-to-top"'), 'Must include bottom-right translucent Top button');
   assert.ok(html.indexOf('id="btn-back-to-top"') > html.indexOf('</main>'), 'Top button must be outside </main> so it stays visible on both main page and User Manual');
   assert.ok(html.includes("btnTop: 'Arriba'"), 'Spanish Top button label must be Arriba');
-  assert.ok(html.includes('scheduleNavbarAutoClose') && html.includes("addEventListener('mouseleave', scheduleNavbarAutoClose)"), 'Hamburger menu must auto-close smoothly after pointer stops hovering');
-  assert.ok(html.includes('scheduleFilterDropdownAutoClose') && html.includes('initFilterDropdownHoverAutoClose'), 'All filter dropdown menus must auto-close smoothly after pointer stops hovering');
+  assert.ok(html.includes('scheduleNavbarAutoClose') && html.includes("addEventListener('mouseleave'") && html.includes('supportsFineHover()'), 'Hamburger menu must auto-close smoothly after fine pointer stops hovering without breaking touch taps');
+  assert.ok(html.includes('scheduleFilterDropdownAutoClose') && html.includes('initFilterDropdownHoverAutoClose') && html.includes('handleFilterDropdownScrollAutoClose'), 'All filter dropdown menus must support hover auto-close and auto-close when scrolled out of view');
+  assert.ok(html.includes('touch-action: manipulation;') && html.includes('function scheduleRecomputeAndRender()') && html.includes('data-opt-id="'), 'Filter controls must use touch-action: manipulation, in-place option syncing, and deferred recomputation for instant mobile reactivity');
+  assert.ok(
+    /#navbar\s*\{[\s\S]*?z-index:\s*1100;/.test(html) &&
+    /@media only screen and \(max-width: 820px\)[\s\S]*?#navbar ul\s*\{[\s\S]*?position:\s*absolute;/.test(html) &&
+    html.includes('onclick="toggleSidebar(event)"'),
+    'Mobile hamburger menu must float cleanly above top filter panels at all scroll positions'
+  );
+  assert.ok(
+    html.includes("rootMargin: '60px 0px 60px 0px'") &&
+    html.includes('isFastScrolling') &&
+    /\.opp-card\.card-reveal-pending[\s\S]*?opacity:\s*0\.28;/.test(html),
+    'Scroll-reveal must pre-trigger smoothly with non-zero pending opacity and fast-scroll handling so offers never jump'
+  );
   assert.ok(html.includes('class="toolbar-search-group"'), 'Search with AI input group must use responsive .toolbar-search-group');
   assert.ok(
     html.includes('class="search-input-wrap" id="search-input-wrap"') &&
@@ -458,6 +471,16 @@ async function runTests() {
   vmSandbox.window.updateBackToTopPosition();
   assert.equal(domElements['btn-back-to-top'].style.bottom, '', 'On desktop, Arriba button must reset custom bottom offset');
   assert.equal(typeof vmSandbox.window.initCardScrollReveal, 'function', 'initCardScrollReveal must be bound');
+  assert.equal(typeof vmSandbox.window.scheduleRecomputeAndRender, 'function', 'scheduleRecomputeAndRender must be bound');
+  assert.equal(typeof vmSandbox.window.handleFilterDropdownScrollAutoClose, 'function', 'handleFilterDropdownScrollAutoClose must be bound');
+  domElements['pos-dropdown'] = getMockEl('pos-dropdown');
+  domElements['pos-dropdown-toggle'] = getMockEl('pos-dropdown-toggle');
+  domElements['pos-dropdown'].classList.add('open');
+  domElements['pos-dropdown-toggle'].setAttribute('aria-expanded', 'true');
+  domElements['pos-dropdown'].getBoundingClientRect = () => ({ top: -120, bottom: 20 });
+  vmSandbox.window.handleFilterDropdownScrollAutoClose();
+  assert.equal(domElements['pos-dropdown'].classList.contains('open'), false, 'Open filter dropdown must auto-close when scrolled above sticky navbar');
+  assert.equal(domElements['pos-dropdown-toggle'].attributes['aria-expanded'], 'false', 'Scrolling filter dropdown out of view must reset aria-expanded to false');
   assert.equal(typeof vmSandbox.window.updateNavbarStickyState, 'function', 'updateNavbarStickyState must be bound');
   vmSandbox.window.scrollY = 40;
   vmSandbox.window.updateNavbarStickyState();
