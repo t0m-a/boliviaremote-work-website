@@ -162,14 +162,14 @@ export function renderAppHtml(initialState) {
       gap: 8px;
       width: auto;
       height: 34px;
-      padding: 0 12px;
-      border: 1px solid #cbd5e1;
-      border-radius: 7px;
-      background: #ffffff;
-      color: #0f172a;
-      font-size: 0.85em;
+      padding: 6px 12px;
+      border: 1px solid #10b981;
+      border-radius: 6px;
+      background: #ecfdf5;
+      color: #065f46;
+      font-size: 0.84em;
       font-weight: 700;
-      line-height: 1;
+      line-height: 1.35;
       cursor: pointer;
       flex-shrink: 0;
       transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
@@ -180,9 +180,9 @@ export function renderAppHtml(initialState) {
     }
     .sidebar-fold-btn:hover,
     #sidebar-unfold-btn:hover {
-      background: #f1f5f9;
-      border-color: var(--accent-primary);
-      color: var(--accent-primary);
+      background: #d1fae5;
+      border-color: #059669;
+      color: #064e3b;
     }
     .hamburger-icon {
       display: inline-flex;
@@ -265,7 +265,8 @@ export function renderAppHtml(initialState) {
     }
     #navbar li.nav-notice-item.nav-notice-folded,
     #navbar li.nav-track-item.nav-track-folded,
-    #navbar li.nav-payment-item.nav-payment-folded {
+    #navbar li.nav-payment-item.nav-payment-folded,
+    #navbar li.nav-creator-item.nav-creator-folded {
       display: none !important;
     }
     #navbar li.nav-track-item a,
@@ -274,18 +275,26 @@ export function renderAppHtml(initialState) {
       font-size: 0.85em;
     }
     #navbar li.nav-notice-desc,
-    #navbar li.nav-payment-desc {
+    #navbar li.nav-payment-desc,
+    #navbar li.nav-creator-desc {
       padding: 10px 16px 12px 26px;
       background: #f8fafc;
     }
     #navbar li.nav-notice-desc p,
-    #navbar li.nav-payment-desc p {
-      margin: 0;
+    #navbar li.nav-payment-desc p,
+    #navbar li.nav-creator-desc p {
+      margin: 0 0 8px 0;
       font-size: 0.78em;
       line-height: 1.45;
       color: #475569;
     }
-    #navbar li.nav-notice-desc p a {
+    #navbar li.nav-notice-desc p:last-child,
+    #navbar li.nav-payment-desc p:last-child,
+    #navbar li.nav-creator-desc p:last-child {
+      margin-bottom: 0;
+    }
+    #navbar li.nav-notice-desc p a,
+    #navbar li.nav-creator-desc p a {
       display: inline;
       padding: 0;
       color: var(--accent-primary);
@@ -295,7 +304,8 @@ export function renderAppHtml(initialState) {
       background: transparent;
       border-left: none;
     }
-    #navbar li.nav-notice-desc p a:hover {
+    #navbar li.nav-notice-desc p a:hover,
+    #navbar li.nav-creator-desc p a:hover {
       background: transparent;
       color: var(--accent-hover);
       border-left: none;
@@ -1532,15 +1542,15 @@ export function renderAppHtml(initialState) {
     }
     body.dark-mode .sidebar-fold-btn,
     body.dark-mode #sidebar-unfold-btn {
-      background: #1e293b;
-      color: #f8fafc;
-      border-color: #334155;
+      background: #064e3b;
+      color: #a7f3d0;
+      border-color: #10b981;
     }
     body.dark-mode .sidebar-fold-btn:hover,
     body.dark-mode #sidebar-unfold-btn:hover {
-      background: var(--accent-primary);
+      background: #047857;
       color: #ffffff;
-      border-color: var(--accent-primary);
+      border-color: #34d399;
     }
     body.dark-mode #navbar ul {
       background: #0f172a;
@@ -1567,21 +1577,26 @@ export function renderAppHtml(initialState) {
       border-left-color: #38bdf8;
     }
     body.dark-mode #navbar li.nav-notice-desc,
-    body.dark-mode #navbar li.nav-payment-desc {
+    body.dark-mode #navbar li.nav-payment-desc,
+    body.dark-mode #navbar li.nav-creator-desc {
       background: #0f172a;
     }
     body.dark-mode #navbar li.nav-notice-desc p,
-    body.dark-mode #navbar li.nav-payment-desc p {
+    body.dark-mode #navbar li.nav-payment-desc p,
+    body.dark-mode #navbar li.nav-creator-desc p {
       color: #94a3b8;
     }
     body.dark-mode #navbar li.nav-notice-desc p strong,
-    body.dark-mode #navbar li.nav-payment-desc p strong {
+    body.dark-mode #navbar li.nav-payment-desc p strong,
+    body.dark-mode #navbar li.nav-creator-desc p strong {
       color: #e2e8f0;
     }
-    body.dark-mode #navbar li.nav-notice-desc p a {
+    body.dark-mode #navbar li.nav-notice-desc p a,
+    body.dark-mode #navbar li.nav-creator-desc p a {
       color: #38bdf8;
     }
-    body.dark-mode #navbar li.nav-notice-desc p a:hover {
+    body.dark-mode #navbar li.nav-notice-desc p a:hover,
+    body.dark-mode #navbar li.nav-creator-desc p a:hover {
       color: #7dd3fc;
     }
     body.dark-mode .top-banner {
@@ -2160,6 +2175,18 @@ export function renderAppHtml(initialState) {
       <li class="nav-track-item nav-track-folded"><a onclick="switchMainView('results'); filterByTrack('TRACK F'); closeNavbarMenu();"><span id="nav-track-f">Bolsas de Empleo Remoto</span></a></li>
 
       <li><a id="nav-platforms" onclick="switchMainView('platforms'); closeNavbarMenu();"><span id="nav-lbl-platforms">Plataformas Monitoreadas</span></a></li>
+
+      <li class="nav-group-header nav-collapsible-header" id="nav-hdr-creator-item" onclick="toggleCreatorMenu()" role="button" tabindex="0" aria-expanded="false">
+        <span id="nav-hdr-creator">Sobre el creador</span>
+        <span class="nav-caret" id="nav-creator-caret" aria-hidden="true"></span>
+      </li>
+      <li class="nav-creator-item nav-creator-folded nav-creator-desc">
+        <div id="nav-creator-desc">
+          <p>Soy <strong>Thomas Simon</strong>, Cloud Systems Architect, NOC &amp; AI Engineer radicado en La Paz, Bolivia. Creé esta herramienta abierta y gratuita para facilitar el acceso al empleo remoto internacional desde Bolivia.</p>
+          <p>Este proyecto forma parte de <strong>Minka Lab</strong> (<em>Laboratorio Abierto de Experimentación Tecnológica y Social</em>), una iniciativa comunitaria sin fines de lucro en La Paz y El Alto inspirada en la tradición andina de la <em>Minka</em>, dedicada a la higiene y seguridad digital, espacios maker con IA e idiomas, y hardware abierto accesible.</p>
+          <p><strong>Minka Lab:</strong> <a href="https://minkalab.net" title="Minka Lab · Laboratorio Abierto de Experimentación Tecnológica y Social" target="_blank" rel="noopener noreferrer">minkalab.net</a><br><strong>Contacto:</strong> <a href="mailto:contact@tsimon.me">Thomas Simon</a> · <a href="https://tsimon.me" title="Thomas Mathieu Simon · Cloud Systems Architect · NOC &amp; AI Engineer" target="_blank" rel="noopener noreferrer">tsimon.me</a></p>
+        </div>
+      </li>
     </ul>
   </nav>
 
@@ -2484,32 +2511,16 @@ export function renderAppHtml(initialState) {
           </div>
 
           <!-- PASO 8 -->
-          <div class="guide-step">
-            <div class="guide-step-header">
-              <span class="guide-step-num">8</span>
-              <h5 class="guide-step-title">Escanea tus Propias URLs de Plataformas o Empresas</h5>
-            </div>
-            <div class="guide-step-body">
-              ¿Encontraste una nueva bolsa de empleo o una página de carreras de una empresa internacional?
-              <ul>
-                <li>Ve al panel <strong>"Agregar y Escanear tu Propia URL de Plataforma o Bolsa de Empleo"</strong>.</li>
-                <li>Pega el enlace web, feed RSS o endpoint JSON.</li>
-                <li>Haz clic en <strong>"Escanear y Evaluar URL"</strong>.</li>
-                <li>El motor analizará las vacantes encontradas, verificará su elegibilidad remota para Bolivia y las añadirá al instante a tus resultados en vivo.</li>
-              </ul>
-            </div>
-          </div>
-
-          <!-- PASO 9 -->
           <div class="guide-step" style="margin-bottom:0;">
             <div class="guide-step-header">
-              <span class="guide-step-num">9</span>
-              <h5 class="guide-step-title">Exporta tus Resultados y Sincroniza en Segundo Plano</h5>
+              <span class="guide-step-num">8</span>
+              <h5 class="guide-step-title">Aprovecha "Más información con IA" y "Buscar con IA"</h5>
             </div>
             <div class="guide-step-body">
+              La plataforma integra dos herramientas de inteligencia artificial pensadas para ahorrar tiempo y mejorar tus postulaciones desde Bolivia:
               <ul>
-                <li>Haz clic en la tarjeta o pestaña <strong>"Reporte de Resultados"</strong> para copiar el informe formateado, descargar el archivo <code>.md</code> o exportar una planilla <code>.csv</code> para gestionarla en Excel o Notion.</li>
-                <li>La herramienta se sincroniza automáticamente cada 15 minutos en segundo plano, o puedes forzar un escaneo inmediato haciendo clic en <strong>"Escanear Ofertas Ahora"</strong> en el banner superior.</li>
+                <li><strong>Más información con IA (en cada tarjeta de oferta):</strong> Haz clic en el botón <strong>"Más información con IA"</strong> para desplegar justo debajo de la vacante un análisis detallado generado con Cloudflare Workers AI. Te muestra un resumen claro de la posición, los <em>Requisitos de la posición</em>, la <em>Experiencia y habilidades útiles</em>, la <em>Compatibilidad horaria con Bolivia (UTC-4)</em> y <em>Consejos para el candidato</em>. El panel se cierra automáticamente al desplazarte fuera de su área o al pulsar <code>&times;</code>.</li>
+                <li><strong>Buscar con IA (en la barra de herramientas):</strong> Realiza una búsqueda semántica vectorial multilingüe sobre todas las ofertas 100% remotas para Bolivia. Escribe en lenguaje natural lo que buscas (por ejemplo: <em>"soporte al cliente bilingüe"</em>, <em>"desarrollador Python remoto"</em> o <em>"asistente contable"</em>) y pulsa <strong>"Buscar con IA"</strong> para ordenar las vacantes por afinidad semántica y relevancia. Puedes volver a la lista normal en cualquier momento con el botón <strong>"Limpiar Vector"</strong> o cambiando cualquier filtro.</li>
               </ul>
             </div>
           </div>
@@ -3593,6 +3604,21 @@ export function renderAppHtml(initialState) {
       }
     }
     window.toggleNoticeMenu = toggleNoticeMenu;
+
+    function toggleCreatorMenu() {
+      const hdr = document.getElementById('nav-hdr-creator-item');
+      const items = document.querySelectorAll('#navbar li.nav-creator-item');
+      let nowExpanded = false;
+      items.forEach(item => {
+        const isFolded = item.classList.toggle('nav-creator-folded');
+        if (!isFolded) nowExpanded = true;
+      });
+      if (hdr) {
+        hdr.classList.toggle('expanded', nowExpanded);
+        hdr.setAttribute('aria-expanded', nowExpanded ? 'true' : 'false');
+      }
+    }
+    window.toggleCreatorMenu = toggleCreatorMenu;
 
     let navbarAutoCloseTimer = null;
 

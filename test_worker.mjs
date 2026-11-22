@@ -51,10 +51,20 @@ async function runTests() {
   const idxPayments = navListHtml.indexOf('id="nav-hdr-payments-item"');
   const idxTracks = navListHtml.indexOf('id="nav-hdr-tracks-item"');
   const idxPlatforms = navListHtml.indexOf('id="nav-platforms"');
+  const idxCreator = navListHtml.indexOf('id="nav-hdr-creator-item"');
   assert.ok(!navListHtml.includes('id="nav-results"'), 'Must remove Live Results item from Information hamburger menu');
   assert.ok(
-    idxNotice > -1 && idxNotice < idxManual && idxManual < idxPayments && idxPayments < idxTracks && idxTracks < idxPlatforms,
-    'Hamburger menu order must be: 1. Notice, 2. User Manual, 3. Financial Information, 4. Platform Categories, 5. Monitored Platforms'
+    idxNotice > -1 && idxNotice < idxManual && idxManual < idxPayments && idxPayments < idxTracks && idxTracks < idxPlatforms && idxPlatforms < idxCreator,
+    'Hamburger menu order must be: 1. Notice, 2. User Manual, 3. Financial Information, 4. Platform Categories, 5. Monitored Platforms, 6. Sobre el creador'
+  );
+  assert.ok(navListHtml.includes('id="nav-hdr-creator">Sobre el creador</span>') && navListHtml.includes('onclick="toggleCreatorMenu()"'), 'Hamburger menu must include collapsible Sobre el creador section');
+  assert.ok(navListHtml.includes('id="nav-creator-desc"') && navListHtml.includes('https://minkalab.net') && navListHtml.includes('mailto:contact@tsimon.me') && navListHtml.includes('https://tsimon.me'), 'Sobre el creador must describe Minka Lab and include minkalab.net and creator contact/site links');
+  assert.ok(/#sidebar-unfold-btn\s*\{[\s\S]*?border:\s*1px solid #10b981;[\s\S]*?background:\s*#ecfdf5;[\s\S]*?color:\s*#065f46;/.test(html), 'Información Utiles button must use the .bolivia-only-label green highlight design');
+  assert.ok(!html.includes('Exporta tus Resultados y Sincroniza en Segundo Plano') && !html.includes('<!-- PASO 9 -->'), 'User Manual must remove section 9');
+  assert.ok(
+    html.includes('Aprovecha "Más información con IA" y "Buscar con IA"') &&
+    !html.includes('Escanea tus Propias URLs de Plataformas o Empresas'),
+    'User Manual section 8 must explain Más información con IA and Buscar con IA instead of URL scanning'
   );
   assert.ok(!html.includes('id="tab-view-platforms"'), 'Must move Monitored Platforms button out of toolbar into Information menu');
   assert.ok(/<section class="toolbar">[\s\S]*?id="tab-view-results"[\s\S]*?class="btn-tab btn-tab-scan" id="btn-scan-now"/.test(html), 'Scan Offers Now button must replace Monitored Platforms in toolbar with green btn-tab styling');
@@ -170,9 +180,13 @@ async function runTests() {
   assert.ok(html.includes('data:image/svg+xml'), 'Must have embedded data URI for offline support');
   assert.ok(!html.includes('Francés'), 'Must not contain French in UI filters');
   assert.ok(!html.includes('French'), 'Must not contain French in UI');
-  const htmlNoFooter = html.replace(/<footer[\s\S]*?<\/footer>/gi, '').replace(/footerText:[\s\S]*?<\/a>'/gi, '').toLowerCase();
-  assert.ok(!htmlNoFooter.includes('thomas simon'), 'Must not contain personal name outside footer attribution');
-  assert.ok(!htmlNoFooter.includes('tsimon.me'), 'Must not contain personal domain outside footer attribution');
+  const htmlNoFooter = html
+    .replace(/<footer[\s\S]*?<\/footer>/gi, '')
+    .replace(/footerText:[\s\S]*?<\/a>'/gi, '')
+    .replace(/<div id="nav-creator-desc">[\s\S]*?<\/div>/gi, '')
+    .toLowerCase();
+  assert.ok(!htmlNoFooter.includes('thomas simon'), 'Must not contain personal name outside footer attribution and Sobre el creador');
+  assert.ok(!htmlNoFooter.includes('tsimon.me'), 'Must not contain personal domain outside footer attribution and Sobre el creador');
   assert.ok(!html.toLowerCase().includes('burnout'), 'Must not contain burnout safety references');
   assert.ok(!html.toLowerCase().includes('proposals ready'), 'Must not contain pre-populated proposals');
 
@@ -276,6 +290,7 @@ async function runTests() {
   assert.equal(typeof vmSandbox.window.cancelNavbarAutoClose, 'function', 'cancelNavbarAutoClose must be bound');
   assert.equal(typeof vmSandbox.window.scrollToTop, 'function', 'scrollToTop must be bound');
   assert.equal(typeof vmSandbox.window.toggleNoticeMenu, 'function', 'toggleNoticeMenu must be bound');
+  assert.equal(typeof vmSandbox.window.toggleCreatorMenu, 'function', 'toggleCreatorMenu must be bound');
   assert.equal(typeof vmSandbox.window.closeAiDiagnosticPanel, 'function', 'closeAiDiagnosticPanel must be bound');
   assert.equal(typeof vmSandbox.window.handleAiPanelScrollAutoClose, 'function', 'handleAiPanelScrollAutoClose must be bound');
   assert.equal(typeof vmSandbox.window.setAiCvPanelFolded, 'function', 'setAiCvPanelFolded must be bound');
@@ -931,7 +946,10 @@ async function runTests() {
     const emojiMatches = rawContent.match(EMOJI_REGEX);
     assert.ok(!emojiMatches, `Forbidden emoji icon found in ${relPath}: ${emojiMatches?.join(' ')}`);
     const content = (relPath === 'src/ui.js' || relPath === 'index.html')
-      ? rawContent.replace(/Designed, engineered and hosted by[\s\S]*?tsimon\.me<\/a>/gi, '').toLowerCase()
+      ? rawContent
+        .replace(/Designed, engineered and hosted by[\s\S]*?tsimon\.me<\/a>/gi, '')
+        .replace(/<div id="nav-creator-desc">[\s\S]*?<\/div>/gi, '')
+        .toLowerCase()
       : rawContent.toLowerCase();
     for (const term of forbiddenTerms) {
       assert.ok(!content.includes(term), `Forbidden personal term "${term}" found in ${relPath}`);
