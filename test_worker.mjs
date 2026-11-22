@@ -63,7 +63,10 @@ async function runTests() {
   assert.ok(html.includes('setUiLanguage(\'en\')'), 'Must include English language switcher');
   assert.ok(html.includes('id="sidebar-unfold-btn"'), 'Must have sidebar unfold button');
   assert.ok(html.includes('<body class="sidebar-collapsed">'), 'Navbar must start folded in hamburger menu by default');
-  assert.ok(/<div class="navbar-header">[\s\S]*?id="nav-brand-title">Bolivia Remote Work<\/span>[\s\S]*?id="sidebar-unfold-btn"[\s\S]*?<span class="hamburger-label" id="lbl-unfold-nav">Menú<\/span>[\s\S]*?<span class="hamburger-icon">/.test(html), 'Hamburger button must be inside navbar-header on the right with Menú on the left of hamburger icon');
+  assert.ok(/<div class="navbar-header">[\s\S]*?id="nav-brand-title">Bolivia Remote Work<\/span>[\s\S]*?id="sidebar-unfold-btn"[\s\S]*?<span class="hamburger-label" id="lbl-unfold-nav">Información<\/span>[\s\S]*?<span class="hamburger-icon">/.test(html), 'Hamburger button must be inside navbar-header on the right with Información on the left of hamburger icon');
+  assert.ok(html.includes("unfoldNav: 'Information'"), 'English hamburger menu title must be Information');
+  assert.ok(html.includes('id="exp-dropdown"') && html.includes('id="exp-dropdown-menu"'), 'Experience Level must use a multi-select dropdown');
+  assert.ok(html.includes('id="contract-dropdown"') && html.includes('id="contract-dropdown-menu"'), 'Target Contract Types must use a multi-select dropdown');
   assert.ok(html.includes('onclick="toggleCategoriesMenu()"'), 'Categories header inside menu must be collapsible');
   assert.ok(html.includes('class="nav-track-item nav-track-folded"'), 'Categories inside menu must start folded');
   assert.ok(html.includes('id="nav-hdr-payments">Información Financiera</span>'), 'Must include Información Financiera section header under Categorías de Plataformas');
@@ -166,8 +169,12 @@ async function runTests() {
   new vm.Script(allScripts[0][1], { filename: 'theme-init.js' }).runInContext(vmSandbox);
   new vm.Script(allScripts[2][1], { filename: 'client-main.js' }).runInContext(vmSandbox);
   assert.ok(domElements['chips-languages'].innerHTML.includes('toggleLanguageChip'), 'Must render interactive language chips on load');
-  assert.ok(domElements['chips-experience'].innerHTML.includes('toggleExperienceChip'), 'Must render interactive experience chips on load');
-  assert.ok(domElements['chips-contracts'].innerHTML.includes('toggleContractChip'), 'Must render interactive contract chips on load');
+  assert.ok(domElements['chips-experience'].innerHTML.includes('toggleExperienceChip'), 'Must render interactive experience options on load');
+  assert.ok(domElements['chips-experience'].innerHTML.includes('type="checkbox"'), 'Experience dropdown options must be multi-select checkboxes');
+  assert.ok(domElements['chips-contracts'].innerHTML.includes('toggleContractChip'), 'Must render interactive contract options on load');
+  assert.ok(domElements['chips-contracts'].innerHTML.includes('type="checkbox"'), 'Contract dropdown options must be multi-select checkboxes');
+  assert.equal(typeof vmSandbox.window.toggleFilterDropdown, 'function', 'toggleFilterDropdown must be bound');
+  assert.equal(typeof vmSandbox.window.closeAllFilterDropdowns, 'function', 'closeAllFilterDropdowns must be bound');
   assert.ok(domElements['chips-positions'].innerHTML.includes('togglePositionChip'), 'Must render interactive position options on load');
   assert.ok(domElements['chips-positions'].innerHTML.includes('type="checkbox"'), 'Position dropdown options must be multi-select checkboxes');
   assert.equal(typeof vmSandbox.window.togglePositionsDropdown, 'function', 'togglePositionsDropdown must be bound');

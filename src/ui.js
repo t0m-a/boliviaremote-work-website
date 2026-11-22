@@ -633,6 +633,15 @@ export function renderAppHtml(initialState) {
       min-width: 220px;
       max-width: 100%;
     }
+    .pos-dropdown.filter-dropdown-full {
+      flex: none;
+      width: 100%;
+      min-width: 0;
+    }
+    .pos-dropdown.filter-dropdown-full .pos-dropdown-menu {
+      width: 100%;
+      max-width: 100%;
+    }
     .pos-dropdown-toggle {
       display: flex;
       align-items: center;
@@ -2037,8 +2046,8 @@ export function renderAppHtml(initialState) {
   <nav id="navbar">
     <div class="navbar-header">
       <header class="header-title"><span id="nav-brand-title">Bolivia Remote Work</span></header>
-      <button type="button" id="sidebar-unfold-btn" class="sidebar-fold-btn" onclick="toggleSidebar()" title="Mostrar menú" aria-label="Mostrar menú" aria-expanded="false">
-        <span class="hamburger-label" id="lbl-unfold-nav">Menú</span>
+      <button type="button" id="sidebar-unfold-btn" class="sidebar-fold-btn" onclick="toggleSidebar()" title="Mostrar información" aria-label="Mostrar información" aria-expanded="false">
+        <span class="hamburger-label" id="lbl-unfold-nav">Información</span>
         <span class="hamburger-icon"><span></span><span></span><span></span></span>
       </button>
     </div>
@@ -2131,7 +2140,23 @@ export function renderAppHtml(initialState) {
             <span id="lbl-filter-exp">2. Tu Nivel de Experiencia</span>
             <span style="font-size:0.76em;color:#64748b;" id="lbl-weight-exp">(Peso: Contrato + Exp 20 pts)</span>
           </div>
-          <div class="chip-group" id="chips-experience"></div>
+          <div class="pos-dropdown filter-dropdown-full" id="exp-dropdown">
+            <button
+              type="button"
+              id="exp-dropdown-toggle"
+              class="input-select pos-dropdown-toggle"
+              onclick="toggleFilterDropdown('exp-dropdown', 'exp-dropdown-toggle', event)"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-controls="exp-dropdown-menu"
+            >
+              <span id="exp-dropdown-label" class="pos-dropdown-label">Todos los niveles</span>
+              <span class="pos-dropdown-caret" aria-hidden="true"></span>
+            </button>
+            <div id="exp-dropdown-menu" class="pos-dropdown-menu" role="listbox" aria-multiselectable="true">
+              <div id="chips-experience" class="pos-dropdown-list"></div>
+            </div>
+          </div>
         </div>
 
         <!-- 3. CONTRACT TYPE -->
@@ -2140,7 +2165,23 @@ export function renderAppHtml(initialState) {
             <span id="lbl-filter-contracts">3. Tipo de Contrato Buscado</span>
             <button type="button" style="border:none;background:none;color:#0284c7;font-size:0.78em;font-weight:700;cursor:pointer;" onclick="selectAllContracts()" id="btn-all-contracts">Todos</button>
           </div>
-          <div class="chip-group" id="chips-contracts"></div>
+          <div class="pos-dropdown filter-dropdown-full" id="contract-dropdown">
+            <button
+              type="button"
+              id="contract-dropdown-toggle"
+              class="input-select pos-dropdown-toggle"
+              onclick="toggleFilterDropdown('contract-dropdown', 'contract-dropdown-toggle', event)"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-controls="contract-dropdown-menu"
+            >
+              <span id="contract-dropdown-label" class="pos-dropdown-label">Todos los tipos</span>
+              <span class="pos-dropdown-caret" aria-hidden="true"></span>
+            </button>
+            <div id="contract-dropdown-menu" class="pos-dropdown-menu" role="listbox" aria-multiselectable="true">
+              <div id="chips-contracts" class="pos-dropdown-list"></div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -2652,7 +2693,7 @@ export function renderAppHtml(initialState) {
       es: {
         pageTitle: 'Empleos Remotos desde Bolivia — Buscador y Evaluador en Vivo',
         navBrand: 'Bolivia Remote Work',
-        unfoldNav: 'Menú',
+        unfoldNav: 'Información',
         navViews: 'Vistas Principales',
         navResults: 'Resultados en Vivo',
         navManual: 'Manual de Uso',
@@ -2765,7 +2806,7 @@ export function renderAppHtml(initialState) {
       en: {
         pageTitle: 'Remote Jobs from Bolivia — Live Job Scout & Evaluator',
         navBrand: 'Bolivia Remote Work',
-        unfoldNav: 'Menu',
+        unfoldNav: 'Information',
         navViews: 'Main Views',
         navResults: 'Live Results',
         navManual: 'User Manual',
@@ -3024,7 +3065,7 @@ export function renderAppHtml(initialState) {
       }
       const unfoldBtn = document.getElementById('sidebar-unfold-btn');
       if (unfoldBtn) {
-        const titleText = userFilters.ui_lang === 'en' ? 'Show menu' : 'Mostrar menú';
+        const titleText = userFilters.ui_lang === 'en' ? 'Show information' : 'Mostrar información';
         unfoldBtn.title = titleText;
         unfoldBtn.setAttribute('aria-label', titleText);
       }
@@ -3049,23 +3090,73 @@ export function renderAppHtml(initialState) {
           escapeHtml(label) + '</span>';
       }).join('');
 
-      // 2. Experience
+      // 2. Experience (Multi-select dropdown, default 'all')
+      const selectedExpIds = (userFilters.experience_levels && userFilters.experience_levels.length > 0)
+        ? userFilters.experience_levels
+        : ['all'];
       const expContainer = document.getElementById('chips-experience');
       expContainer.innerHTML = EXPERIENCE_OPTIONS.map(opt => {
-        const selected = (userFilters.experience_levels || ['all']).includes(opt.id);
+        const selected = selectedExpIds.includes(opt.id);
         const label = isEs ? opt.label_es : opt.label_en;
-        return '<span class="chip ' + (selected ? 'selected' : '') + '" onclick="toggleExperienceChip(\\'' + opt.id + '\\')">' +
-          escapeHtml(label) + '</span>';
+        return '<label class="pos-dropdown-option ' + (selected ? 'selected' : '') + '">' +
+          '<input type="checkbox" ' + (selected ? 'checked' : '') + ' onchange="toggleExperienceChip(\\'' + opt.id + '\\')">' +
+          '<span>' + escapeHtml(label) + '</span>' +
+        '</label>';
       }).join('');
 
-      // 3. Contracts
+      const expLabelEl = document.getElementById('exp-dropdown-label');
+      if (expLabelEl) {
+        const expLabels = selectedExpIds.map(id => {
+          const found = EXPERIENCE_OPTIONS.find(o => o.id === id);
+          return found ? (isEs ? found.label_es : found.label_en) : id;
+        });
+        if (selectedExpIds.includes('all')) {
+          expLabelEl.textContent = isEs ? 'Todos los niveles' : 'All levels';
+        } else if (expLabels.length <= 2) {
+          expLabelEl.textContent = expLabels.join(', ');
+        } else {
+          expLabelEl.textContent = isEs
+            ? expLabels.length + ' niveles seleccionados'
+            : expLabels.length + ' levels selected';
+        }
+        const expToggleBtn = document.getElementById('exp-dropdown-toggle');
+        if (expToggleBtn) expToggleBtn.title = expLabels.join(', ');
+      }
+
+      // 3. Contracts (Multi-select dropdown, default all selected)
+      const selectedContractIds = (userFilters.contract_types && userFilters.contract_types.length > 0)
+        ? userFilters.contract_types
+        : CONTRACT_OPTIONS.map(c => c.id);
       const contractContainer = document.getElementById('chips-contracts');
       contractContainer.innerHTML = CONTRACT_OPTIONS.map(opt => {
-        const selected = (userFilters.contract_types || []).includes(opt.id);
+        const selected = selectedContractIds.includes(opt.id);
         const label = isEs ? opt.label_es : opt.label_en;
-        return '<span class="chip ' + (selected ? 'selected' : '') + '" onclick="toggleContractChip(\\'' + opt.id + '\\')">' +
-          escapeHtml(label) + '</span>';
+        return '<label class="pos-dropdown-option ' + (selected ? 'selected' : '') + '">' +
+          '<input type="checkbox" ' + (selected ? 'checked' : '') + ' onchange="toggleContractChip(\\'' + opt.id + '\\')">' +
+          '<span>' + escapeHtml(label) + '</span>' +
+        '</label>';
       }).join('');
+
+      const contractLabelEl = document.getElementById('contract-dropdown-label');
+      if (contractLabelEl) {
+        const contractLabels = selectedContractIds.map(id => {
+          const found = CONTRACT_OPTIONS.find(o => o.id === id);
+          return found ? (isEs ? found.label_es : found.label_en) : id;
+        });
+        if (selectedContractIds.length >= CONTRACT_OPTIONS.length) {
+          contractLabelEl.textContent = isEs
+            ? 'Todos los tipos (' + CONTRACT_OPTIONS.length + ')'
+            : 'All types (' + CONTRACT_OPTIONS.length + ')';
+        } else if (contractLabels.length <= 2) {
+          contractLabelEl.textContent = contractLabels.join(', ');
+        } else {
+          contractLabelEl.textContent = isEs
+            ? contractLabels.length + ' tipos seleccionados'
+            : contractLabels.length + ' types selected';
+        }
+        const contractToggleBtn = document.getElementById('contract-dropdown-toggle');
+        if (contractToggleBtn) contractToggleBtn.title = contractLabels.join(', ');
+      }
 
       // 4. Position Categories (Multi-select dropdown)
       const selectedPosIds = userFilters.position_types || [];
@@ -3159,31 +3250,55 @@ export function renderAppHtml(initialState) {
       recomputeAndRender();
     }
 
-    function togglePositionsDropdown(event) {
+    const FILTER_DROPDOWN_PAIRS = [
+      ['exp-dropdown', 'exp-dropdown-toggle'],
+      ['contract-dropdown', 'contract-dropdown-toggle'],
+      ['pos-dropdown', 'pos-dropdown-toggle']
+    ];
+
+    function closeAllFilterDropdowns(exceptId) {
+      for (const [ddId, btnId] of FILTER_DROPDOWN_PAIRS) {
+        if (exceptId && ddId === exceptId) continue;
+        const dd = document.getElementById(ddId);
+        const btn = document.getElementById(btnId);
+        if (dd) dd.classList.remove('open');
+        if (btn) btn.setAttribute('aria-expanded', 'false');
+      }
+    }
+    window.closeAllFilterDropdowns = closeAllFilterDropdowns;
+
+    function toggleFilterDropdown(ddId, btnId, event) {
       if (event && typeof event.stopPropagation === 'function') {
         event.stopPropagation();
       }
-      const dd = document.getElementById('pos-dropdown');
-      const btn = document.getElementById('pos-dropdown-toggle');
+      const dd = document.getElementById(ddId);
+      const btn = document.getElementById(btnId);
       if (!dd) return;
+      closeAllFilterDropdowns(ddId);
       const isOpen = dd.classList.toggle('open');
       if (btn) btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    }
+    window.toggleFilterDropdown = toggleFilterDropdown;
+
+    function togglePositionsDropdown(event) {
+      toggleFilterDropdown('pos-dropdown', 'pos-dropdown-toggle', event);
     }
     window.togglePositionsDropdown = togglePositionsDropdown;
 
     function closePositionsDropdown() {
-      const dd = document.getElementById('pos-dropdown');
-      const btn = document.getElementById('pos-dropdown-toggle');
-      if (dd) dd.classList.remove('open');
-      if (btn) btn.setAttribute('aria-expanded', 'false');
+      closeAllFilterDropdowns();
     }
     window.closePositionsDropdown = closePositionsDropdown;
 
     if (typeof document.addEventListener === 'function') {
       document.addEventListener('click', function (e) {
-        const dd = document.getElementById('pos-dropdown');
-        if (dd && dd.classList.contains('open') && typeof dd.contains === 'function' && !dd.contains(e.target)) {
-          closePositionsDropdown();
+        for (const [ddId, btnId] of FILTER_DROPDOWN_PAIRS) {
+          const dd = document.getElementById(ddId);
+          if (dd && dd.classList.contains('open') && typeof dd.contains === 'function' && !dd.contains(e.target)) {
+            dd.classList.remove('open');
+            const btn = document.getElementById(btnId);
+            if (btn) btn.setAttribute('aria-expanded', 'false');
+          }
         }
       });
     }
