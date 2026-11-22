@@ -64,6 +64,7 @@ async function runTests() {
   assert.ok(html.indexOf('id="btn-back-to-top"') > html.indexOf('</main>'), 'Top button must be outside </main> so it stays visible on both main page and User Manual');
   assert.ok(html.includes("btnTop: 'Top'"), 'English Top button label must be Top');
   assert.ok(html.includes('scheduleNavbarAutoClose') && html.includes("addEventListener('mouseleave', scheduleNavbarAutoClose)"), 'Hamburger menu must auto-close smoothly after pointer stops hovering');
+  assert.ok(html.includes('scheduleFilterDropdownAutoClose') && html.includes('initFilterDropdownHoverAutoClose'), 'All filter dropdown menus must auto-close smoothly after pointer stops hovering');
   assert.ok(html.includes('class="toolbar-search-group"'), 'Search with AI input group must use responsive .toolbar-search-group');
   assert.ok(html.includes('Management (8+ yrs)'), 'Experience option must be Management (8+ yrs)');
   assert.ok(!html.includes('Lead / Manager (8+ yrs)'), 'Must replace Lead / Manager (8+ yrs) with Management (8+ yrs)');
@@ -201,6 +202,8 @@ async function runTests() {
   assert.ok(domElements['chips-contracts'].innerHTML.includes('type="checkbox"'), 'Contract dropdown options must be multi-select checkboxes');
   assert.equal(typeof vmSandbox.window.toggleFilterDropdown, 'function', 'toggleFilterDropdown must be bound');
   assert.equal(typeof vmSandbox.window.closeAllFilterDropdowns, 'function', 'closeAllFilterDropdowns must be bound');
+  assert.equal(typeof vmSandbox.window.scheduleFilterDropdownAutoClose, 'function', 'scheduleFilterDropdownAutoClose must be bound');
+  assert.equal(typeof vmSandbox.window.cancelFilterDropdownAutoClose, 'function', 'cancelFilterDropdownAutoClose must be bound');
   assert.ok(domElements['chips-positions'].innerHTML.includes('togglePositionChip'), 'Must render interactive position options on load');
   assert.ok(domElements['chips-positions'].innerHTML.includes('type="checkbox"'), 'Position dropdown options must be multi-select checkboxes');
   assert.equal(typeof vmSandbox.window.togglePositionsDropdown, 'function', 'togglePositionsDropdown must be bound');
