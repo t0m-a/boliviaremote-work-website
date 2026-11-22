@@ -1277,6 +1277,17 @@ export function renderAppHtml(initialState) {
       font-size: 0.82em;
       color: var(--text-muted);
     }
+    .footer-status-pills {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .footer-credit {
+      line-height: 1.5;
+    }
     footer a {
       color: var(--accent-primary);
       text-decoration: underline;
@@ -1920,10 +1931,6 @@ export function renderAppHtml(initialState) {
         </p>
       </div>
       <div class="banner-pills banner-actions-row">
-        <span class="banner-pill" id="pill-bolivia">Filtro Base: 100% Remoto desde Bolivia (UTC-4)</span>
-        <span class="banner-pill" id="pill-schedule">Ejecución: Bajo Demanda + Automático cada 15 min</span>
-        <span class="banner-pill"><span id="lbl-last-sync">Última sincronización:</span> <span id="val-last-sync">-</span></span>
-        <span class="banner-pill"><span id="lbl-monitored-count">Plataformas activas:</span> <span id="val-platforms-count">0</span></span>
         <div class="lang-switch-group">
           <button type="button" class="btn-lang active" id="btn-lang-es" onclick="setUiLanguage('es')">Español (Bolivia)</button>
           <button type="button" class="btn-lang" id="btn-lang-en" onclick="setUiLanguage('en')">English</button>
@@ -2374,7 +2381,15 @@ export function renderAppHtml(initialState) {
     </section>
 
     <footer id="footer-text">
-      Buscador y Evaluador Público de Empleos Remotos desde Bolivia (UTC-4) · Ejecución en Cloudflare Workers (Bajo Demanda + Cada 15 Minutos) · Designed, engineered and hosted by <a href="mailto:contact@tsimon.me">Thomas Simon</a> · <a href="https://tsimon.me" title="Thomas Mathieu Simon  · Cloud Systems Architect · NOC &amp; AI Engineer" target="_blank" rel="noopener noreferrer">tsimon.me</a>
+      <div class="footer-status-pills">
+        <span class="banner-pill" id="pill-bolivia">Filtro Base: 100% Remoto desde Bolivia (UTC-4)</span>
+        <span class="banner-pill" id="pill-schedule">Ejecución: Bajo Demanda + Automático cada 15 min</span>
+        <span class="banner-pill"><span id="lbl-last-sync">Última sincronización:</span> <span id="val-last-sync">-</span></span>
+        <span class="banner-pill"><span id="lbl-monitored-count">Plataformas activas:</span> <span id="val-platforms-count">0</span></span>
+      </div>
+      <div id="footer-credit" class="footer-credit">
+        Designed, engineered and hosted by <a href="mailto:contact@tsimon.me">Thomas Simon</a> · <a href="https://tsimon.me" title="Thomas Mathieu Simon  · Cloud Systems Architect · NOC &amp; AI Engineer" target="_blank" rel="noopener noreferrer">tsimon.me</a>
+      </div>
     </footer>
   </main>
 
@@ -2576,7 +2591,7 @@ export function renderAppHtml(initialState) {
         openPlatformBtn: 'Abrir Portal',
         noResults: 'No se encontraron ofertas con los filtros actuales. Prueba ampliando los tipos de posición, contrato o palabras clave.',
         manBtnBack: 'Ver Resultados en Vivo',
-        footerText: 'Buscador y Evaluador Público de Empleos Remotos desde Bolivia (UTC-4) · Ejecución en Cloudflare Workers (Bajo Demanda + Cada 15 Minutos) · Designed, engineered and hosted by <a href="mailto:contact@tsimon.me">Thomas Simon</a> · <a href="https://tsimon.me" title="Thomas Mathieu Simon  · Cloud Systems Architect · NOC &amp; AI Engineer" target="_blank" rel="noopener noreferrer">tsimon.me</a>'
+        footerText: 'Designed, engineered and hosted by <a href="mailto:contact@tsimon.me">Thomas Simon</a> · <a href="https://tsimon.me" title="Thomas Mathieu Simon  · Cloud Systems Architect · NOC &amp; AI Engineer" target="_blank" rel="noopener noreferrer">tsimon.me</a>'
       },
       en: {
         pageTitle: 'Remote Jobs from Bolivia — Live Job Scout & Evaluator',
@@ -2689,7 +2704,7 @@ export function renderAppHtml(initialState) {
         openPlatformBtn: 'Open Portal',
         noResults: 'No offers matched your current filters. Try broadening your position types, contract modalities, or keywords.',
         manBtnBack: 'View Live Results',
-        footerText: 'Public Remote Job Scout & Evaluator from Bolivia (UTC-4) · Powered by Cloudflare Workers (On-Demand + Every 15 Minutes) · Designed, engineered and hosted by <a href="mailto:contact@tsimon.me">Thomas Simon</a> · <a href="https://tsimon.me" title="Thomas Mathieu Simon  · Cloud Systems Architect · NOC &amp; AI Engineer" target="_blank" rel="noopener noreferrer">tsimon.me</a>'
+        footerText: 'Designed, engineered and hosted by <a href="mailto:contact@tsimon.me">Thomas Simon</a> · <a href="https://tsimon.me" title="Thomas Mathieu Simon  · Cloud Systems Architect · NOC &amp; AI Engineer" target="_blank" rel="noopener noreferrer">tsimon.me</a>'
       }
     };
 
@@ -2820,12 +2835,12 @@ export function renderAppHtml(initialState) {
         'lbl-platforms-heading': t.platformsHeading,
         'lbl-platforms-sub': t.platformsSub,
         'man-btn-back': t.manBtnBack,
-        'footer-text': t.footerText
+        'footer-credit': t.footerText
       };
       for (const [id, text] of Object.entries(map)) {
         const el = document.getElementById(id);
         if (el) {
-          if (id === 'notice-overlay-body' || id === 'footer-text' || id === 'nav-payments-desc') {
+          if (id === 'notice-overlay-body' || id === 'footer-credit' || id === 'nav-payments-desc') {
             el.innerHTML = text;
           } else {
             el.textContent = text;

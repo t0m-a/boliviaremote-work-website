@@ -92,7 +92,16 @@ async function runTests() {
   const resultsIdx = html.indexOf('id="resultsCardsContainer"');
   const customUrlIdx = html.indexOf('id="custom-url-panel"');
   const footerIdx = html.indexOf('<footer id="footer-text">');
+  const footerEndIdx = html.indexOf('</footer>', footerIdx);
   assert.ok(resultsIdx > -1 && customUrlIdx > resultsIdx && footerIdx > customUrlIdx, '#custom-url-panel must be placed at the bottom of the page after results and before footer');
+  const footerHtml = html.slice(footerIdx, footerEndIdx);
+  assert.ok(footerHtml.includes('id="pill-bolivia"'), 'Core Filter pill must be inside footer');
+  assert.ok(footerHtml.includes('id="pill-schedule"'), 'Schedule pill must be inside footer');
+  assert.ok(footerHtml.includes('id="lbl-last-sync"') && footerHtml.includes('id="val-last-sync"'), 'Last synced pill must be inside footer');
+  assert.ok(footerHtml.includes('id="lbl-monitored-count"') && footerHtml.includes('id="val-platforms-count"'), 'Active platforms pill must be inside footer');
+  assert.ok(!html.slice(0, footerIdx).includes('id="pill-bolivia"'), 'Status pills must be removed from top banner');
+  assert.ok(!html.includes('Public Remote Job Scout & Evaluator from Bolivia (UTC-4)'), 'Must remove old English footer intro text');
+  assert.ok(!html.includes('Buscador y Evaluador Público de Empleos Remotos desde Bolivia (UTC-4)'), 'Must remove old Spanish footer intro text');
   assert.ok(html.includes('openAiProposalForJob'), 'Must include per-card AI Cover Letter trigger');
   assert.ok(html.includes('rel="icon" type="image/svg+xml"'), 'Must have SVG favicon in head');
   assert.ok(html.includes('data:image/svg+xml'), 'Must have embedded data URI for offline support');
