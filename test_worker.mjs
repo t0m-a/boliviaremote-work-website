@@ -65,8 +65,17 @@ async function runTests() {
   assert.ok(!html.includes('id="ai-cv-input"'), 'Must remove CV input form from #ai-cv-panel');
   assert.ok(!html.includes('Carta de Postulación Personalizada'), 'Must replace Carta de Postulación Personalizada');
   assert.ok(!html.includes('Recomendaciones para la posición'), 'Must replace Recomendaciones para la posición');
-  assert.ok(!html.includes('id="lbl-ai-proposal-hdr"'), 'Must remove #lbl-ai-proposal-hdr heading wrapper while keeping #ai-cv-proposal-pre');
-  assert.ok(html.includes('id="ai-cv-proposal-pre" class="ai-proposal-pre"'), 'Must keep #ai-cv-proposal-pre element and content');
+  assert.ok(!html.includes('id="lbl-ai-proposal-hdr"'), 'Must remove #lbl-ai-proposal-hdr heading wrapper');
+  assert.ok(!html.includes('ai-cv-proposal-pre') && !html.includes('ai-proposal-pre'), 'Must remove unused #ai-cv-proposal-pre and .ai-proposal-pre');
+  assert.ok(html.includes('id="ai-position-details" class="ai-position-details"'), 'Must include #ai-position-details container inside #ai-cv-result-box');
+  assert.ok(html.includes('/api/ai/analyze-position') && !html.includes('/api/ai/match-cv'), 'Must use /api/ai/analyze-position instead of /api/ai/match-cv');
+  assert.ok(
+    html.includes('Requisitos de la posición') &&
+    html.includes('Experiencia y habilidades útiles') &&
+    html.includes('Compatibilidad horaria con Bolivia (UTC-4)') &&
+    html.includes('Consejos para el candidato'),
+    'Must render all 4 structured AI position detail sections'
+  );
   assert.ok(!html.includes('id="ai-engine-badge"'), 'Must remove #ai-engine-badge from #ai-cv-result-box');
   assert.ok(html.includes('id="lbl-ai-analysis-hdr">Información sobre la Posición</strong>'), 'Must rename #lbl-ai-analysis-hdr to Información sobre la Posición');
   assert.ok(!html.includes('Diagnóstico de Compatibilidad Remota (Bolivia UTC-4)'), 'Must replace Diagnóstico de Compatibilidad Remota (Bolivia UTC-4)');
@@ -406,58 +415,73 @@ async function runTests() {
   assert.ok(syncData.custom_platforms_count >= 1, 'Must export at least 1 custom_* platform');
   assert.ok(syncData.custom_platforms.some(p => p.id.startsWith('custom_')), 'Must include custom_* platform record');
 
-  console.log('6c. Testing Phase 2 Cloudflare Workers AI (POST /api/ai/match-cv, POST /api/ai/enrich) & D1 (env.DB) bindings...');
+  console.log('6c. Testing Phase 2 Cloudflare Workers AI (POST /api/ai/analyze-position, POST /api/ai/enrich) & D1 (env.DB) bindings...');
   assert.equal(
     extractCompensationUsd({ title: 'Senior Cloud Engineer', description: 'Compensation: $4,500 - $6,500/mo USD contractor' }),
     '$4,500 - $6,500/mo',
     'Must extract USD range compensation accurately'
   );
 
-  // Test POST /api/ai/match-cv with deterministic fallback (no env.AI)
-  const reqCvFallback = new Request('https://bolivia-remote-scout.workers.dev/api/ai/match-cv', {
+  // Test POST /api/ai/analyze-position with deterministic fallback (no env.AI)
+  const reqPosFallback = new Request('https://bolivia-remote-scout.workers.dev/api/ai/analyze-position', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      cv_text: 'Senior Python, SQL, React, Azure and DevOps engineer with 6 years of remote experience in LATAM.'
+      title: 'Senior Python & Cloud DevOps Engineer',
+      company: 'Andes Cloud Labs',
+      platform_name: 'We Work Remotely',
+      location: 'Remote LATAM / Worldwide',
+      description: 'We need 5+ years of experience with Python, AWS, Terraform, SQL, and CI/CD pipelines. Fluent English and Spanish preferred. Async collaboration across Americas.',
+      tags: 'python, aws, terraform, devops, sql'
     })
   });
-  const respCvFallback = await worker.fetch(reqCvFallback, {}, {});
-  assert.equal(respCvFallback.status, 200);
-  const cvFallbackData = await respCvFallback.json();
-  assert.equal(cvFallbackData.ok, true);
-  assert.equal(cvFallbackData.ai_engine, 'edge-deterministic-analyzer');
-  assert.ok(cvFallbackData.detected_profile.matched_skills.includes('python'), 'Must detect python skill from CV');
-  assert.ok(cvFallbackData.proposal_es.includes('UTC-4'), 'Spanish cover letter must highlight Bolivia UTC-4 advantage');
-  assert.ok(cvFallbackData.proposal_en.includes('W-8BEN'), 'English cover letter must highlight W-8BEN contractor readiness');
+  const respPosFallback = await worker.fetch(reqPosFallback, {}, {});
+  assert.equal(respPosFallback.status, 200);
+  const posFallbackData = await respPosFallback.json();
+  assert.equal(posFallbackData.ok, true);
+  assert.equal(posFallbackData.ai_engine, 'edge-position-analyzer');
+  assert.ok(posFallbackData.overview_es.includes('Andes Cloud Labs'), 'Overview must describe the target position and company');
+  assert.ok(Array.isArray(posFallbackData.requirements_es) && posFallbackData.requirements_es.length >= 3, 'Must return position requirements');
+  assert.ok(Array.isArray(posFallbackData.skills_experience_es) && posFallbackData.skills_experience_es.some(s => s.toLowerCase().includes('python')), 'Must highlight useful skills and experience');
+  assert.ok(posFallbackData.timezone_compatibility_es.includes('UTC-4'), 'Must explain compatibility with Bolivia UTC-4 timezone');
+  assert.ok(Array.isArray(posFallbackData.candidate_advice_es) && posFallbackData.candidate_advice_es.length >= 2, 'Must return helpful candidate advice');
 
-  // Test POST /api/ai/match-cv with mocked Cloudflare Workers AI binding (`env.AI`)
+  // Test POST /api/ai/analyze-position with mocked Cloudflare Workers AI binding (`env.AI`)
   const mockAiEnv = {
     AI: {
       async run(model, opts) {
         return {
           response: JSON.stringify({
-            analysis_es: 'Análisis IA desde Cloudflare Workers: Perfil Senior Cloud & Python ideal para UTC-4.',
-            analysis_en: 'Workers AI Analysis: Senior Cloud & Python profile ideal for UTC-4.',
-            proposal_es: 'Estimado equipo: Postulación generada con Llama 3.1 desde Bolivia (UTC-4).',
-            proposal_en: 'Dear Hiring Team: Application generated with Llama 3.1 from Bolivia (UTC-4).'
+            overview_es: 'Análisis IA desde Cloudflare Workers: rol remoto de arquitectura cloud con alto potencial para Bolivia.',
+            requirements_es: ['5+ años en arquitectura cloud', 'Inglés fluido para coordinación técnica', 'Disponibilidad remota internacional'],
+            skills_experience_es: ['Python y automatización', 'Terraform e infraestructura como código', 'Kubernetes y SQL'],
+            timezone_compatibility_es: 'Excelente compatibilidad desde Bolivia (UTC-4) con solapamiento directo con horario EST/EDT.',
+            candidate_advice_es: ['Incluye métricas de disponibilidad y costos optimizados en tu CV.', 'Destaca tu experiencia trabajando en equipos distribuidos desde UTC-4.']
           })
         };
       }
     }
   };
-  const reqCvAi = new Request('https://bolivia-remote-scout.workers.dev/api/ai/match-cv', {
+  const reqPosAi = new Request('https://bolivia-remote-scout.workers.dev/api/ai/analyze-position', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      cv_text: 'Cloud Architect & DevOps Engineer with Python, Terraform, Kubernetes, and SQL.'
+      title: 'Cloud Architect & DevOps Engineer',
+      company: 'Global Infra Corp',
+      location: 'Remote Worldwide',
+      description: 'Looking for a Cloud Architect with Python, Terraform, Kubernetes, and SQL.'
     })
   });
-  const respCvAi = await worker.fetch(reqCvAi, mockAiEnv, {});
-  assert.equal(respCvAi.status, 200);
-  const cvAiData = await respCvAi.json();
-  assert.equal(cvAiData.ok, true);
-  assert.ok(cvAiData.ai_engine.includes('llama-3.1'), 'Must use Workers AI Llama model when env.AI is bound');
-  assert.ok(cvAiData.analysis_es.includes('Cloudflare Workers'), 'Must return AI-generated Spanish analysis');
+  const respPosAi = await worker.fetch(reqPosAi, mockAiEnv, {});
+  assert.equal(respPosAi.status, 200);
+  const posAiData = await respPosAi.json();
+  assert.equal(posAiData.ok, true);
+  assert.ok(posAiData.ai_engine.includes('llama-3.1'), 'Must use Workers AI Llama model when env.AI is bound');
+  assert.ok(posAiData.overview_es.includes('Cloudflare Workers'), 'Must return AI-generated Spanish position overview');
+  assert.ok(posAiData.requirements_es.length === 3, 'Must return AI-generated requirements list');
+  assert.ok(posAiData.skills_experience_es.length === 3, 'Must return AI-generated skills/experience list');
+  assert.ok(posAiData.timezone_compatibility_es.includes('UTC-4'), 'Must return AI-generated Bolivia UTC-4 compatibility');
+  assert.ok(posAiData.candidate_advice_es.length === 2, 'Must return AI-generated candidate advice list');
 
   // Test POST /api/ai/enrich with mocked `env.AI` and `env.DB` (Cloudflare D1)
   let d1StatementsExecuted = 0;

@@ -29,7 +29,7 @@ import {
   buildDeterministicSummaries,
   enrichOpportunityWithAI,
   enrichBatchWithAI,
-  matchCvAndGenerateProposal
+  analyzePositionForBolivia
 } from './ai_enricher.js';
 import {
   semanticSearchOpportunities,
@@ -664,14 +664,14 @@ Sitemap: https://boliviaremote.work/sitemap.xml
       }
     }
 
-    // 8. Cloudflare Workers AI — CV / Profile Matcher & Tailored Cover Letter Generator
-    if (request.method === 'POST' && path === '/api/ai/match-cv') {
+    // 8. Cloudflare Workers AI — Position Insights & Bolivia (UTC-4) Compatibility Analyzer
+    if (request.method === 'POST' && path === '/api/ai/analyze-position') {
       try {
         const body = await request.json().catch(() => ({}));
-        const res = await matchCvAndGenerateProposal(body, state.opportunities, env);
+        const res = await analyzePositionForBolivia(body, state.opportunities, env);
         return jsonResponse(res);
       } catch (err) {
-        return jsonResponse({ ok: false, error: err.message || 'AI CV match failed' }, 400);
+        return jsonResponse({ ok: false, error: err.message || 'AI position analysis failed' }, 400);
       }
     }
 

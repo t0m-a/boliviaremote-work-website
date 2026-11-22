@@ -1147,18 +1147,68 @@ export function renderAppHtml(initialState) {
       border: 1px solid #cbd5e1;
       display: none;
     }
-    .ai-proposal-pre {
-      background: #0f172a;
-      color: #f8fafc;
-      padding: 14px;
+    .ai-position-details {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 4px;
+    }
+    .ai-position-loading {
+      margin: 4px 0;
+      font-size: 0.88em;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+    .ai-position-overview {
+      margin: 0;
+      padding: 10px 12px;
       border-radius: 6px;
-      font-size: 0.84em;
-      white-space: pre-wrap;
-      word-break: break-word;
-      margin: 8px 0 0 0;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      font-size: 0.88em;
+      line-height: 1.55;
+      color: var(--text-main);
+    }
+    .ai-details-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    @media (max-width: 700px) {
+      .ai-details-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .ai-detail-block {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 12px 14px;
+    }
+    .ai-detail-block h4 {
+      margin: 0 0 8px 0;
+      font-size: 0.88em;
+      font-weight: 700;
+      color: var(--accent-primary);
+    }
+    .ai-detail-block p {
+      margin: 0;
+      font-size: 0.85em;
       line-height: 1.5;
-      max-height: 320px;
-      overflow-y: auto;
+      color: var(--text-main);
+    }
+    .ai-detail-block ul {
+      margin: 0;
+      padding-left: 18px;
+      font-size: 0.85em;
+      line-height: 1.5;
+      color: var(--text-main);
+    }
+    .ai-detail-block li {
+      margin-bottom: 5px;
+    }
+    .ai-detail-block li:last-child {
+      margin-bottom: 0;
     }
     .contract-tag {
       display: inline-block;
@@ -1756,6 +1806,19 @@ export function renderAppHtml(initialState) {
       border-color: #334155;
       color: #cbd5e1;
     }
+    body.dark-mode .ai-position-overview,
+    body.dark-mode .ai-detail-block {
+      background: #1e293b;
+      border-color: #334155;
+      color: #e2e8f0;
+    }
+    body.dark-mode .ai-detail-block h4 {
+      color: #38bdf8;
+    }
+    body.dark-mode .ai-detail-block p,
+    body.dark-mode .ai-detail-block ul {
+      color: #cbd5e1;
+    }
     body.dark-mode .contract-tag {
       background: #3b0764;
       color: #d8b4fe;
@@ -2232,8 +2295,7 @@ export function renderAppHtml(initialState) {
             <button type="button" class="scan-alert-close" onclick="closeAiDiagnosticPanel()" aria-label="Cerrar" title="Cerrar">&times;</button>
           </div>
         </div>
-        <p id="ai-cv-analysis-text" style="margin:0 0 12px 0;font-size:0.88em;line-height:1.5;"></p>
-        <pre id="ai-cv-proposal-pre" class="ai-proposal-pre"></pre>
+        <div id="ai-position-details" class="ai-position-details"></div>
       </div>
     </section>
 
@@ -3762,7 +3824,6 @@ export function renderAppHtml(initialState) {
     }
 
     let currentAiTargetJobHash = '';
-    let lastAiDetectedProfile = null;
     let lastAiResultData = null;
     let aiPanelOpenedAt = 0;
 
@@ -3839,39 +3900,147 @@ export function renderAppHtml(initialState) {
     }
     window.clearAiTargetJob = clearAiTargetJob;
 
+    function renderAiPositionDetails(data) {
+      const container = document.getElementById('ai-position-details');
+      if (!container) return;
+      const reqList = Array.isArray(data.requirements_es) ? data.requirements_es.filter(Boolean) : [];
+      const skillList = Array.isArray(data.skills_experience_es) ? data.skills_experience_es.filter(Boolean) : [];
+      const adviceList = Array.isArray(data.candidate_advice_es) ? data.candidate_advice_es.filter(Boolean) : [];
+      const overview = String(data.overview_es || '').trim();
+      const tzCompat = String(data.timezone_compatibility_es || '').trim();
+
+      const renderList = items =>
+        items.length > 0
+          ? '<ul>' + items.map(item => '<li>' + escapeHtml(String(item)) + '</li>').join('') + '</ul>'
+          : '<p>Información detallada disponible en la oferta original.</p>';
+
+      let html = '';
+      if (overview) {
+        html += '<p class="ai-position-overview">' + escapeHtml(overview) + '</p>';
+      }
+      html += '<div class="ai-details-grid">';
+      html += '<div class="ai-detail-block"><h4>Requisitos de la posición</h4>' + renderList(reqList) + '</div>';
+      html += '<div class="ai-detail-block"><h4>Experiencia y habilidades útiles</h4>' + renderList(skillList) + '</div>';
+      html += '<div class="ai-detail-block"><h4>Compatibilidad horaria con Bolivia (UTC-4)</h4><p>' +
+        escapeHtml(tzCompat || 'Compatible con el huso horario de Bolivia (UTC-4) bajo modalidad remota internacional.') +
+        '</p></div>';
+      html += '<div class="ai-detail-block"><h4>Consejos para el candidato</h4>' + renderList(adviceList) + '</div>';
+      html += '</div>';
+
+      container.innerHTML = html;
+    }
+
+    function buildOfflinePositionAnalysis(job) {
+      const j = job || {
+        title: 'Posición Remota',
+        company: 'Empresa Contratante',
+        platform_name: 'Portal Remoto',
+        location: 'Remoto Global',
+        description: '',
+        tags: '',
+        contract_caveat: 'fractional_or_fulltime'
+      };
+      const bol = checkBoliviaRemoteEligibility(j);
+      const attrs = detectOfferAttributes(j);
+      const catLabels = (attrs.categories || [])
+        .map(cid => {
+          const found = POSITION_CATEGORIES.find(c => c.id === cid);
+          return found ? found.label_es : '';
+        })
+        .filter(Boolean);
+      const expFound = EXPERIENCE_OPTIONS.find(e => e.id === attrs.experience);
+      const expLabel = expFound ? expFound.label_es : 'Todos los niveles';
+      const contractLabels = (attrs.contracts || [])
+        .map(cid => {
+          const found = CONTRACT_OPTIONS.find(c => c.id === cid);
+          return found ? found.label_es : '';
+        })
+        .filter(Boolean);
+      const langNames = { es: 'Español', en: 'Inglés', pt: 'Portugués', de: 'Alemán' };
+      const langLabels = (attrs.languages || ['en']).map(l => langNames[l] || l.toUpperCase());
+
+      const company = j.company || j.platform_name || 'la empresa';
+      const loc = j.location || 'Remoto Global';
+      const blob = (loc + ' ' + (j.title || '') + ' ' + (j.description || '') + ' ' + (j.tags || '')).toLowerCase();
+
+      let tzText = 'Compatible con Bolivia (UTC-4): la oferta de ' + company + ' indica modalidad remota ("' + loc + '"). El huso horario UTC-4 facilita la coordinación en tiempo real con equipos de América y solapamiento matutino con Europa bajo contratación independiente (W-8BEN).';
+      if (/\\b(?:async|asynchronous|asíncrono|asincrono|self-paced|flexible hours|horario flexible|work from anywhere|anywhere in the world)\\b/.test(blob)) {
+        tzText = 'Excelente compatibilidad con Bolivia (UTC-4): ' + company + ' ofrece modalidad asíncrona o flexible ("' + loc + '"), permitiendo organizar tu jornada desde UTC-4 sin restricciones estrictas de horario.';
+      } else if (/\\b(?:bolivia|south america|sudamérica|latam|latin america|latinoamérica|americas|américas|est|edt|eastern|us time|north america|canada)\\b/.test(blob)) {
+        tzText = 'Alta compatibilidad directa con Bolivia (UTC-4): la ubicación declarada ("' + loc + '") y el enfoque regional de ' + company + ' coinciden con el huso horario boliviano (0 a 1 hora de diferencia con EST/EDT de EE. UU. y alineación total con LATAM).';
+      } else if (/\\b(?:europe|europa|emea|cet|cest|uk|london|spain|españa|germany)\\b/.test(blob)) {
+        tzText = 'Compatibilidad parcial-alta con Bolivia (UTC-4): para equipos en Europa/EMEA (' + company + ', "' + loc + '"), existe un solapamiento efectivo de 4 a 6 horas durante la mañana de Bolivia (08:00-13:00 BOT), ideal para reuniones tempranas y trabajo asíncrono por la tarde.';
+      }
+
+      const sk = attrs.matchedKeywords && attrs.matchedKeywords.length ? attrs.matchedKeywords.slice(0, 8) : [];
+      return {
+        ok: true,
+        ai_engine: 'edge-position-analyzer',
+        overview_es:
+          'Posición de ' + (j.title || 'Posición Remota') + ' en ' + company +
+          ' (publicada en ' + (j.platform_name || company) + '). Área principal: ' +
+          (catLabels.slice(0, 2).join(' / ') || 'Trabajo Remoto Internacional') +
+          '. Elegibilidad: ' + (bol.badge_es || '100% Remoto Bolivia') +
+          (j.compensation_usd ? '. Compensación referencial: ' + j.compensation_usd + '.' : '.'),
+        requirements_es: [
+          'Nivel de experiencia estimado: ' + expLabel + '.',
+          'Idiomas requeridos / detectados: ' + langLabels.join(', ') + '.',
+          'Modalidad de contratación: ' + (contractLabels.join(', ') || 'Remoto flexible / Tiempo completo') + ' (' + loc + ').'
+        ],
+        skills_experience_es: [
+          sk.length
+            ? 'Habilidades y herramientas clave detectadas: ' + sk.join(', ') + '.'
+            : 'Experiencia demostrable en ' + (catLabels[0] || j.title || 'el área') + ' y gestión autónoma en equipos distribuidos.',
+          'Dominio de colaboración remota (' + langLabels.join(' / ') + '), documentación clara y cumplimiento de entregables.',
+          catLabels.length > 1
+            ? 'Experiencia complementaria valorada en: ' + catLabels.slice(1, 3).join(', ') + '.'
+            : 'Familiaridad con herramientas digitales de seguimiento, comunicación síncrona/asíncrona y métricas de desempeño.'
+        ],
+        timezone_compatibility_es: tzText,
+        candidate_advice_es: [
+          sk.length
+            ? 'Destaca resultados concretos y proyectos recientes usando ' + sk.slice(0, 5).join(', ') + ' al inicio de tu perfil.'
+            : 'Adapta tu CV destacando logros medibles directamente relacionados con "' + (j.title || 'la posición') + '".',
+          'Indica explícitamente tu disponibilidad desde Bolivia (UTC-4), tu solapamiento horario con ' + company + ' y tu capacidad para facturar como contratista internacional (W-8BEN).',
+          langLabels.includes('Inglés') && !langLabels.includes('Español')
+            ? 'La oferta está orientada a inglés: prepara tu CV y respuestas de entrevista en inglés claro y conciso.'
+            : 'Revisa los detalles completos en el portal original antes de postular y prepara ejemplos prácticos relevantes para el rol.'
+        ]
+      };
+    }
+
     async function submitAiCvMatch(targetJob) {
       const errBox = document.getElementById('ai-cv-error');
       const resBox = document.getElementById('ai-cv-result-box');
+      const detailsEl = document.getElementById('ai-position-details');
       const job = targetJob || opportunitiesState.find(o => o.job_hash === currentAiTargetJobHash) ||
         (lastEvaluationResult.surfaced && lastEvaluationResult.surfaced[0]) || null;
-
-      const selectedCats = (userFilters.position_types || []).map(id => {
-        const found = POSITION_CATEGORIES.find(c => c.id === id);
-        return found ? found.label_es : id;
-      }).join(', ');
-      const kw = [userFilters.custom_keywords, selectedCats, job ? (job.tags || job.title) : ''].filter(Boolean).join(', ');
-      const cvText = 'Profesional remoto desde Bolivia (UTC-4) evaluando compatibilidad para ' +
-        (job ? job.title + ' en ' + job.company : 'oportunidades remotas') +
-        (kw ? ' con experiencia en ' + kw : '') + '.';
 
       if (errBox) {
         errBox.className = 'scan-alert';
         errBox.style.display = 'none';
       }
+      if (detailsEl) {
+        detailsEl.innerHTML = '<p class="ai-position-loading">Analizando información de la posición con IA...</p>';
+      }
       if (resBox) {
-        document.getElementById('ai-cv-analysis-text').textContent = 'Analizando compatibilidad remota...';
-        document.getElementById('ai-cv-proposal-pre').textContent = '';
         resBox.style.display = 'block';
       }
 
       try {
-        const resp = await fetch('/api/ai/match-cv', {
+        const resp = await fetch('/api/ai/analyze-position', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            cv_text: cvText,
-            target_job_hash: currentAiTargetJobHash,
-            filters: userFilters
+            target_job_hash: currentAiTargetJobHash || (job ? job.job_hash : ''),
+            title: job ? job.title : '',
+            company: job ? job.company : '',
+            platform_name: job ? job.platform_name : '',
+            location: job ? job.location : '',
+            description: job ? job.description : '',
+            tags: job ? job.tags : '',
+            contract_caveat: job ? job.contract_caveat : '',
+            url: job ? job.url : ''
           })
         });
         if (!resp.ok) {
@@ -3880,39 +4049,17 @@ export function renderAppHtml(initialState) {
         }
         const data = await resp.json();
         lastAiResultData = data;
-        lastAiDetectedProfile = data.detected_profile || null;
-        document.getElementById('ai-cv-analysis-text').textContent = data.analysis_es || data.analysis_en || '';
-        document.getElementById('ai-cv-proposal-pre').textContent = data.proposal_es || data.proposal_en || '';
+        renderAiPositionDetails(data);
         if (resBox) resBox.style.display = 'block';
       } catch (e) {
-        // Offline / static HTML fallback
-        const attrs = detectOfferAttributes({
-          title: cvText.slice(0, 240),
-          description: cvText,
-          tags: job ? (job.tags || '') : '',
-          location: 'Bolivia',
-          contract_caveat: 'fractional_or_fulltime'
-        });
-        lastAiDetectedProfile = {
-          categories: attrs.categories,
-          matched_skills: attrs.matchedKeywords,
-          experience: attrs.experience
-        };
-        const jTitle = job ? job.title : 'Especialista Remoto';
-        const jComp = job ? job.company : 'Empresa Contratante';
-        const sk = attrs.matchedKeywords.length ? attrs.matchedKeywords.join(', ') : (kw || 'trabajo remoto');
-
-        document.getElementById('ai-cv-analysis-text').textContent =
-          'Habilidades identificadas: ' + sk + '. Ventaja desde Bolivia: Zona horaria UTC-4 alineada con EST/EDT y modalidad contratista internacional W-8BEN.';
-        document.getElementById('ai-cv-proposal-pre').textContent =
-          'Posición evaluada: ' + jTitle + ' — ' + jComp + ' (Remoto UTC-4)\\n\\n' +
-          '1. Destaca experiencia práctica comprobable en: ' + sk + '.\\n' +
-          '2. Remarca disponibilidad desde Bolivia (UTC-4) con solapamiento directo con horario laboral de EE. UU. (EST/EDT) y LATAM.\\n' +
-          '3. Menciona disposición para contratación internacional independiente (W-8BEN) y cobro mediante plataformas globales (Wise, Payoneer, AirTM o Tipalti).';
+        const fallbackData = buildOfflinePositionAnalysis(job);
+        lastAiResultData = fallbackData;
+        renderAiPositionDetails(fallbackData);
         if (resBox) resBox.style.display = 'block';
       }
     }
     window.submitAiCvMatch = submitAiCvMatch;
+    window.analyzePositionWithAi = submitAiCvMatch;
 
     function copyReportMarkdown(btn) {
       const t = I18N[userFilters.ui_lang] || I18N.es;

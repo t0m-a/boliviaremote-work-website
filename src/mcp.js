@@ -14,7 +14,7 @@ import {
   generateResultsMarkdown
 } from './evaluator.js';
 import { scanCustomPlatformUrl } from './scanner.js';
-import { enrichBatchWithAI, matchCvAndGenerateProposal } from './ai_enricher.js';
+import { enrichBatchWithAI, analyzePositionForBolivia } from './ai_enricher.js';
 import {
   semanticSearchOpportunities,
   indexOpportunitiesInVectorStore
@@ -109,22 +109,25 @@ export const MCP_TOOLS = [
     }
   },
   {
-    name: 'match_cv_and_generate_proposal',
+    name: 'analyze_position_for_bolivia',
     description:
-      'Analyzes a candidate CV or skills summary using Cloudflare Workers AI (with deterministic edge fallback), identifies top matching Bolivia-remote jobs, and generates a bilingual (Spanish/English) cover letter highlighting UTC-4 and W-8BEN readiness.',
+      'Analyzes a specific remote position using Cloudflare Workers AI (with deterministic edge fallback) and returns detailed Spanish insights: position overview, requirements, useful skills/experience, Bolivia (UTC-4) timezone compatibility, and candidate advice.',
     inputSchema: {
       type: 'object',
       properties: {
-        cv_text: {
+        job_hash: {
           type: 'string',
-          description: 'Candidate CV summary, work experience, or skills list (minimum 10 characters).'
+          description: 'job_hash of the opportunity to analyze.'
         },
-        target_job_hash: {
+        title: {
           type: 'string',
-          description: 'Optional job_hash of a specific opportunity to tailor the cover letter to.'
+          description: 'Optional position title if analyzing a custom opportunity.'
+        },
+        description: {
+          type: 'string',
+          description: 'Optional position description if analyzing a custom opportunity.'
         }
-      },
-      required: ['cv_text']
+      }
     }
   },
   {
@@ -310,7 +313,7 @@ async function executeMcpRpcObject(rpc, state, env, saveStateFn) {
               `Using the bolivia-remote-mcp-server tools, find the best 100% remote jobs from Bolivia (UTC-4) for this candidate profile:\n\n` +
               `"${profile}"\n\n` +
               `1. Run semantic_search_bolivia_jobs and search_bolivia_remote_jobs.\n` +
-              `2. Call match_cv_and_generate_proposal for the top opportunity to draft a tailored application letter.`
+              `2. Call analyze_position_for_bolivia for the top opportunity to retrieve requirements, useful skills, UTC-4 timezone compatibility, and candidate advice.`
           }
         }
       ]
@@ -425,17 +428,18 @@ async function executeMcpRpcObject(rpc, state, env, saveStateFn) {
         });
       }
 
-      if (toolName === 'match_cv_and_generate_proposal') {
-        const matchRes = await matchCvAndGenerateProposal(
+      if (toolName === 'analyze_position_for_bolivia') {
+        const analysisRes = await analyzePositionForBolivia(
           {
-            cv_text: args.cv_text,
-            target_job_hash: args.target_job_hash
+            target_job_hash: args.job_hash || args.target_job_hash,
+            title: args.title,
+            description: args.description
           },
           state.opportunities,
           env
         );
         return jsonRpcSuccess(id, {
-          content: [{ type: 'text', text: JSON.stringify(matchRes, null, 2) }],
+          content: [{ type: 'text', text: JSON.stringify(analysisRes, null, 2) }],
           isError: false
         });
       }
