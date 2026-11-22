@@ -233,10 +233,21 @@ async function runTests() {
   const footerEndIdx = html.indexOf('</footer>', footerIdx);
   assert.ok(resultsIdx > -1 && customUrlIdx > resultsIdx && footerIdx > customUrlIdx, '#custom-url-panel must be placed at the bottom of the page after results and before footer');
   const footerHtml = html.slice(footerIdx, footerEndIdx);
-  assert.ok(footerHtml.includes('id="pill-bolivia"'), 'Core Filter pill must be inside footer');
+  assert.ok(!html.includes('id="pill-bolivia"') && !html.includes('Filtro Base: 100% Remoto desde Bolivia (UTC-4)'), 'Filtro Base pill must be removed from footer on all pages');
   assert.ok(footerHtml.includes('id="pill-schedule"'), 'Schedule pill must be inside footer');
   assert.ok(footerHtml.includes('id="lbl-last-sync"') && footerHtml.includes('id="val-last-sync"'), 'Last synced pill must be inside footer');
   assert.ok(footerHtml.includes('id="lbl-monitored-count"') && footerHtml.includes('id="val-platforms-count"'), 'Active platforms pill must be inside footer');
+  assert.ok(
+    /\.btn-back-to-top\s*\{[\s\S]*?border:\s*1px solid #0ea5e9;[\s\S]*?background:\s*rgba\(2,\s*132,\s*199,\s*0\.12\);[\s\S]*?color:\s*#0369a1;/.test(html) &&
+    /body\.dark-mode \.btn-back-to-top\s*\{[\s\S]*?background:\s*rgba\(14,\s*165,\s*233,\s*0\.18\);[\s\S]*?color:\s*#7dd3fc;[\s\S]*?border-color:\s*#0ea5e9;/.test(html),
+    'Arriba button must use the same light translucent blue design as Buscar con IA in light and dark modes'
+  );
+  assert.ok(
+    html.includes('class="filter-block filter-block-langs"') &&
+    html.includes('class="filter-block filter-block-grow"') &&
+    /\.filter-block-langs\s*\{[\s\S]*?flex:\s*0 1 auto;[\s\S]*?width:\s*fit-content;/.test(html),
+    '1. Tus Idiomas must size to its actual content width while other panel-card filter blocks flex-wrap responsively'
+  );
   const footerPillsStart = footerHtml.indexOf('<div class="footer-status-pills">');
   const footerCreditStart = footerHtml.indexOf('<div id="footer-credit"');
   const footerPillsHtml = footerHtml.slice(footerPillsStart, footerCreditStart);

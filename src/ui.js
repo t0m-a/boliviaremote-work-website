@@ -529,7 +529,10 @@ export function renderAppHtml(initialState) {
       padding: 18px 22px;
       margin-bottom: 18px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+      width: 100%;
       max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
     }
     .panel-header {
       display: flex;
@@ -582,9 +585,11 @@ export function renderAppHtml(initialState) {
       line-height: 1.35;
     }
     .filter-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
-      gap: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: stretch;
+      width: 100%;
     }
     .filter-block {
       background: #f8fafc;
@@ -593,6 +598,27 @@ export function renderAppHtml(initialState) {
       padding: 12px 14px;
       min-width: 0;
       max-width: 100%;
+      box-sizing: border-box;
+    }
+    .filter-block-langs {
+      flex: 0 1 auto;
+      width: fit-content;
+      max-width: 100%;
+    }
+    .filter-block-langs .filter-block-label {
+      justify-content: flex-start;
+      gap: 8px;
+    }
+    .filter-block-langs .chip-group {
+      width: auto;
+    }
+    .filter-block-grow {
+      flex: 1 1 230px;
+      min-width: min(100%, 220px);
+    }
+    .filter-block-full {
+      width: 100%;
+      flex: 1 1 100%;
     }
     .filter-block-label {
       font-size: 0.85em;
@@ -1629,25 +1655,23 @@ export function renderAppHtml(initialState) {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 8px 13px;
-      border-radius: 999px;
-      border: 1px solid rgba(148, 163, 184, 0.45);
-      background: rgba(255, 255, 255, 0.55);
-      backdrop-filter: blur(4px);
-      color: #0f172a;
+      padding: 7px 13px;
+      border-radius: 6px;
+      border: 1px solid #0ea5e9;
+      background: rgba(2, 132, 199, 0.12);
+      backdrop-filter: blur(6px);
+      color: #0369a1;
       font-size: 0.8em;
       font-weight: 700;
       cursor: pointer;
-      opacity: 0.65;
-      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
-      transition: opacity 0.2s ease, background 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+      box-shadow: 0 4px 12px rgba(2, 132, 199, 0.10);
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.2s ease;
     }
     .btn-back-to-top:hover,
     .btn-back-to-top:focus-visible {
-      opacity: 0.96;
-      background: rgba(2, 132, 199, 0.88);
-      color: #ffffff;
-      border-color: var(--accent-primary);
+      background: rgba(2, 132, 199, 0.22);
+      color: #0c4a6e;
+      border-color: #0284c7;
       transform: translateY(-2px);
       outline: none;
     }
@@ -1949,15 +1973,15 @@ export function renderAppHtml(initialState) {
       color: #f8fafc;
     }
     body.dark-mode .btn-back-to-top {
-      background: rgba(15, 23, 42, 0.55);
-      color: #e2e8f0;
-      border-color: rgba(71, 85, 105, 0.55);
+      background: rgba(14, 165, 233, 0.18);
+      color: #7dd3fc;
+      border-color: #0ea5e9;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
     }
     body.dark-mode .btn-back-to-top:hover,
     body.dark-mode .btn-back-to-top:focus-visible {
-      background: rgba(2, 132, 199, 0.88);
-      color: #ffffff;
+      background: rgba(14, 165, 233, 0.28);
+      color: #e0f2fe;
       border-color: #38bdf8;
     }
     body.dark-mode .toolbar {
@@ -2335,8 +2359,19 @@ export function renderAppHtml(initialState) {
         justify-content: center;
       }
       .filter-grid {
-        grid-template-columns: 1fr;
-        gap: 12px;
+        gap: 10px;
+      }
+      .filter-block {
+        padding: 11px 12px;
+      }
+      .filter-block-grow {
+        flex: 1 1 100%;
+        min-width: 0;
+        width: 100%;
+      }
+      .panel-header .btn-action {
+        width: 100%;
+        justify-content: center;
       }
       .chip {
         white-space: normal;
@@ -2532,7 +2567,7 @@ export function renderAppHtml(initialState) {
 
       <div class="filter-grid">
         <!-- 1. LANGUAGES -->
-        <div class="filter-block">
+        <div class="filter-block filter-block-langs">
           <div class="filter-block-label">
             <span id="lbl-filter-langs">1. Tus Idiomas</span>
             <span style="font-size:0.76em;color:#64748b;" id="lbl-weight-langs">(Peso: 20 pts)</span>
@@ -2541,7 +2576,7 @@ export function renderAppHtml(initialState) {
         </div>
 
         <!-- 2. EXPERIENCE LEVEL -->
-        <div class="filter-block">
+        <div class="filter-block filter-block-grow">
           <div class="filter-block-label">
             <span id="lbl-filter-exp">2. Tu Nivel de Experiencia</span>
             <span style="font-size:0.76em;color:#64748b;" id="lbl-weight-exp">(Peso: Contrato + Exp 20 pts)</span>
@@ -2566,7 +2601,7 @@ export function renderAppHtml(initialState) {
         </div>
 
         <!-- 3. CONTRACT TYPE -->
-        <div class="filter-block">
+        <div class="filter-block filter-block-grow">
           <div class="filter-block-label">
             <span id="lbl-filter-contracts">3. Tipo de Contrato Buscado</span>
             <button type="button" style="border:none;background:none;color:#0284c7;font-size:0.78em;font-weight:700;cursor:pointer;" onclick="selectAllContracts()" id="btn-all-contracts">Todos</button>
@@ -2592,7 +2627,7 @@ export function renderAppHtml(initialState) {
       </div>
 
       <!-- 4. POSITION TYPES & CUSTOM KEYWORDS -->
-      <div class="filter-block" style="margin-top:12px;">
+      <div class="filter-block filter-block-full" style="margin-top:12px;">
         <div class="filter-block-label">
           <span id="lbl-filter-positions">4. Tipo de Posición / Área Profesional (Selecciona una o varias, o déjalo vacío para ver todas)</span>
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
@@ -2916,7 +2951,6 @@ export function renderAppHtml(initialState) {
 
     <footer id="footer-text">
       <div class="footer-status-pills">
-        <span class="banner-pill" id="pill-bolivia">Filtro Base: 100% Remoto desde Bolivia (UTC-4)</span>
         <span class="banner-pill" id="pill-schedule">Ejecución: Bajo Demanda + Automático cada 15 min</span>
         <span class="banner-pill"><span id="lbl-last-sync">Última sincronización:</span> <span id="val-last-sync">-</span></span>
         <span class="banner-pill"><span id="lbl-monitored-count">Plataformas activas:</span> <span id="val-platforms-count">0</span></span>
@@ -3061,7 +3095,6 @@ export function renderAppHtml(initialState) {
         bannerDisclaimer: 'Algunas de estas plataformas requieren registrarse y utilizar una herramienta de traducción en el navegador para aprovechar al máximo su contenido. Para el trabajo remoto a nivel global, se recomienda encarecidamente <a href="https://www.languagetransfer.org" title="Language Transfer: aprende inglés y más, ¡gratis!" target="_blank" rel="noopener noreferrer">aprender inglés</a>. Te abre todo un entorno de oportunidades y con <a href="https://www.languagetransfer.org" title="Language Transfer: aprende inglés y más, ¡gratis!" target="_blank" rel="noopener noreferrer">Language Transfer</a>, es <strong>gratis</strong>!',
         scanNow: 'Escanear Ofertas Ahora',
         scanningNow: 'Escaneando plataformas...',
-        pillBolivia: 'Filtro Base: 100% Remoto desde Bolivia (UTC-4)',
         pillSchedule: 'Ejecución: Bajo Demanda + Automático cada 15 min',
         lastSync: 'Última sincronización:',
         monitoredCount: 'Plataformas activas:',
@@ -3198,7 +3231,6 @@ export function renderAppHtml(initialState) {
         'banner-title': t.bannerTitle,
         'banner-subtitle': t.bannerSubtitle,
         'lbl-scan-now': t.scanNow,
-        'pill-bolivia': t.pillBolivia,
         'pill-schedule': t.pillSchedule,
         'lbl-last-sync': t.lastSync,
         'lbl-monitored-count': t.monitoredCount,
