@@ -89,12 +89,13 @@ async function runTests() {
   const manualIntroEnd = manualHtml.indexOf('</p>', manualIntroStart);
   const manualIntroHtml = manualHtml.slice(manualIntroStart, manualIntroEnd);
   assert.ok(
-    manualIntroHtml.includes('territoriales o visados extranjeros. También puedes explorar las fuentes por tipo en') &&
+    manualIntroHtml.includes('territoriales o visados extranjeros. Puedes verificar las fuentes por tipo en') &&
+    !manualIntroHtml.includes('También puedes explorar') &&
     manualIntroHtml.includes('id="man-link-categories"') &&
     manualIntroHtml.includes('Categorías De Plataformas</a>') &&
     manualIntroHtml.includes('id="man-link-platforms"') &&
     manualIntroHtml.includes('Plataformas Monitoreadas</a>'),
-    'Manual de Uso intro paragraph must include links to Categorías De Plataformas and Plataformas Monitoreadas right after territoriales o visados extranjeros.'
+    'Guía del Usuario intro paragraph must say Puedes verificar and include links to Categorías De Plataformas and Plataformas Monitoreadas right after territoriales o visados extranjeros.'
   );
   assert.ok(!manualHtml.includes('BLOQUEADAS PAÍS (GEO)'), 'Manual de Uso section 6 must remove BLOQUEADAS PAÍS (GEO)');
   assert.ok(
@@ -198,7 +199,8 @@ async function runTests() {
   assert.ok(!html.includes('id="tab-view-report"'), 'Must NOT have id="tab-view-report" in toolbar');
   assert.ok(html.includes('id="nav-platforms"'), 'Must have id="nav-platforms" in footer status pills');
   assert.ok(!html.includes('id="nav-hdr-views"'), 'Must NOT have Vistas Principales header in navbar');
-  assert.ok(html.includes('Manual de Uso'), 'Must include Manual de Uso in sidebar');
+  assert.ok(navListHtml.includes('id="nav-hdr-notice">Avisos</span>'), 'Hamburger menu must label Notice section as Avisos');
+  assert.ok(navListHtml.includes('id="nav-lbl-manual">Guía del Usuario: Bolivia Remote Work</span>'), 'Hamburger menu must label guide link as Guía del Usuario: Bolivia Remote Work');
   assert.ok(html.includes('id="nav-manual"'), 'Must have #nav-manual link in navbar');
   assert.ok(!html.includes('id="nav-report"'), 'Must NOT have id="nav-report" in navbar (removed as requested)');
   assert.ok(html.includes('id="sidebar-unfold-btn"'), 'Must have sidebar unfold button');
@@ -208,7 +210,19 @@ async function runTests() {
   assert.ok(html.includes('id="contract-dropdown"') && html.includes('id="contract-dropdown-menu"'), 'Target Contract Types must use a multi-select dropdown');
   assert.ok(html.includes('onclick="toggleCategoriesMenu(event)"'), 'Categories button inside footer must be collapsible');
   assert.ok(html.includes('class="nav-track-item nav-track-folded"'), 'Categories inside footer menu must start folded');
-  assert.ok(html.includes('id="nav-hdr-payments">Información Financiera</span>'), 'Must include Información Financiera section header under Categorías de Plataformas');
+  assert.ok(navListHtml.includes('id="nav-hdr-payments">Información Financiera y de Pago</span>'), 'Must include Información Financiera y de Pago section header in hamburger menu');
+  assert.ok(
+    html.includes('class="panel-header-actions filters-reset-actions"') &&
+    /\.filters-reset-actions\s*\{[\s\S]*?order:\s*4;/.test(html) &&
+    /#custom-filters-panel \.panel-title\s*\{[\s\S]*?white-space:\s*nowrap;/.test(html),
+    'Mobile layout must move Restablecer Filtros to the bottom after section 4 and keep filter title responsive on one line'
+  );
+  assert.ok(
+    html.includes('handleOutsideInteraction') &&
+    html.includes("addEventListener('pointerdown', handleOutsideInteraction") &&
+    html.includes("addEventListener('touchstart', handleOutsideInteraction"),
+    'Mobile hamburger menu must auto-close on outside tap/scroll and refold subsections via closeNavbarMenu()'
+  );
   assert.ok(html.includes('href="https://www.airtm.com/"'), 'Must include AirTM link');
   assert.ok(html.includes('href="https://www.payoneer.com/"'), 'Must include Payoneer link');
   assert.ok(html.includes('href="https://wise.com/"'), 'Must include Wise link');

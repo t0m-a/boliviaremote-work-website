@@ -567,6 +567,35 @@ export function renderAppHtml(initialState) {
       flex-wrap: wrap;
       max-width: 100%;
     }
+    #custom-filters-panel {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      column-gap: 0;
+    }
+    .filters-panel-header {
+      grid-column: 1;
+      grid-row: 1;
+      padding-right: 12px;
+      min-width: 0;
+    }
+    .filters-reset-actions {
+      grid-column: 2;
+      grid-row: 1;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #f1f5f9;
+      align-self: stretch;
+      justify-content: flex-end;
+    }
+    #custom-filters-panel > .filter-grid {
+      grid-column: 1 / -1;
+      grid-row: 2;
+    }
+    #custom-filters-panel > .filter-block-full {
+      grid-column: 1 / -1;
+      grid-row: 3;
+    }
     .bolivia-only-label {
       font-size: 0.84em;
       font-weight: 700;
@@ -1935,7 +1964,8 @@ export function renderAppHtml(initialState) {
       border-color: #1e293b;
       box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     }
-    body.dark-mode .panel-header {
+    body.dark-mode .panel-header,
+    body.dark-mode .filters-reset-actions {
       border-bottom-color: #1e293b;
     }
     body.dark-mode .panel-title {
@@ -2314,6 +2344,11 @@ export function renderAppHtml(initialState) {
       .top-banner {
         padding: 11px 14px;
       }
+      #custom-filters-panel .panel-title {
+        font-size: clamp(0.84rem, 2.35vw, 1.04rem);
+        white-space: nowrap;
+        flex: 1 1 auto;
+      }
       .keywords-input-row .input-text {
         flex: 1 1 100%;
         width: 100%;
@@ -2409,6 +2444,40 @@ export function renderAppHtml(initialState) {
       }
       .panel-header-actions {
         width: 100%;
+      }
+      #custom-filters-panel {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .filters-panel-header {
+        order: 1;
+        padding-right: 0;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+      }
+      #custom-filters-panel .panel-title {
+        font-size: clamp(0.66rem, 3.15vw, 0.94rem);
+        white-space: nowrap;
+        letter-spacing: -0.01em;
+        flex: 1 1 auto;
+      }
+      #custom-filters-panel > .filter-grid {
+        order: 2;
+      }
+      #custom-filters-panel > .filter-block-full {
+        order: 3;
+      }
+      .filters-reset-actions {
+        order: 4;
+        margin-top: 12px;
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
+        justify-content: stretch;
+      }
+      body.dark-mode .filters-reset-actions {
+        border-bottom: none;
       }
       .panel-header-actions .btn-action,
       .panel-header-actions .bolivia-only-label {
@@ -2566,17 +2635,17 @@ export function renderAppHtml(initialState) {
     </div>
     <ul id="navbar-menu-list">
       <li class="nav-group-header nav-collapsible-header" id="nav-hdr-notice-item" onclick="toggleNoticeMenu()" role="button" tabindex="0" aria-expanded="false">
-        <span id="nav-hdr-notice">Aviso</span>
+        <span id="nav-hdr-notice">Avisos</span>
         <span class="nav-caret" id="nav-notice-caret" aria-hidden="true"></span>
       </li>
       <li class="nav-notice-item nav-notice-folded nav-notice-desc">
         <p id="nav-notice-desc">Algunas de estas plataformas requieren registrarse y utilizar una herramienta de traducción en el navegador para aprovechar al máximo su contenido. Para el trabajo remoto a nivel global, se recomienda encarecidamente <a href="https://www.languagetransfer.org" title="Language Transfer: aprende inglés y más, ¡gratis!" target="_blank" rel="noopener noreferrer">aprender inglés</a>. Te abre todo un entorno de oportunidades y con <a href="https://www.languagetransfer.org" title="Language Transfer: aprende inglés y más, ¡gratis!" target="_blank" rel="noopener noreferrer">Language Transfer</a>, es <strong>gratis</strong>!</p>
       </li>
 
-      <li><a id="nav-manual" onclick="switchMainView('manual'); closeNavbarMenu();"><span id="nav-lbl-manual">Manual de Uso</span></a></li>
+      <li><a id="nav-manual" onclick="switchMainView('manual'); closeNavbarMenu();"><span id="nav-lbl-manual">Guía del Usuario: Bolivia Remote Work</span></a></li>
 
       <li class="nav-group-header nav-collapsible-header" id="nav-hdr-payments-item" onclick="togglePaymentsMenu()" role="button" tabindex="0" aria-expanded="false">
-        <span id="nav-hdr-payments">Información Financiera</span>
+        <span id="nav-hdr-payments">Información Financiera y de Pago</span>
         <span class="nav-caret" id="nav-payments-caret" aria-hidden="true"></span>
       </li>
       <li class="nav-payment-item nav-payment-folded"><a href="https://www.airtm.com/" target="_blank" rel="noopener noreferrer">AirTM</a></li>
@@ -2614,11 +2683,11 @@ export function renderAppHtml(initialState) {
 
     <!-- CUSTOMIZABLE USER FILTERS PANEL -->
     <section class="panel-card" id="custom-filters-panel">
-      <div class="panel-header">
+      <div class="panel-header filters-panel-header">
         <h2 class="panel-title"><span id="lbl-filters-title">Personaliza tu Búsqueda y Criterios de Evaluación</span></h2>
-        <div class="panel-header-actions">
-          <button type="button" class="btn-action btn-secondary" onclick="resetFilters()" id="btn-reset-filters">↺ Restablecer Filtros</button>
-        </div>
+      </div>
+      <div class="panel-header-actions filters-reset-actions">
+        <button type="button" class="btn-action btn-secondary" onclick="resetFilters()" id="btn-reset-filters">↺ Restablecer Filtros</button>
       </div>
 
       <div class="filter-grid">
@@ -2798,7 +2867,7 @@ export function renderAppHtml(initialState) {
             </div>
           </div>
           <p id="man-p-intro">
-            <strong>Bolivia Remote Work</strong> es una plataforma pública, gratuita e interactiva diseñada para encontrar, filtrar y evaluar en vivo oportunidades laborales internacionales que admiten trabajo 100% remoto desde Bolivia (UTC-4), eliminando el ruido de ofertas con restricciones territoriales o visados extranjeros. También puedes explorar las fuentes por tipo en <a href="#footer-categories-dropdown" id="man-link-categories" onclick="openFooterCategoriesFromManual(event)">Categorías De Plataformas</a> o consultar el directorio completo en <a href="#view-platforms" id="man-link-platforms" onclick="event.preventDefault(); switchMainView('platforms');">Plataformas Monitoreadas</a>.
+            <strong>Bolivia Remote Work</strong> es una plataforma pública, gratuita e interactiva diseñada para encontrar, filtrar y evaluar en vivo oportunidades laborales internacionales que admiten trabajo 100% remoto desde Bolivia (UTC-4), eliminando el ruido de ofertas con restricciones territoriales o visados extranjeros. Puedes verificar las fuentes por tipo en <a href="#footer-categories-dropdown" id="man-link-categories" onclick="openFooterCategoriesFromManual(event)">Categorías De Plataformas</a> o consultar el directorio completo en <a href="#view-platforms" id="man-link-platforms" onclick="event.preventDefault(); switchMainView('platforms');">Plataformas Monitoreadas</a>.
           </p>
           <div class="info-callout" id="man-box-privacy">
             <strong>Privacidad Total y Sin Registros:</strong> No necesitas crear una cuenta ni ingresar datos personales. Tus filtros y preferencias se guardan de forma privada en tu propio navegador (localStorage).
@@ -3126,7 +3195,7 @@ export function renderAppHtml(initialState) {
         unfoldNav: 'Información Utiles',
         navViews: 'Vistas Principales',
         navResults: 'Resultados en Vivo',
-        navManual: 'Manual de Uso',
+        navManual: 'Guía del Usuario: Bolivia Remote Work',
         navPlatforms: 'Plataformas Monitoreadas',
         navTracks: 'Categorías De Plataformas',
         navTrackAll: 'Todas las Categorías',
@@ -3136,7 +3205,7 @@ export function renderAppHtml(initialState) {
         navTrackD: 'Portales Europeos & Globales',
         navTrackE: 'Redes de Consultoría Experta',
         navTrackF: 'Bolsas de Empleo Remoto',
-        navPayments: 'Información Financiera',
+        navPayments: 'Información Financiera y de Pago',
         navPaymentsDesc: 'Las empresas suelen liquidar mediante plataformas de nómina global como <strong>AirTM. Wise, Payoneer o Tipalti</strong>. Desde estas cuentas puedes transferir vía SWIFT O transferancia ACH hacia tu cuenta bancaria boliviana en Boliviano o en USD, usar tarjetas de débito internacionales, o liquidar honorarios a través de pasarelas reguladas entre tus cuentas globales y locales.',
         categoryLabel: 'Categoría',
         themeDarkTitle: 'Cambiar a modo oscuro',
@@ -3145,7 +3214,7 @@ export function renderAppHtml(initialState) {
         themeLightText: 'Claro',
         bannerTitle: 'Buscador y Evaluador de Empleos Remotos desde Bolivia',
         bannerSubtitle: 'Filtra y evalúa ofertas globales y regionales que permiten trabajar remoto desde Bolivia. Personaliza tus idiomas, área profesional, experiencia y modalidad de contrato.',
-        noticeLink: 'Aviso',
+        noticeLink: 'Avisos',
         bannerDisclaimer: 'Algunas de estas plataformas requieren registrarse y utilizar una herramienta de traducción en el navegador para aprovechar al máximo su contenido. Para el trabajo remoto a nivel global, se recomienda encarecidamente <a href="https://www.languagetransfer.org" title="Language Transfer: aprende inglés y más, ¡gratis!" target="_blank" rel="noopener noreferrer">aprender inglés</a>. Te abre todo un entorno de oportunidades y con <a href="https://www.languagetransfer.org" title="Language Transfer: aprende inglés y más, ¡gratis!" target="_blank" rel="noopener noreferrer">Language Transfer</a>, es <strong>gratis</strong>!',
         scanNow: 'Escanear Ofertas Ahora',
         scanningNow: 'Escaneando plataformas...',
@@ -4146,6 +4215,7 @@ export function renderAppHtml(initialState) {
         if (e.key === 'Escape') {
           closePositionsDropdown();
           closeCategoriesMenu();
+          closeNavbarMenu();
         }
       });
     }
@@ -4233,6 +4303,8 @@ export function renderAppHtml(initialState) {
     }
     window.foldAllNavbarSubsections = foldAllNavbarSubsections;
 
+    let navbarOpenedScrollY = 0;
+
     function toggleSidebar() {
       cancelNavbarAutoClose();
       const isCollapsed = document.body.classList.toggle('sidebar-collapsed');
@@ -4242,6 +4314,8 @@ export function renderAppHtml(initialState) {
       }
       if (isCollapsed) {
         foldAllNavbarSubsections();
+      } else {
+        navbarOpenedScrollY = (typeof window.scrollY === 'number' ? window.scrollY : 0);
       }
     }
     window.toggleSidebar = toggleSidebar;
@@ -4258,6 +4332,7 @@ export function renderAppHtml(initialState) {
     window.closeNavbarMenu = closeNavbarMenu;
 
     (function initNavbarHoverAutoClose() {
+      const nav = document.getElementById('navbar');
       const navList = document.getElementById('navbar-menu-list');
       const navBtn = document.getElementById('sidebar-unfold-btn');
       [navList, navBtn].forEach(el => {
@@ -4266,6 +4341,43 @@ export function renderAppHtml(initialState) {
           el.addEventListener('mouseleave', scheduleNavbarAutoClose);
         }
       });
+
+      // Mobile & touch auto-close: tap/click outside navbar, tap any link inside menu, or scroll page
+      const handleOutsideInteraction = (e) => {
+        if (document.body.classList && typeof document.body.classList.contains === 'function' && document.body.classList.contains('sidebar-collapsed')) {
+          return;
+        }
+        if (nav && typeof nav.contains === 'function' && e && e.target && !nav.contains(e.target)) {
+          closeNavbarMenu();
+        }
+      };
+
+      if (typeof document.addEventListener === 'function') {
+        document.addEventListener('pointerdown', handleOutsideInteraction, { passive: true });
+        document.addEventListener('touchstart', handleOutsideInteraction, { passive: true });
+        document.addEventListener('click', handleOutsideInteraction);
+      }
+
+      if (navList && typeof navList.addEventListener === 'function') {
+        navList.addEventListener('click', (e) => {
+          const target = e && e.target && typeof e.target.closest === 'function' ? e.target.closest('a') : null;
+          if (target) {
+            closeNavbarMenu();
+          }
+        });
+      }
+
+      if (typeof window.addEventListener === 'function') {
+        window.addEventListener('scroll', () => {
+          if (document.body.classList && typeof document.body.classList.contains === 'function' && document.body.classList.contains('sidebar-collapsed')) {
+            return;
+          }
+          const currentY = typeof window.scrollY === 'number' ? window.scrollY : 0;
+          if (Math.abs(currentY - navbarOpenedScrollY) > 18) {
+            closeNavbarMenu();
+          }
+        }, { passive: true });
+      }
     })();
 
     let footerCategoriesAutoCloseTimer = null;
