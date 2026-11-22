@@ -39,6 +39,10 @@ async function runTests() {
   assert.ok(/<p class="banner-subtitle-line">[\s\S]*?<span id="banner-subtitle">[\s\S]*?<span id="banner-disclaimer"/.test(html), 'Notice/Aviso link must stay inline on the same line as banner subtitle');
   assert.ok(html.includes('Management (8+ yrs)'), 'Experience option must be Management (8+ yrs)');
   assert.ok(!html.includes('Lead / Manager (8+ yrs)'), 'Must replace Lead / Manager (8+ yrs) with Management (8+ yrs)');
+  assert.ok(html.includes('id="pos-dropdown"'), 'Position Type / Professional Area must use a multi-select dropdown');
+  assert.ok(html.includes('id="pos-dropdown-toggle"'), 'Position dropdown must have toggle trigger button');
+  assert.ok(html.includes('id="pos-dropdown-menu"') && html.includes('aria-multiselectable="true"'), 'Position dropdown menu must allow selecting one or more options');
+  assert.ok(/<div class="keywords-input-row">[\s\S]*?id="pos-dropdown"[\s\S]*?id="input-custom-keywords"/.test(html), 'Position dropdown and custom keywords input must be in .keywords-input-row');
   assert.ok(html.includes('id="btn-open-notice"'), 'Must render Notice/Aviso as clickable link');
   assert.ok(html.includes('id="notice-overlay"'), 'Must include Notice overlay container');
   assert.ok(html.includes('id="notice-overlay-body"'), 'Must include Notice overlay body');
@@ -164,7 +168,10 @@ async function runTests() {
   assert.ok(domElements['chips-languages'].innerHTML.includes('toggleLanguageChip'), 'Must render interactive language chips on load');
   assert.ok(domElements['chips-experience'].innerHTML.includes('toggleExperienceChip'), 'Must render interactive experience chips on load');
   assert.ok(domElements['chips-contracts'].innerHTML.includes('toggleContractChip'), 'Must render interactive contract chips on load');
-  assert.ok(domElements['chips-positions'].innerHTML.includes('togglePositionChip'), 'Must render interactive position chips on load');
+  assert.ok(domElements['chips-positions'].innerHTML.includes('togglePositionChip'), 'Must render interactive position options on load');
+  assert.ok(domElements['chips-positions'].innerHTML.includes('type="checkbox"'), 'Position dropdown options must be multi-select checkboxes');
+  assert.equal(typeof vmSandbox.window.togglePositionsDropdown, 'function', 'togglePositionsDropdown must be bound');
+  assert.equal(typeof vmSandbox.window.closePositionsDropdown, 'function', 'closePositionsDropdown must be bound');
   assert.ok(domElements['resultsCardsContainer'].innerHTML.includes('opp-card'), 'Must render job cards on load');
   assert.equal(typeof vmSandbox.window.toggleSidebar, 'function', 'Menu button handler toggleSidebar must be bound');
   assert.equal(typeof vmSandbox.window.openNoticeOverlay, 'function', 'openNoticeOverlay must be bound');

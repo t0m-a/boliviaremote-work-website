@@ -627,6 +627,128 @@ export function renderAppHtml(initialState) {
       max-width: 100%;
       line-height: 1.4;
     }
+    .pos-dropdown {
+      position: relative;
+      flex: 0 1 320px;
+      min-width: 220px;
+      max-width: 100%;
+    }
+    .pos-dropdown-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      width: 100%;
+      cursor: pointer;
+      text-align: left;
+      font-weight: 600;
+    }
+    .pos-dropdown-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .pos-dropdown-caret {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-right: 2px solid #64748b;
+      border-bottom: 2px solid #64748b;
+      transform: rotate(45deg);
+      transition: transform 0.18s ease;
+      flex-shrink: 0;
+      margin-top: -3px;
+    }
+    .pos-dropdown.open .pos-dropdown-caret {
+      transform: rotate(-135deg);
+      margin-top: 3px;
+    }
+    .pos-dropdown-menu {
+      display: none;
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      min-width: 100%;
+      width: max-content;
+      max-width: min(440px, calc(100vw - 48px));
+      max-height: 310px;
+      overflow-y: auto;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+      padding: 6px;
+      z-index: 950;
+    }
+    .pos-dropdown.open .pos-dropdown-menu {
+      display: block;
+    }
+    .pos-dropdown-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .pos-dropdown-option {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 7px 9px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.84em;
+      font-weight: 500;
+      color: #1e293b;
+      line-height: 1.35;
+      user-select: none;
+      transition: background 0.12s ease;
+    }
+    .pos-dropdown-option:hover {
+      background: #f1f5f9;
+    }
+    .pos-dropdown-option.selected {
+      background: #e0f2fe;
+      color: #0369a1;
+      font-weight: 600;
+    }
+    .pos-dropdown-option input[type="checkbox"] {
+      margin-top: 2px;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .pos-selected-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .pos-selected-tags:empty {
+      display: none;
+      margin-top: 0;
+    }
+    .pos-selected-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: var(--accent-primary);
+      color: #ffffff;
+      font-size: 0.78em;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+    .pos-selected-tag button {
+      border: none;
+      background: transparent;
+      color: #ffffff;
+      font-size: 1.05em;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0 2px;
+      font-weight: 700;
+    }
     .chip-group {
       display: flex;
       flex-wrap: wrap;
@@ -1535,6 +1657,24 @@ export function renderAppHtml(initialState) {
       border-color: #38bdf8;
       box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
     }
+    body.dark-mode .pos-dropdown-caret {
+      border-color: #94a3b8;
+    }
+    body.dark-mode .pos-dropdown-menu {
+      background: #0f172a;
+      border-color: #334155;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
+    }
+    body.dark-mode .pos-dropdown-option {
+      color: #e2e8f0;
+    }
+    body.dark-mode .pos-dropdown-option:hover {
+      background: #1e293b;
+    }
+    body.dark-mode .pos-dropdown-option.selected {
+      background: #082f49;
+      color: #38bdf8;
+    }
     body.dark-mode .form-field label {
       color: #94a3b8;
     }
@@ -1802,6 +1942,14 @@ export function renderAppHtml(initialState) {
       .banner-subtitle-line {
         font-size: 0.88em;
       }
+      .pos-dropdown {
+        flex: 1 1 100%;
+        min-width: 0;
+      }
+      .pos-dropdown-menu {
+        width: 100%;
+        max-width: 100%;
+      }
       .banner-pill {
         white-space: normal;
         word-break: break-word;
@@ -2008,9 +2156,24 @@ export function renderAppHtml(initialState) {
             <button type="button" style="border:none;background:none;color:#0284c7;font-size:0.8em;font-weight:700;cursor:pointer;" onclick="clearPositions()" id="btn-clear-pos">Ver todas las áreas</button>
           </div>
         </div>
-        <div class="chip-group" id="chips-positions" style="margin-bottom:10px;"></div>
-
         <div class="keywords-input-row">
+          <div class="pos-dropdown" id="pos-dropdown">
+            <button
+              type="button"
+              id="pos-dropdown-toggle"
+              class="input-select pos-dropdown-toggle"
+              onclick="togglePositionsDropdown(event)"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-controls="pos-dropdown-menu"
+            >
+              <span id="pos-dropdown-label" class="pos-dropdown-label">Todas las áreas (seleccionar...)</span>
+              <span class="pos-dropdown-caret" aria-hidden="true"></span>
+            </button>
+            <div id="pos-dropdown-menu" class="pos-dropdown-menu" role="listbox" aria-multiselectable="true">
+              <div id="chips-positions" class="pos-dropdown-list"></div>
+            </div>
+          </div>
           <input
             type="text"
             id="input-custom-keywords"
@@ -2020,6 +2183,7 @@ export function renderAppHtml(initialState) {
           >
           <span style="font-size:0.78em;color:#64748b;" id="lbl-weight-pos">(Peso Posición/Habilidades: 35 pts · Elegibilidad Bolivia: 25 pts)</span>
         </div>
+        <div id="pos-selected-tags" class="pos-selected-tags"></div>
       </div>
     </section>
 
@@ -2903,14 +3067,42 @@ export function renderAppHtml(initialState) {
           escapeHtml(label) + '</span>';
       }).join('');
 
-      // 4. Position Categories
+      // 4. Position Categories (Multi-select dropdown)
+      const selectedPosIds = userFilters.position_types || [];
       const posContainer = document.getElementById('chips-positions');
       posContainer.innerHTML = POSITION_CATEGORIES.map(opt => {
-        const selected = (userFilters.position_types || []).includes(opt.id);
+        const selected = selectedPosIds.includes(opt.id);
         const label = isEs ? opt.label_es : opt.label_en;
-        return '<span class="chip ' + (selected ? 'selected' : '') + '" onclick="togglePositionChip(\\'' + opt.id + '\\')">' +
-          escapeHtml(label) + '</span>';
+        return '<label class="pos-dropdown-option ' + (selected ? 'selected' : '') + '">' +
+          '<input type="checkbox" ' + (selected ? 'checked' : '') + ' onchange="togglePositionChip(\\'' + opt.id + '\\')">' +
+          '<span>' + escapeHtml(label) + '</span>' +
+        '</label>';
       }).join('');
+
+      const posLabelEl = document.getElementById('pos-dropdown-label');
+      if (posLabelEl) {
+        if (selectedPosIds.length === 0) {
+          posLabelEl.textContent = isEs ? 'Todas las áreas (seleccionar...)' : 'All areas (select one or more...)';
+        } else if (selectedPosIds.length === 1) {
+          const found = POSITION_CATEGORIES.find(c => c.id === selectedPosIds[0]);
+          posLabelEl.textContent = found ? (isEs ? found.label_es : found.label_en) : selectedPosIds[0];
+        } else {
+          posLabelEl.textContent = isEs
+            ? selectedPosIds.length + ' áreas seleccionadas'
+            : selectedPosIds.length + ' areas selected';
+        }
+      }
+
+      const posTagsEl = document.getElementById('pos-selected-tags');
+      if (posTagsEl) {
+        posTagsEl.innerHTML = selectedPosIds.map(id => {
+          const found = POSITION_CATEGORIES.find(c => c.id === id);
+          if (!found) return '';
+          const label = isEs ? found.label_es : found.label_en;
+          return '<span class="pos-selected-tag">' + escapeHtml(label) +
+            '<button type="button" onclick="togglePositionChip(\\'' + id + '\\')" aria-label="Remove">&times;</button></span>';
+        }).join('');
+      }
 
       document.getElementById('chk-bolivia-only').checked = userFilters.require_bolivia_remote !== false;
       document.getElementById('chk-strict-pos').checked = Boolean(userFilters.strict_position_match);
@@ -2965,6 +3157,35 @@ export function renderAppHtml(initialState) {
       saveFilters();
       renderFilterChips();
       recomputeAndRender();
+    }
+
+    function togglePositionsDropdown(event) {
+      if (event && typeof event.stopPropagation === 'function') {
+        event.stopPropagation();
+      }
+      const dd = document.getElementById('pos-dropdown');
+      const btn = document.getElementById('pos-dropdown-toggle');
+      if (!dd) return;
+      const isOpen = dd.classList.toggle('open');
+      if (btn) btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    }
+    window.togglePositionsDropdown = togglePositionsDropdown;
+
+    function closePositionsDropdown() {
+      const dd = document.getElementById('pos-dropdown');
+      const btn = document.getElementById('pos-dropdown-toggle');
+      if (dd) dd.classList.remove('open');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    }
+    window.closePositionsDropdown = closePositionsDropdown;
+
+    if (typeof document.addEventListener === 'function') {
+      document.addEventListener('click', function (e) {
+        const dd = document.getElementById('pos-dropdown');
+        if (dd && dd.classList.contains('open') && typeof dd.contains === 'function' && !dd.contains(e.target)) {
+          closePositionsDropdown();
+        }
+      });
     }
 
     function togglePositionChip(id) {
@@ -3365,7 +3586,10 @@ export function renderAppHtml(initialState) {
 
     if (typeof document.addEventListener === 'function') {
       document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') closeNoticeOverlay();
+        if (e.key === 'Escape') {
+          closeNoticeOverlay();
+          closePositionsDropdown();
+        }
       });
     }
 
