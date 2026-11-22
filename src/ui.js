@@ -844,24 +844,27 @@ export function renderAppHtml(initialState) {
     }
     .scan-alert-close {
       border: none;
-      background: transparent;
-      color: inherit;
-      font-size: 1.25em;
-      font-weight: 800;
+      background: #e0f2fe;
+      color: #0369a1;
+      font-size: 0.78em;
+      font-weight: 700;
       cursor: pointer;
-      padding: 2px 8px;
-      line-height: 1;
-      border-radius: 4px;
-      opacity: 0.8;
+      padding: 2px 9px;
+      line-height: 1.3;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       flex-shrink: 0;
+      transition: background 0.15s ease, color 0.15s ease;
     }
     .scan-alert-close:hover {
-      opacity: 1;
-      background: rgba(0, 0, 0, 0.06);
+      background: #bae6fd;
+      color: #075985;
     }
     .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 12px;
       margin-bottom: 18px;
       width: 100%;
@@ -1656,8 +1659,13 @@ export function renderAppHtml(initialState) {
       border-color: #ef4444;
       color: #fecaca;
     }
+    body.dark-mode .scan-alert-close {
+      background: #082f49;
+      color: #38bdf8;
+    }
     body.dark-mode .scan-alert-close:hover {
-      background: rgba(255, 255, 255, 0.12);
+      background: #0c4a6e;
+      color: #7dd3fc;
     }
     body.dark-mode .kpi-card {
       background: var(--bg-card);
@@ -1899,7 +1907,7 @@ export function renderAppHtml(initialState) {
         flex: 1 1 auto;
       }
       .kpi-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 10px;
       }
       .radar-grid {
@@ -1969,7 +1977,7 @@ export function renderAppHtml(initialState) {
         justify-content: center;
       }
       .kpi-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
         gap: 8px;
       }
       .btn-back-to-top {
@@ -2217,26 +2225,22 @@ export function renderAppHtml(initialState) {
       </div>
     </section>
 
-    <!-- DIAGNOSTICO DE COMPATIBILIDAD REMOTA PANEL (MASKED UNTIL TRIGGERED FROM A JOB CARD) -->
+    <!-- INFORMACION SOBRE LA POSICION PANEL (MASKED UNTIL TRIGGERED FROM A JOB CARD) -->
     <section class="panel-card ai-cv-folded" id="ai-cv-panel">
       <div id="ai-cv-error" class="scan-alert"></div>
       <div id="ai-cv-result-box" class="ai-result-box">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-            <strong style="font-size:0.95em;" id="lbl-ai-analysis-hdr">Diagnóstico de Compatibilidad Remota (Bolivia UTC-4)</strong>
+            <strong style="font-size:0.95em;" id="lbl-ai-analysis-hdr">Información sobre la Posición</strong>
             <span id="ai-target-job-pill" style="display:none;font-size:0.78em;background:#e0f2fe;color:#0369a1;padding:2px 9px;border-radius:999px;font-weight:700;">
               <span id="ai-target-job-text"></span>
             </span>
           </div>
           <div style="display:flex;align-items:center;gap:8px;">
-            <span id="ai-engine-badge" class="score-pill" style="font-size:0.75em;">Workers AI</span>
             <button type="button" class="scan-alert-close" onclick="closeAiDiagnosticPanel()" aria-label="Cerrar" title="Cerrar">&times;</button>
           </div>
         </div>
         <p id="ai-cv-analysis-text" style="margin:0 0 12px 0;font-size:0.88em;line-height:1.5;"></p>
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-          <strong style="font-size:0.9em;" id="lbl-ai-proposal-hdr">Información sobre la posición</strong>
-        </div>
         <pre id="ai-cv-proposal-pre" class="ai-proposal-pre"></pre>
       </div>
     </section>
@@ -2254,10 +2258,6 @@ export function renderAppHtml(initialState) {
       <div class="kpi-card skip" onclick="switchMainView('results'); setVerdictFilter('SKIP');">
         <div class="kpi-value" style="color:#475569;"><span id="kpi-skip-cnt">0</span></div>
         <div class="kpi-label"><strong id="kpi-skip-title">BAJA COINCIDENCIA</strong> (<span id="kpi-skip-sub">Fuera de tus filtros</span>)</div>
-      </div>
-      <div class="kpi-card" onclick="switchMainView('report');">
-        <div class="kpi-value" style="color:#0284c7;"><span id="kpi-total-cnt">0</span></div>
-        <div class="kpi-label"><strong id="kpi-report-title">Reporte de Resultados</strong> (<span id="kpi-report-sub">Generado al instante</span>)</div>
       </div>
     </section>
 
@@ -2674,9 +2674,8 @@ export function renderAppHtml(initialState) {
         typeAuto: 'Auto-detectar (Web / RSS / JSON)',
         btnSubmitUrl: 'Escanear y Evaluar URL',
         scanningUrl: 'Escaneando URL...',
-        aiAnalysisHdr: 'Diagnóstico de Compatibilidad Remota (Bolivia UTC-4)',
-        aiProposalHdr: 'Información sobre la posición',
-        draftAiBtn: 'Diagnóstico de Compatibilidad Remota',
+        aiAnalysisHdr: 'Información sobre la Posición',
+        draftAiBtn: 'Más información con IA',
         semanticBtn: 'Buscar con IA',
         semanticLoading: 'Buscando Vectores...',
         semanticClear: 'Limpiar Vector',
@@ -2810,7 +2809,6 @@ export function renderAppHtml(initialState) {
         'opt-type-auto': t.typeAuto,
         'lbl-btn-submit-url': t.btnSubmitUrl,
         'lbl-ai-analysis-hdr': t.aiAnalysisHdr,
-        'lbl-ai-proposal-hdr': t.aiProposalHdr,
         'lbl-btn-semantic': t.semanticBtn,
         'lbl-btn-clear-semantic': t.semanticClear,
         'kpi-apply-title': t.kpiApplyTitle,
@@ -3188,7 +3186,8 @@ export function renderAppHtml(initialState) {
       document.getElementById('kpi-skip-cnt').textContent = lastEvaluationResult.skip.length;
       const kpiGeoEl = document.getElementById('kpi-geo-cnt');
       if (kpiGeoEl) kpiGeoEl.textContent = lastEvaluationResult.geo_excluded.length;
-      document.getElementById('kpi-total-cnt').textContent = lastEvaluationResult.surfaced.length;
+      const kpiTotalEl = document.getElementById('kpi-total-cnt');
+      if (kpiTotalEl) kpiTotalEl.textContent = lastEvaluationResult.surfaced.length;
 
       const navCntEl = document.getElementById('nav-cnt-results');
       if (navCntEl) navCntEl.textContent = lastEvaluationResult.surfaced.length;
@@ -3425,7 +3424,7 @@ export function renderAppHtml(initialState) {
             '<a class="btn-action btn-primary" href="' + escapeHtml(r.url) + '" target="_blank" rel="noopener">' +
               escapeHtml(t.openOfferBtn) + '</a>' +
             '<button type="button" class="btn-action btn-secondary" onclick="openAiProposalForJob(\\'' + escapeHtml(r.job_hash) + '\\', this)">' +
-              escapeHtml(t.draftAiBtn || 'Diagnóstico de Compatibilidad Remota') + '</button>' +
+              escapeHtml(t.draftAiBtn || 'Más información con IA') + '</button>' +
           '</div>' +
         '</article>';
       }).join('');
@@ -3791,6 +3790,7 @@ export function renderAppHtml(initialState) {
     let currentAiTargetJobHash = '';
     let lastAiDetectedProfile = null;
     let lastAiResultData = null;
+    let aiPanelOpenedAt = 0;
 
     function setAiCvPanelFolded(folded) {
       const panel = document.getElementById('ai-cv-panel');
@@ -3803,11 +3803,33 @@ export function renderAppHtml(initialState) {
     function closeAiDiagnosticPanel() {
       setAiCvPanelFolded(true);
       clearAiTargetJob();
+      const resBox = document.getElementById('ai-cv-result-box');
+      if (resBox) resBox.style.display = 'none';
     }
     window.closeAiDiagnosticPanel = closeAiDiagnosticPanel;
 
+    function handleAiPanelScrollAutoClose() {
+      const panel = document.getElementById('ai-cv-panel');
+      const resBox = document.getElementById('ai-cv-result-box');
+      if (!panel || !resBox) return;
+      if (panel.classList.contains && panel.classList.contains('ai-cv-folded')) return;
+      if (Date.now() - aiPanelOpenedAt < 450) return;
+      if (typeof resBox.getBoundingClientRect !== 'function') return;
+      const rect = resBox.getBoundingClientRect();
+      const vh = window.innerHeight || (document.documentElement && document.documentElement.clientHeight) || 0;
+      if (vh > 0 && rect.height > 0 && (rect.bottom <= 0 || rect.top >= vh)) {
+        closeAiDiagnosticPanel();
+      }
+    }
+    window.handleAiPanelScrollAutoClose = handleAiPanelScrollAutoClose;
+
+    if (typeof window.addEventListener === 'function') {
+      window.addEventListener('scroll', handleAiPanelScrollAutoClose, { passive: true });
+    }
+
     function openAiProposalForJob(jobHash, triggerBtn) {
       currentAiTargetJobHash = String(jobHash || '');
+      aiPanelOpenedAt = Date.now();
       const job = opportunitiesState.find(o => o.job_hash === currentAiTargetJobHash);
       const pill = document.getElementById('ai-target-job-pill');
       const txt = document.getElementById('ai-target-job-text');
@@ -3885,7 +3907,6 @@ export function renderAppHtml(initialState) {
         const data = await resp.json();
         lastAiResultData = data;
         lastAiDetectedProfile = data.detected_profile || null;
-        document.getElementById('ai-engine-badge').textContent = data.ai_engine || 'Workers AI';
         document.getElementById('ai-cv-analysis-text').textContent = data.analysis_es || data.analysis_en || '';
         document.getElementById('ai-cv-proposal-pre').textContent = data.proposal_es || data.proposal_en || '';
         if (resBox) resBox.style.display = 'block';
@@ -3907,7 +3928,6 @@ export function renderAppHtml(initialState) {
         const jComp = job ? job.company : 'Empresa Contratante';
         const sk = attrs.matchedKeywords.length ? attrs.matchedKeywords.join(', ') : (kw || 'trabajo remoto');
 
-        document.getElementById('ai-engine-badge').textContent = 'Edge Local Analyzer';
         document.getElementById('ai-cv-analysis-text').textContent =
           'Habilidades identificadas: ' + sk + '. Ventaja desde Bolivia: Zona horaria UTC-4 alineada con EST/EDT y modalidad contratista internacional W-8BEN.';
         document.getElementById('ai-cv-proposal-pre').textContent =
