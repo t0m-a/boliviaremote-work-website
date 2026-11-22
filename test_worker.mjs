@@ -64,7 +64,9 @@ async function runTests() {
   assert.ok(!html.includes('panel-collapsible-header'), 'Must mask/remove panel-collapsible-header from #ai-cv-panel');
   assert.ok(!html.includes('id="ai-cv-input"'), 'Must remove CV input form from #ai-cv-panel');
   assert.ok(!html.includes('Carta de Postulación Personalizada'), 'Must replace Carta de Postulación Personalizada');
-  assert.ok(html.includes('Recomendaciones para la posición'), 'Must use Recomendaciones para la posición as generated content section title');
+  assert.ok(!html.includes('Recomendaciones para la posición'), 'Must replace Recomendaciones para la posición');
+  assert.ok(html.includes('Información sobre la posición'), 'Must use Información sobre la posición as generated content section title');
+  assert.ok(html.includes("cardEl.insertAdjacentElement('afterend', panel)"), '#ai-cv-panel must open directly below the clicked .opp-card article');
   assert.ok(!html.includes('Copiar Carta') && !html.includes('copyAiProposal'), 'Must remove Copiar Carta button');
   assert.ok(html.includes('#ai-cv-panel.ai-cv-folded {\r\n      display: none;') || html.includes('#ai-cv-panel.ai-cv-folded {\n      display: none;'), 'Must mask #ai-cv-panel.ai-cv-folded from displaying by default');
   assert.ok(html.includes('Diagnóstico de Compatibilidad Remota (Bolivia UTC-4)'), 'Must preserve Diagnóstico de Compatibilidad Remota (Bolivia UTC-4) display');
@@ -100,7 +102,7 @@ async function runTests() {
   assert.ok(!html.includes('id="nav-report"'), 'Must NOT have id="nav-report" in navbar (removed as requested)');
   assert.ok(html.includes('id="sidebar-unfold-btn"'), 'Must have sidebar unfold button');
   assert.ok(html.includes('<body class="sidebar-collapsed">'), 'Navbar must start folded in hamburger menu by default');
-  assert.ok(/<div class="navbar-header">[\s\S]*?id="nav-brand-title">Bolivia Remote Work<\/span>[\s\S]*?id="sidebar-unfold-btn"[\s\S]*?<span class="hamburger-label" id="lbl-unfold-nav">Información<\/span>[\s\S]*?<span class="hamburger-icon">/.test(html), 'Hamburger button must be inside navbar-header on the right with Información on the left of hamburger icon');
+  assert.ok(/<div class="navbar-header">[\s\S]*?id="nav-brand-title">Bolivia Remote Work<\/span>[\s\S]*?id="sidebar-unfold-btn"[\s\S]*?<span class="hamburger-label" id="lbl-unfold-nav">Información Utiles<\/span>[\s\S]*?<span class="hamburger-icon">/.test(html), 'Hamburger button must be inside navbar-header on the right with Información Utiles on the left of hamburger icon');
   assert.ok(html.includes('id="exp-dropdown"') && html.includes('id="exp-dropdown-menu"'), 'Experience Level must use a multi-select dropdown');
   assert.ok(html.includes('id="contract-dropdown"') && html.includes('id="contract-dropdown-menu"'), 'Target Contract Types must use a multi-select dropdown');
   assert.ok(html.includes('onclick="toggleCategoriesMenu()"'), 'Categories header inside menu must be collapsible');

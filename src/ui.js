@@ -1128,6 +1128,11 @@ export function renderAppHtml(initialState) {
     #ai-cv-panel.ai-cv-folded {
       display: none;
     }
+    #resultsCardsContainer > #ai-cv-panel {
+      margin-top: -6px;
+      margin-bottom: 16px;
+      border-left: 5px solid var(--accent-primary);
+    }
     .ai-result-box {
       margin-top: 0;
       padding: 14px 16px;
@@ -2039,7 +2044,7 @@ export function renderAppHtml(initialState) {
           </span>
         </button>
         <button type="button" id="sidebar-unfold-btn" class="sidebar-fold-btn" onclick="toggleSidebar()" title="Mostrar información" aria-label="Mostrar información" aria-expanded="false">
-          <span class="hamburger-label" id="lbl-unfold-nav">Información</span>
+          <span class="hamburger-label" id="lbl-unfold-nav">Información Utiles</span>
           <span class="hamburger-icon"><span></span><span></span><span></span></span>
         </button>
       </div>
@@ -2230,7 +2235,7 @@ export function renderAppHtml(initialState) {
         </div>
         <p id="ai-cv-analysis-text" style="margin:0 0 12px 0;font-size:0.88em;line-height:1.5;"></p>
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-          <strong style="font-size:0.9em;" id="lbl-ai-proposal-hdr">Recomendaciones para la posición</strong>
+          <strong style="font-size:0.9em;" id="lbl-ai-proposal-hdr">Información sobre la posición</strong>
         </div>
         <pre id="ai-cv-proposal-pre" class="ai-proposal-pre"></pre>
       </div>
@@ -2617,7 +2622,7 @@ export function renderAppHtml(initialState) {
       es: {
         pageTitle: 'Empleos Remotos desde Bolivia — Buscador y Evaluador en Vivo',
         navBrand: 'Bolivia Remote Work',
-        unfoldNav: 'Información',
+        unfoldNav: 'Información Utiles',
         navViews: 'Vistas Principales',
         navResults: 'Resultados en Vivo',
         navManual: 'Manual de Uso',
@@ -2670,7 +2675,7 @@ export function renderAppHtml(initialState) {
         btnSubmitUrl: 'Escanear y Evaluar URL',
         scanningUrl: 'Escaneando URL...',
         aiAnalysisHdr: 'Diagnóstico de Compatibilidad Remota (Bolivia UTC-4)',
-        aiProposalHdr: 'Recomendaciones para la posición',
+        aiProposalHdr: 'Información sobre la posición',
         draftAiBtn: 'Diagnóstico de Compatibilidad Remota',
         semanticBtn: 'Buscar con IA',
         semanticLoading: 'Buscando Vectores...',
@@ -3350,6 +3355,12 @@ export function renderAppHtml(initialState) {
       });
 
       const container = document.getElementById('resultsCardsContainer');
+      const aiPanel = document.getElementById('ai-cv-panel');
+      const viewResults = document.getElementById('view-results');
+      if (aiPanel && typeof container.contains === 'function' && container.contains(aiPanel) && viewResults && viewResults.parentNode) {
+        aiPanel.classList.add('ai-cv-folded');
+        viewResults.parentNode.insertBefore(aiPanel, viewResults);
+      }
       if (filtered.length === 0) {
         container.innerHTML = '<div class="panel-card" style="text-align:center;color:#64748b;padding:32px;">' +
           escapeHtml(t.noResults) + '</div>';
@@ -3382,7 +3393,7 @@ export function renderAppHtml(initialState) {
           '<span class="lang-tag">' + escapeHtml(langFlagMap[lid] || lid.toUpperCase()) + '</span>'
         ).join('');
 
-        return '<article class="opp-card verdict-' + vKey + '">' +
+        return '<article class="opp-card verdict-' + vKey + '" data-job-hash="' + escapeHtml(r.job_hash) + '">' +
           '<div class="opp-header">' +
             '<h3 class="opp-title">#' + (idx + 1) + '. [' + r.total_score + '/100] ' + escapeHtml(r.title) +
               ' — <span class="opp-company">' + escapeHtml(r.company) + '</span></h3>' +
@@ -3413,7 +3424,7 @@ export function renderAppHtml(initialState) {
           '<div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">' +
             '<a class="btn-action btn-primary" href="' + escapeHtml(r.url) + '" target="_blank" rel="noopener">' +
               escapeHtml(t.openOfferBtn) + '</a>' +
-            '<button type="button" class="btn-action btn-secondary" onclick="openAiProposalForJob(\\'' + escapeHtml(r.job_hash) + '\\')">' +
+            '<button type="button" class="btn-action btn-secondary" onclick="openAiProposalForJob(\\'' + escapeHtml(r.job_hash) + '\\', this)">' +
               escapeHtml(t.draftAiBtn || 'Diagnóstico de Compatibilidad Remota') + '</button>' +
           '</div>' +
         '</article>';
@@ -3795,7 +3806,7 @@ export function renderAppHtml(initialState) {
     }
     window.closeAiDiagnosticPanel = closeAiDiagnosticPanel;
 
-    function openAiProposalForJob(jobHash) {
+    function openAiProposalForJob(jobHash, triggerBtn) {
       currentAiTargetJobHash = String(jobHash || '');
       const job = opportunitiesState.find(o => o.job_hash === currentAiTargetJobHash);
       const pill = document.getElementById('ai-target-job-pill');
@@ -3804,10 +3815,22 @@ export function renderAppHtml(initialState) {
         txt.textContent = job.title + ' (' + job.company + ')';
         pill.style.display = 'inline-flex';
       }
-      setAiCvPanelFolded(false);
       const panel = document.getElementById('ai-cv-panel');
+      let cardEl = null;
+      if (triggerBtn && typeof triggerBtn.closest === 'function') {
+        cardEl = triggerBtn.closest('.opp-card');
+      }
+      if (!cardEl && typeof document.querySelector === 'function') {
+        cardEl = document.querySelector('.opp-card[data-job-hash="' + currentAiTargetJobHash + '"]');
+      }
+      if (panel && cardEl && typeof cardEl.insertAdjacentElement === 'function') {
+        cardEl.insertAdjacentElement('afterend', panel);
+      } else if (panel && cardEl && cardEl.parentNode) {
+        cardEl.parentNode.insertBefore(panel, cardEl.nextSibling);
+      }
+      setAiCvPanelFolded(false);
       if (panel) {
-        panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
       submitAiCvMatch(job);
     }
