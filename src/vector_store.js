@@ -18,59 +18,341 @@ export const EMBEDDING_MODEL = '@cf/baai/bge-m3';
 const LOCAL_DIM = 128;
 
 /**
- * Cross-lingual concept clusters mapping Spanish, English, and Portuguese terms
- * to shared semantic dimensions (indices 0..31 of the 128-dim local vector).
+ * Normalizes text for accent-insensitive, case-insensitive search and embedding.
+ * Strips HTML, lowercases, decomposes Unicode accents (áéíóúüñ -> aeiouun), and collapses whitespace.
+ */
+export function normalizeSearchText(rawText) {
+  return stripHtml(rawText || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[¡¿]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+const SEARCH_STOP_WORDS = new Set([
+  'de', 'del', 'la', 'las', 'el', 'los', 'en', 'con', 'para', 'por',
+  'un', 'una', 'unos', 'unas', 'y', 'o', 'a', 'al', 'sin', 'sobre',
+  'desde', 'como', 'que', 'se', 'su', 'sus', 'mi', 'tu', 'trabajo',
+  'trabajos', 'empleo', 'empleos', 'busco', 'buscar', 'oferta', 'ofertas',
+  'puesto', 'puestos', 'vacante', 'vacantes', 'rol', 'roles',
+  'the', 'and', 'for', 'with', 'in', 'of', 'to', 'on', 'or', 'at',
+  'by', 'from', 'as', 'an', 'is', 'are', 'job', 'jobs', 'role', 'position'
+]);
+
+const SHORT_DOMAIN_ACRONYMS = new Set([
+  'ia', 'ai', 'ui', 'ux', 'qa', 'hr', 'it', 'bi', 'ml',
+  'pm', 'po', 'ti', 'va', 'go', 'js', 'ts', 'c#', 'db', '3d'
+]);
+
+/**
+ * Cross-lingual ES <-> EN synonym expansion map (all keys and values accent-stripped).
+ * Broadens semantic search so Spanish, English, colloquial, and adjacent role terms connect naturally.
+ */
+const CROSS_LINGUAL_SYNONYMS = {
+  asistente: ['assistant', 'virtual', 'admin', 'administrative', 'executive', 'backoffice', 'secretary'],
+  secretaria: ['assistant', 'administrative', 'executive', 'office', 'scheduling'],
+  secretario: ['assistant', 'administrative', 'executive', 'office', 'scheduling'],
+  administrativo: ['administrative', 'admin', 'operations', 'backoffice', 'office', 'assistant'],
+  administracion: ['administration', 'administrative', 'operations', 'management', 'office'],
+  digitador: ['data entry', 'typing', 'administrative', 'backoffice'],
+  soporte: ['support', 'customer', 'helpdesk', 'service', 'technical', 'tickets', 'chat'],
+  atencion: ['customer', 'support', 'service', 'client', 'helpdesk', 'success', 'call center'],
+  cliente: ['customer', 'client', 'support', 'service', 'success', 'account'],
+  clientes: ['customer', 'client', 'support', 'service', 'success', 'account'],
+  servicio: ['service', 'customer', 'support', 'client'],
+  ventas: ['sales', 'sdr', 'bdr', 'account', 'business development', 'closer', 'crm', 'outbound'],
+  vendedor: ['sales', 'sdr', 'bdr', 'account executive', 'commercial', 'closer'],
+  comercial: ['sales', 'commercial', 'business development', 'account', 'crm'],
+  prospeccion: ['outbound', 'lead generation', 'sdr', 'bdr', 'sales'],
+  mercadeo: ['marketing', 'digital', 'seo', 'sem', 'social media', 'growth', 'ads'],
+  publicidad: ['marketing', 'advertising', 'ads', 'meta ads', 'google ads', 'media'],
+  redes: ['social media', 'community', 'network', 'networking', 'marketing'],
+  contenido: ['content', 'copywriter', 'writing', 'social media', 'marketing'],
+  redactor: ['copywriter', 'writer', 'content', 'copywriting', 'editorial'],
+  redaccion: ['copywriting', 'writing', 'content', 'copywriter', 'technical writer'],
+  escritor: ['writer', 'copywriter', 'content', 'editorial'],
+  comunicacion: ['communications', 'marketing', 'content', 'pr', 'community'],
+  reclutador: ['recruiter', 'recruiting', 'talent', 'hr', 'sourcer', 'human resources'],
+  reclutamiento: ['recruiting', 'recruitment', 'talent acquisition', 'hr', 'hiring'],
+  rrhh: ['hr', 'human resources', 'people ops', 'recruiting', 'talent'],
+  talento: ['talent', 'recruiting', 'hr', 'people'],
+  finanzas: ['finance', 'financial', 'accounting', 'fp&a', 'analyst', 'treasury'],
+  financiero: ['financial', 'finance', 'accounting', 'analyst', 'banking'],
+  contabilidad: ['accounting', 'bookkeeping', 'accountant', 'finance', 'quickbooks', 'payroll', 'tax'],
+  contador: ['accountant', 'accounting', 'bookkeeper', 'finance', 'quickbooks', 'cpa'],
+  contable: ['accounting', 'bookkeeping', 'accountant', 'finance', 'payroll'],
+  nomina: ['payroll', 'accounting', 'hr', 'finance', 'billing'],
+  impuestos: ['tax', 'accounting', 'finance', 'audit'],
+  facturacion: ['billing', 'invoicing', 'accounting', 'medical billing', 'finance'],
+  banca: ['banking', 'fintech', 'finance', 'insurance'],
+  seguros: ['insurance', 'banking', 'finance', 'claims'],
+  diseno: ['design', 'designer', 'ui', 'ux', 'graphic', 'figma', 'canva', 'creative'],
+  disenador: ['designer', 'design', 'ui', 'ux', 'graphic', 'figma', 'visual'],
+  grafico: ['graphic', 'design', 'designer', 'visual', 'illustrator', 'photoshop', 'canva'],
+  video: ['video editor', 'editing', 'motion graphics', 'audiovisual', 'premiere'],
+  edicion: ['editing', 'editor', 'video', 'content', 'postproduction'],
+  animacion: ['animation', 'motion graphics', '3d', 'design', 'video'],
+  ia: ['ai', 'artificial intelligence', 'llm', 'ml', 'rlhf', 'prompt', 'machine learning', 'trainer'],
+  ai: ['ia', 'artificial intelligence', 'llm', 'ml', 'rlhf', 'prompt', 'machine learning', 'trainer'],
+  inteligencia: ['ai', 'artificial intelligence', 'machine learning', 'llm', 'bi'],
+  entrenamiento: ['trainer', 'training', 'rlhf', 'ai', 'annotator', 'evaluator'],
+  anotacion: ['annotation', 'annotator', 'data labeling', 'ai trainer', 'rlhf'],
+  programador: ['developer', 'software', 'engineer', 'programmer', 'fullstack', 'backend', 'frontend'],
+  programacion: ['programming', 'software', 'developer', 'coding', 'engineer'],
+  desarrollador: ['developer', 'software', 'engineer', 'programmer', 'fullstack', 'frontend', 'backend', 'web'],
+  desarrollo: ['development', 'developer', 'software', 'engineer', 'web', 'mobile'],
+  ingeniero: ['engineer', 'engineering', 'developer', 'architect', 'software', 'cloud', 'data'],
+  ingenieria: ['engineering', 'engineer', 'software', 'cloud', 'data', 'systems'],
+  sistemas: ['systems', 'software', 'it', 'sysadmin', 'infrastructure', 'engineer', 'developer'],
+  informatica: ['it', 'computer science', 'software', 'systems', 'technology', 'developer'],
+  tecnologia: ['tech', 'technology', 'it', 'software', 'systems', 'engineering'],
+  ti: ['it', 'tech', 'systems', 'support', 'infrastructure', 'sysadmin'],
+  it: ['ti', 'tech', 'systems', 'support', 'infrastructure', 'sysadmin'],
+  movil: ['mobile', 'ios', 'android', 'flutter', 'react native'],
+  nube: ['cloud', 'aws', 'azure', 'gcp', 'devops', 'infrastructure', 'sre'],
+  infraestructura: ['infrastructure', 'cloud', 'devops', 'sre', 'sysadmin', 'linux', 'network'],
+  servidores: ['servers', 'linux', 'sysadmin', 'cloud', 'devops', 'infrastructure'],
+  datos: ['data', 'analytics', 'analyst', 'sql', 'bi', 'machine learning', 'etl', 'python'],
+  analista: ['analyst', 'analytics', 'data', 'bi', 'business', 'sql', 'excel'],
+  analisis: ['analytics', 'analysis', 'analyst', 'data', 'bi', 'reporting'],
+  estadistica: ['statistics', 'data science', 'analytics', 'data', 'ml'],
+  traductor: ['translator', 'translation', 'bilingual', 'localization', 'interpreter', 'spanish'],
+  traduccion: ['translation', 'translator', 'localization', 'bilingual', 'interpreter'],
+  interprete: ['interpreter', 'interpretation', 'bilingual', 'spanish', 'english'],
+  interpretacion: ['interpretation', 'interpreter', 'bilingual', 'translation'],
+  transcripcion: ['transcription', 'transcriber', 'subtitling', 'audio', 'translation'],
+  idiomas: ['languages', 'bilingual', 'translation', 'interpreter', 'esl', 'tutor'],
+  bilingue: ['bilingual', 'spanish', 'english', 'translator', 'interpreter', 'support'],
+  espanol: ['spanish', 'bilingual', 'latam', 'esl'],
+  ingles: ['english', 'bilingual', 'esl'],
+  seguridad: ['security', 'cybersecurity', 'infosec', 'soc', 'pentest', 'devsecops'],
+  ciberseguridad: ['cybersecurity', 'security', 'infosec', 'soc', 'pentest', 'audit'],
+  pruebas: ['testing', 'qa', 'quality assurance', 'tester', 'automation'],
+  calidad: ['quality', 'qa', 'testing', 'tester', 'assurance'],
+  automatizacion: ['automation', 'qa', 'devops', 'python', 'rpa', 'workflows'],
+  proyectos: ['project', 'project manager', 'pm', 'scrum', 'agile', 'coordinator', 'pmo'],
+  coordinador: ['coordinator', 'project', 'operations', 'manager', 'admin'],
+  operaciones: ['operations', 'ops', 'coordinator', 'logistics', 'project', 'admin'],
+  gestion: ['management', 'manager', 'project', 'operations', 'product', 'coordinator'],
+  producto: ['product', 'product manager', 'product owner', 'pm', 'roadmap'],
+  gerente: ['manager', 'director', 'head', 'lead', 'management'],
+  lider: ['lead', 'manager', 'principal', 'senior', 'head'],
+  consultor: ['consultant', 'consulting', 'advisor', 'specialist', 'expert'],
+  abogado: ['lawyer', 'legal', 'attorney', 'counsel', 'compliance', 'contracts'],
+  abogada: ['lawyer', 'legal', 'attorney', 'counsel', 'compliance', 'contracts'],
+  derecho: ['legal', 'law', 'lawyer', 'paralegal', 'compliance', 'contracts'],
+  juridico: ['legal', 'law', 'lawyer', 'paralegal', 'compliance', 'contracts'],
+  cumplimiento: ['compliance', 'legal', 'regulatory', 'audit', 'risk'],
+  salud: ['healthcare', 'health', 'medical', 'clinical', 'telemedicine', 'nurse'],
+  medico: ['medical', 'doctor', 'healthcare', 'clinical', 'telemedicine', 'billing'],
+  medica: ['medical', 'doctor', 'healthcare', 'clinical', 'telemedicine', 'billing'],
+  enfermeria: ['nurse', 'nursing', 'healthcare', 'medical', 'clinical'],
+  profesor: ['teacher', 'tutor', 'instructor', 'education', 'teaching', 'esl'],
+  profesora: ['teacher', 'tutor', 'instructor', 'education', 'teaching', 'esl'],
+  docente: ['teacher', 'instructor', 'educator', 'education', 'tutor', 'teaching'],
+  maestro: ['teacher', 'tutor', 'education', 'instructor', 'teaching'],
+  educacion: ['education', 'teaching', 'teacher', 'tutor', 'elearning', 'instructional'],
+  tutor: ['tutor', 'teacher', 'education', 'teaching', 'esl', 'mentor'],
+  clases: ['teaching', 'tutor', 'teacher', 'education', 'esl', 'instructor'],
+  logistica: ['logistics', 'supply chain', 'operations', 'ecommerce', 'inventory'],
+  comercio: ['ecommerce', 'commerce', 'retail', 'shopify', 'amazon', 'sales'],
+  tienda: ['ecommerce', 'shopify', 'woocommerce', 'amazon', 'store'],
+  arquitectura: ['architecture', 'architect', 'cad', 'revit', 'bim', 'civil', 'cloud'],
+  arquitecto: ['architect', 'architecture', 'cloud', 'cad', 'revit', 'bim', 'senior'],
+  planos: ['cad', 'autocad', 'revit', 'bim', 'architecture', 'drafting'],
+  remoto: ['remote', 'worldwide', 'latam', 'anywhere', 'work from anywhere'],
+  pasante: ['intern', 'internship', 'trainee', 'junior', 'entry level'],
+  practicante: ['intern', 'internship', 'trainee', 'junior', 'entry level'],
+  developer: ['desarrollador', 'programador', 'software', 'engineer'],
+  engineer: ['ingeniero', 'developer', 'software', 'architect'],
+  designer: ['disenador', 'diseno', 'ui', 'ux', 'graphic'],
+  support: ['soporte', 'atencion', 'customer', 'helpdesk', 'service'],
+  sales: ['ventas', 'vendedor', 'comercial', 'sdr', 'bdr', 'account'],
+  accountant: ['contador', 'contabilidad', 'finanzas', 'bookkeeper', 'finance'],
+  assistant: ['asistente', 'administrativo', 'virtual', 'secretaria'],
+  translator: ['traductor', 'traduccion', 'bilingual', 'interpreter', 'spanish'],
+  teacher: ['profesor', 'docente', 'tutor', 'educacion', 'esl'],
+  lawyer: ['abogado', 'legal', 'paralegal', 'compliance', 'contracts']
+};
+
+/**
+ * Cross-lingual concept clusters mapping Spanish and English terms (accent-stripped)
+ * to shared semantic dimensions (indices 0..27 of the 128-dim local vector).
  */
 const SEMANTIC_CONCEPT_CLUSTERS = [
   // 0: Virtual Assistant & Executive Admin
-  /\b(asistente\s+virtual|virtual\s+assistant|executive\s+assistant|secretaria|administrativ[oa]|admin\s+support|calendar|scheduling|agenda|data\s+entry|back\s*office)\b/gi,
-  // 1: Project & Operations Coordination
-  /\b(project\s+manager|gesti[oó]n\s+de\s+proyectos|operations|operaciones|coordinador|coordinator|scrum|agile|pmo|notion|asana|jira|clickup)\b/gi,
+  /\b(asistente|virtual\s+assistant|executive\s+assistant|secretari[oa]?|administrativ[oa]?|administracion|admin\s+support|calendar|scheduling|agenda|data\s+entry|back\s*office|digitador|recepcion|oficina|va)\b/gi,
+  // 1: Project, Product & Operations Coordination
+  /\b(project\s+manager|gestion\s+de\s+proyectos|proyectos|operations|operaciones|coordinador[a]?|coordinacion|coordinator|scrum|agile|pmo|notion|asana|jira|clickup|product\s+manager|product\s+owner|producto|pm|po)\b/gi,
   // 2: Customer Support & Success
-  /\b(customer\s+support|atenci[oó]n\s+al\s+cliente|soporte\s+al\s+cliente|customer\s+service|customer\s+success|help\s*desk|chat\s+support|zendesk|intercom|call\s+center)\b/gi,
+  /\b(customer\s+support|atencion\s+al\s+cliente|atencion|soporte\s+al\s+cliente|soporte|servicio\s+al\s+cliente|customer\s+service|customer\s+success|onboarding|help\s*desk|chat\s+support|zendesk|intercom|call\s+center|contact\s+center|mesa\s+de\s+ayuda|tickets)\b/gi,
   // 3: Sales, SDR, BDR & Account Management
-  /\b(sales|ventas|sdr|bdr|account\s+executive|business\s+development|outbound|inbound|closing|prospecci[oó]n|hubspot|salesforce|crm|lead\s+generation)\b/gi,
-  // 4: Digital Marketing, SEO & Social Media
-  /\b(marketing|seo|sem|social\s+media|redes\s+sociales|community\s+manager|copywriter|content|contenidos|redactor|google\s+ads|meta\s+ads|email\s+marketing)\b/gi,
+  /\b(sales|venta|ventas|vendedor[a]?|comercial|sdr|bdr|account\s+executive|ejecutivo\s+de\s+cuentas|business\s+development|desarrollo\s+de\s+negocios|outbound|inbound|closing|closer|prospeccion|hubspot|salesforce|crm|lead\s+generation|telemarketing)\b/gi,
+  // 4: Digital Marketing, SEO, Content & Social Media
+  /\b(marketing|mercadeo|publicidad|seo|sem|social\s+media|redes\s+sociales|community\s+manager|copywriter|copywriting|content|contenid[oa]s?|redactor[a]?|redaccion|escritor[a]?|writer|google\s+ads|meta\s+ads|email\s+marketing|growth|comunicacion|periodista)\b/gi,
   // 5: HR, Talent Acquisition & Recruiting
-  /\b(recruiter|recruiting|reclutador|reclutamiento|recursos\s+humanos|human\s+resources|talent\s+acquisition|sourcer|hr|people\s+ops)\b/gi,
-  // 6: Finance, Accounting & Bookkeeping
-  /\b(finance|finanzas|accounting|contabilidad|contador|accountant|bookkeeper|bookkeeping|quickbooks|xero|excel|payroll|n[oó]mina|auditor|impuestos|fp&a)\b/gi,
+  /\b(recruiter|recruiting|reclutador[a]?|reclutamiento|seleccion|recursos\s+humanos|rrhh|human\s+resources|talent\s+acquisition|talento|sourcer|hr|people\s+ops|headhunter|psicolog[oa]?)\b/gi,
+  // 6: Finance, Accounting, Banking & Bookkeeping
+  /\b(finance|finanzas|financier[oa]|accounting|contabilidad|contador[a]?|contable|accountant|bookkeeper|bookkeeping|quickbooks|xero|excel|payroll|nomina|auditor[a]?|auditoria|impuestos|tax|fp&a|facturacion|billing|tesoreria|banca|fintech|seguros|insurance)\b/gi,
   // 7: Design, UI/UX & Video Editing
-  /\b(design|dise[ñn]o|dise[ñn]ador|designer|ui|ux|figma|canva|photoshop|illustrator|video\s+editor|edici[oó]n\s+de\s+video|motion\s+graphics)\b/gi,
+  /\b(design|diseno|disenador[a]?|designer|grafic[oa]|graphic|ui|ux|figma|canva|photoshop|illustrator|adobe|video\s+editor|editor\s+de\s+video|edicion\s+de\s+video|motion\s+graphics|audiovisual|animacion|3d|branding|ilustrador[a]?)\b/gi,
   // 8: AI Training, RLHF & Data Annotation
-  /\b(ai\s+trainer|entrenamiento\s+ia|rlhf|llm|prompt|annotator|anotaci[oó]n|data\s+labeling|evaluador\s+ia|rater|search\s+quality)\b/gi,
+  /\b(ai\s+trainer|entrenamiento\s+ia|inteligencia\s+artificial|ia|ai|rlhf|llm|prompt|annotator|anotacion|anotador[a]?|data\s+labeling|etiquetado|evaluador\s+ia|rater|search\s+quality|genai|openai|claude|gemini)\b/gi,
   // 9: Software Engineering (Frontend / Backend / Fullstack / Mobile)
-  /\b(software\s+engineer|developer|desarrollador|programador|fullstack|full-stack|frontend|front-end|backend|back-end|web\s+developer|mobile|ios|android)\b/gi,
+  /\b(software|engineer|ingenier[oa]|developer|desarrollador[a]?|desarrollo|programador[a]?|programacion|coding|fullstack|full-stack|frontend|front-end|backend|back-end|web\s+developer|web|mobile|movil|ios|android|flutter|sistemas|informatica|tecnologia|it|ti)\b/gi,
   // 10: JavaScript / TypeScript / React / Node Ecosystem
-  /\b(javascript|typescript|react|nextjs|next\.js|nodejs|node\.js|vue|angular|express|nestjs|graphql)\b/gi,
+  /\b(javascript|js|typescript|ts|react|nextjs|next\.js|nodejs|node\.js|vue|angular|svelte|express|nestjs|graphql|html|css|tailwind|wordpress)\b/gi,
   // 11: Python / Backend / APIs
-  /\b(python|django|fastapi|flask|golang|rust|java|spring|c#|dotnet|\.net|php|laravel|ruby|rails)\b/gi,
+  /\b(python|django|fastapi|flask|golang|go|rust|java|spring|c#|csharp|dotnet|\.net|php|laravel|ruby|rails|c\+\+|api|apis|microservicios|microservices)\b/gi,
   // 12: Cloud, DevOps, SRE & Infrastructure
-  /\b(cloud|nube|devops|sre|aws|azure|gcp|kubernetes|k8s|docker|terraform|ansible|linux|ci\/cd|sysadmin|infrastructure|infraestructura|noc|network)\b/gi,
+  /\b(cloud|nube|devops|sre|aws|azure|gcp|cloudflare|kubernetes|k8s|docker|terraform|ansible|linux|ci\/cd|sysadmin|infrastructure|infraestructura|noc|network|redes|servidores)\b/gi,
   // 13: Data Science, Analytics, BI & Machine Learning
-  /\b(data\s+analyst|analista\s+de\s+datos|data\s+engineer|ingeniero\s+de\s+datos|data\s+scientist|ciert[ií]fico\s+de\s+datos|sql|power\s*bi|tableau|snowflake|dbt|spark|etl|machine\s+learning|ml)\b/gi,
+  /\b(data\s+analyst|analista\s+de\s+datos|datos|data|data\s+engineer|ingeniero\s+de\s+datos|data\s+scientist|cientific[oa]\s+de\s+datos|analytics|analitica|analisis|estadistica|sql|power\s*bi|powerbi|tableau|looker|snowflake|dbt|spark|etl|bi|machine\s+learning|ml)\b/gi,
   // 14: Translation, Interpretation & Localization
-  /\b(translator|traductor|traducci[oó]n|translation|interpreter|int[eé]rprete|interpretaci[oó]n|localization|localizaci[oó]n|subtitling|transcription|transcripci[oó]n|bilingual|biling[uü]e|esl|tutor)\b/gi,
+  /\b(translator|traductor[a]?|traduccion|translation|interpreter|interprete|interpretacion|localization|localizacion|subtitling|subtitulaje|transcription|transcripcion|transcriptor[a]?|bilingual|bilingue|espanol|spanish|ingles|english|idiomas|languages)\b/gi,
   // 15: Cybersecurity & InfoSec
-  /\b(security|seguridad|cybersecurity|ciberseguridad|infosec|pentest|soc|vulnerability|iam|devsecops)\b/gi,
+  /\b(security|seguridad|cybersecurity|ciberseguridad|infosec|pentest|soc|vulnerability|vulnerabilidades|iam|devsecops|siem|firewall)\b/gi,
   // 16: QA & Testing
-  /\b(qa|quality\s+assurance|tester|testing|pruebas|automation|cypress|playwright|selenium)\b/gi,
-  // 17: E-commerce & Shopify
-  /\b(shopify|woocommerce|ecommerce|e-commerce|amazon|mercado\s*libre|dropshipping|catalog)\b/gi,
-  // 18: Senior / Lead Experience
-  /\b(senior|sr\.?|lead|principal|staff|architect|arquitecto|director|head\s+of|manager|jefe)\b/gi,
-  // 19: Entry / Junior Experience
-  /\b(junior|jr\.?|entry\s*level|trainee|pasante|intern|sin\s+experiencia|inicial|assistant|associate)\b/gi,
-  // 20: Part-Time / Flexible / Hourly
-  /\b(part-time|part\s+time|medio\s+tiempo|freelance|por\s+horas|hourly|flexible|async|as[ií]ncrono|fractional)\b/gi,
-  // 21: Full-Time Dedicated
-  /\b(full-time|full\s+time|tiempo\s+completo|dedicado|dedicated|40\s*h)\b/gi,
-  // 22: Bolivia / LATAM / South America / UTC-4
-  /\b(bolivia|latam|latin\s+america|latinoam[eé]rica|south\s+america|sudam[eé]rica|utc-4|est|americas)\b/gi,
-  // 23: Worldwide / Work From Anywhere
-  /\b(worldwide|global|anywhere|work\s+from\s+anywhere|wfa|100%\s+remote|remoto\s+global)\b/gi
+  /\b(qa|quality\s+assurance|calidad|tester|testing|pruebas|automation|automatizacion|cypress|playwright|selenium)\b/gi,
+  // 17: E-commerce, Shopify & Logistics
+  /\b(shopify|woocommerce|ecommerce|e-commerce|comercio\s+electronico|tienda\s+online|amazon|mercado\s*libre|dropshipping|catalog|catalogo|logistics|logistica|supply\s+chain|inventario|procurement)\b/gi,
+  // 18: Legal, Compliance & Contracts
+  /\b(legal|abogad[oa]|derecho|juridic[oa]|paralegal|compliance|cumplimiento|contrat[oa]s?|contracts|regulatorio|privacidad|gdpr)\b/gi,
+  // 19: Healthcare, Telemedicine & Medical Billing
+  /\b(salud|health|healthcare|medic[oa]|doctor[a]?|enfermer[oaia]+|nurse|clinical|clinic[oa]|telemedicina|telemedicine|medical\s+billing|facturacion\s+medica|farmacia|pharma)\b/gi,
+  // 20: Education, Teaching & Tutoring
+  /\b(educacion|education|profesor[a]?|docente|maestr[oa]|teacher|teaching|tutor[a]?|tutoria|instructor[a]?|capacitacion|training|esl|clases|e-learning|instruccional)\b/gi,
+  // 21: Architecture, Civil Engineering & CAD
+  /\b(arquitectura|arquitect[oa]|architecture|civil|autocad|cad|revit|bim|planos|construccion|construction|estructural)\b/gi,
+  // 22: Senior / Lead Experience
+  /\b(senior|sr\.?|lead|lider|principal|staff|architect|arquitect[oa]|director[a]?|head\s+of|manager|gerente|jefe|especialista|consultor[a]?|consultant)\b/gi,
+  // 23: Entry / Junior Experience
+  /\b(junior|jr\.?|entry\s*level|trainee|pasante|pasantia|intern|internship|sin\s+experiencia|inicial|principiante|assistant|associate|auxiliar|practicante)\b/gi,
+  // 24: Part-Time / Flexible / Hourly
+  /\b(part-time|part\s+time|medio\s+tiempo|freelance|independiente|por\s+horas|hourly|flexible|async|asincrono|fractional|contractor)\b/gi,
+  // 25: Full-Time Dedicated
+  /\b(full-time|full\s+time|tiempo\s+completo|dedicado|dedicated|40\s*h|permanente)\b/gi,
+  // 26: Bolivia / LATAM / South America / UTC-4
+  /\b(bolivia|latam|latin\s+america|latinoamerica|america\s+latina|south\s+america|sudamerica|utc-4|est|americas)\b/gi,
+  // 27: Worldwide / Work From Anywhere
+  /\b(worldwide|global|anywhere|work\s+from\s+anywhere|wfa|100%\s+remote|remoto|remote|teletrabajo)\b/gi
 ];
+
+const CLUSTER_DIM_COUNT = SEMANTIC_CONCEPT_CLUSTERS.length;
+
+/**
+ * Extracts normalized tokens suitable for forgiving lexical/fuzzy search.
+ */
+function extractQueryTokens(normalizedText) {
+  const rawTokens = normalizedText
+    .replace(/[^a-z0-9+#.\s-]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+  const filtered = rawTokens.filter(
+    t => (t.length >= 3 || SHORT_DOMAIN_ACRONYMS.has(t)) && !SEARCH_STOP_WORDS.has(t)
+  );
+  if (filtered.length > 0) return Array.from(new Set(filtered));
+  return Array.from(new Set(rawTokens.filter(t => t.length >= 2)));
+}
+
+/**
+ * Expands a normalized query with cross-lingual ES <-> EN synonyms for broader recall.
+ */
+function expandQueryTerms(tokens) {
+  const expanded = new Set();
+  for (const tok of tokens) {
+    if (CROSS_LINGUAL_SYNONYMS[tok]) {
+      for (const syn of CROSS_LINGUAL_SYNONYMS[tok]) {
+        expanded.add(syn);
+      }
+    }
+    // Stem-based synonym lookup for plurals / feminine / verb inflections (e.g. "disenadores" -> "disenador")
+    if (tok.length >= 5) {
+      for (const [key, syns] of Object.entries(CROSS_LINGUAL_SYNONYMS)) {
+        if (key.length >= 5 && (tok.startsWith(key) || key.startsWith(tok.slice(0, 6)))) {
+          for (const syn of syns) {
+            expanded.add(syn);
+          }
+        }
+      }
+    }
+  }
+  return Array.from(expanded);
+}
+
+/**
+ * Fast bounded Levenshtein distance (returns maxDist + 1 if distance exceeds maxDist).
+ */
+function boundedLevenshtein(a, b, maxDist) {
+  const la = a.length;
+  const lb = b.length;
+  if (Math.abs(la - lb) > maxDist) return maxDist + 1;
+  if (a === b) return 0;
+
+  let prev = new Array(lb + 1);
+  let curr = new Array(lb + 1);
+  for (let j = 0; j <= lb; j++) prev[j] = j;
+
+  for (let i = 1; i <= la; i++) {
+    curr[0] = i;
+    let rowMin = curr[0];
+    const ca = a.charCodeAt(i - 1);
+    for (let j = 1; j <= lb; j++) {
+      const cost = ca === b.charCodeAt(j - 1) ? 0 : 1;
+      const val = Math.min(
+        prev[j] + 1,
+        curr[j - 1] + 1,
+        prev[j - 1] + cost
+      );
+      curr[j] = val;
+      if (val < rowMin) rowMin = val;
+    }
+    if (rowMin > maxDist) return maxDist + 1;
+    const tmp = prev;
+    prev = curr;
+    curr = tmp;
+  }
+  return prev[lb];
+}
+
+/**
+ * Forgiving single-term match score in [0, 1] against a normalized opportunity text blob & token list.
+ * Supports exact substring, stem prefix, and minor typo tolerance (Levenshtein 1-2).
+ */
+function scoreForgivingTermMatch(term, normalizedBlob, blobTokens) {
+  if (!term) return 0;
+  if (normalizedBlob.includes(term)) return 1.0;
+
+  // Stem prefix match for morphological/plural/cognate variants (e.g. "contabilidad" <-> "contable", "programadores" <-> "programador")
+  if (term.length >= 5) {
+    const stemLen = Math.min(term.length - 1, 5);
+    const stem = term.slice(0, stemLen);
+    for (let i = 0; i < blobTokens.length; i++) {
+      const bt = blobTokens[i];
+      if (bt.length >= stemLen && bt.startsWith(stem)) {
+        return 0.84;
+      }
+    }
+  }
+
+  // Typo tolerance via bounded Levenshtein
+  if (term.length >= 4) {
+    const maxDist = term.length >= 7 ? 2 : 1;
+    for (let i = 0; i < blobTokens.length; i++) {
+      const bt = blobTokens[i];
+      if (bt.length < 3) continue;
+      if (Math.abs(bt.length - term.length) > maxDist) continue;
+      const d = boundedLevenshtein(term, bt, maxDist);
+      if (d <= maxDist) {
+        return d === 1 ? 0.78 : 0.68;
+      }
+    }
+  }
+
+  return 0;
+}
 
 /**
  * Normalizes a vector in-place to unit L2 norm.
@@ -114,52 +396,57 @@ export function cosineSimilarity(vecA, vecB) {
 
 /**
  * Builds a deterministic 128-dimensional cross-lingual semantic vector
- * combining concept cluster activations (dims 0..23) and hashed token/trigram projections (dims 24..127).
+ * combining concept cluster activations (dims 0..27) and hashed token/stem/trigram projections (dims 28..127).
+ * Fully accent-insensitive and tolerant to plurals and minor spelling variations.
  */
 export function buildLocalSemanticVector(rawText) {
   const vec = new Array(LOCAL_DIM).fill(0);
-  const clean = stripHtml(rawText || '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
+  const clean = normalizeSearchText(rawText);
 
   if (!clean) return vec;
 
-  // 1. Concept cluster dimensions (dims 0..23) with high semantic weight
-  for (let c = 0; c < SEMANTIC_CONCEPT_CLUSTERS.length; c++) {
+  // 1. Concept cluster dimensions (dims 0..CLUSTER_DIM_COUNT-1) with high semantic weight
+  for (let c = 0; c < CLUSTER_DIM_COUNT; c++) {
     const matches = clean.match(SEMANTIC_CONCEPT_CLUSTERS[c]);
     if (matches && matches.length > 0) {
       vec[c] = 2.4 * Math.min(1 + Math.log1p(matches.length), 3.0);
     }
   }
 
-  // 2. Token + character trigram feature hashing into dims 24..127
-  const span = LOCAL_DIM - 24;
+  // 2. Token + stem + character 3-gram feature hashing into dims CLUSTER_DIM_COUNT..127
+  const span = LOCAL_DIM - CLUSTER_DIM_COUNT;
   const tokens = clean
     .replace(/[^a-z0-9+#.\s-]/g, ' ')
     .split(/\s+/)
-    .filter(t => t.length >= 2);
+    .filter(t => t.length >= 2 && !SEARCH_STOP_WORDS.has(t));
 
-  for (const tok of tokens) {
+  const hashInto = (str, weight, signed = true) => {
     let h = 2166136261;
-    for (let i = 0; i < tok.length; i++) {
-      h ^= tok.charCodeAt(i);
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
       h = Math.imul(h, 16777619);
     }
-    const idx = 24 + (Math.abs(h) % span);
-    const sign = (h & 1) === 0 ? 1 : -1;
-    vec[idx] += sign * 1.0;
+    const idx = CLUSTER_DIM_COUNT + (Math.abs(h) % span);
+    const sign = signed ? ((h & 1) === 0 ? 1 : -1) : 1;
+    vec[idx] += sign * weight;
+  };
 
-    // Character 4-grams for morphological stem matching across ES/EN (e.g. "contab", "progr", "traduc")
+  for (const tok of tokens) {
+    hashInto(tok, 1.0, true);
+
+    // 4-char & 5-char stem prefixes for morphological/cognate matching across ES/EN
+    if (tok.length >= 4) {
+      hashInto('s4:' + tok.slice(0, 4), 0.45, false);
+    }
     if (tok.length >= 5) {
-      const stem = tok.slice(0, 5);
-      let sh = 2166136261;
-      for (let j = 0; j < stem.length; j++) {
-        sh ^= stem.charCodeAt(j);
-        sh = Math.imul(sh, 16777619);
+      hashInto('s5:' + tok.slice(0, 5), 0.65, false);
+    }
+
+    // Character 3-grams for forgiving typo & partial-word matching
+    if (tok.length >= 4 && tok.length <= 18) {
+      for (let g = 0; g <= tok.length - 3; g++) {
+        hashInto('g3:' + tok.slice(g, g + 3), 0.18, true);
       }
-      const sIdx = 24 + (Math.abs(sh) % span);
-      vec[sIdx] += 0.65;
     }
   }
 
@@ -438,54 +725,89 @@ export async function semanticSearchOpportunities(query, opportunities, filters 
     }
   }
 
-  // 3. Score all candidate opportunities using local cross-lingual vector + optional external vector score
-  const localQueryVec = buildLocalSemanticVector(cleanQuery);
-  const queryTerms = cleanQuery
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(w => w.length >= 3);
+  // 3. Score candidate opportunities using accent-insensitive cross-lingual vector + fuzzy/synonym overlap
+  const normalizedQuery = normalizeSearchText(cleanQuery);
+  const queryTerms = extractQueryTokens(normalizedQuery);
+  const expandedSynonyms = expandQueryTerms(queryTerms);
+  const expandedQueryText = expandedSynonyms.length > 0
+    ? `${normalizedQuery} ${expandedSynonyms.join(' ')}`
+    : normalizedQuery;
 
-  const scoredResults = pool.map(opp => {
-    const oppText = buildOpportunityEmbeddingText(opp);
-    const localOppVec = buildLocalSemanticVector(oppText);
-    const localSim = cosineSimilarity(localQueryVec, localOppVec);
+  const localQueryVec = buildLocalSemanticVector(expandedQueryText);
 
-    // Lexical overlap boost for exact skill/role matches
-    const lowerBlob = oppText.toLowerCase();
-    let termHits = 0;
-    for (const term of queryTerms) {
-      if (lowerBlob.includes(term)) termHits++;
-    }
-    const lexicalBoost = queryTerms.length > 0 ? (termHits / queryTerms.length) * 0.25 : 0;
+  const scoreCandidatePool = (candidates) => {
+    const scored = candidates.map(opp => {
+      const oppText = buildOpportunityEmbeddingText(opp);
+      const normalizedBlob = normalizeSearchText(oppText);
+      const blobTokens = normalizedBlob
+        .replace(/[^a-z0-9+#.\s-]/g, ' ')
+        .split(/\s+/)
+        .filter(t => t.length >= 2);
+      const localOppVec = buildLocalSemanticVector(normalizedBlob);
+      const localSim = cosineSimilarity(localQueryVec, localOppVec);
 
-    const extSim = externalScoresByHash.has(opp.job_hash)
-      ? externalScoresByHash.get(opp.job_hash)
-      : null;
+      // Accent-insensitive, stem-aware & typo-forgiving lexical overlap boost
+      let termScoreSum = 0;
+      for (const term of queryTerms) {
+        termScoreSum += scoreForgivingTermMatch(term, normalizedBlob, blobTokens);
+      }
+      const lexicalBoost = queryTerms.length > 0
+        ? (termScoreSum / queryTerms.length) * 0.30
+        : 0;
 
-    const rawSim = extSim !== null
-      ? Math.min(1, extSim * 0.7 + localSim * 0.3 + lexicalBoost)
-      : Math.min(1, localSim * 0.85 + lexicalBoost);
+      // Cross-lingual synonym overlap boost for broader conceptual understanding
+      let synHits = 0;
+      if (expandedSynonyms.length > 0) {
+        for (const syn of expandedSynonyms) {
+          if (normalizedBlob.includes(syn)) {
+            synHits++;
+          }
+        }
+      }
+      const synonymBoost = expandedSynonyms.length > 0
+        ? Math.min(1, synHits / Math.min(expandedSynonyms.length, 3)) * 0.18
+        : 0;
 
-    // Scale similarity into an intuitive 0..100 semantic score
-    const semanticScore = Math.min(100, Math.round(Math.pow(rawSim, 0.65) * 100));
-    const blendedScore = Math.min(100, Math.round(semanticScore * 0.55 + opp.total_score * 0.45));
+      const extSim = externalScoresByHash.has(opp.job_hash)
+        ? externalScoresByHash.get(opp.job_hash)
+        : null;
 
-    return {
-      ...opp,
-      semantic_similarity: Number(rawSim.toFixed(4)),
-      semantic_score: semanticScore,
-      blended_score: blendedScore
-    };
-  });
+      const rawSim = extSim !== null
+        ? Math.min(1, extSim * 0.65 + localSim * 0.35 + lexicalBoost + synonymBoost * 0.5)
+        : Math.min(1, localSim * 0.80 + lexicalBoost + synonymBoost);
 
-  scoredResults.sort((a, b) => {
-    if (b.blended_score !== a.blended_score) return b.blended_score - a.blended_score;
-    return b.semantic_score - a.semantic_score;
-  });
+      // Scale similarity into an intuitive 0..100 semantic score
+      const semanticScore = Math.min(100, Math.round(Math.pow(rawSim, 0.62) * 100));
+      const blendedScore = Math.min(100, Math.round(semanticScore * 0.58 + opp.total_score * 0.42));
 
-  const filteredTop = scoredResults
-    .filter(r => r.semantic_score >= 18)
+      return {
+        ...opp,
+        semantic_similarity: Number(rawSim.toFixed(4)),
+        semantic_score: semanticScore,
+        blended_score: blendedScore
+      };
+    });
+
+    scored.sort((a, b) => {
+      if (b.blended_score !== a.blended_score) return b.blended_score - a.blended_score;
+      return b.semantic_score - a.semantic_score;
+    });
+
+    return scored;
+  };
+
+  let scoredResults = scoreCandidatePool(pool);
+  let filteredTop = scoredResults
+    .filter(r => r.semantic_score >= 10)
     .slice(0, topK);
+
+  // Forgiving broad fallback: if current filtered view yielded 0 matches, search across all Bolivia-eligible offers
+  if (filteredTop.length === 0 && Array.isArray(evalResult.all) && evalResult.all.length > pool.length) {
+    scoredResults = scoreCandidatePool(evalResult.all);
+    filteredTop = scoredResults
+      .filter(r => r.semantic_score >= 10)
+      .slice(0, topK);
+  }
 
   return {
     ok: true,

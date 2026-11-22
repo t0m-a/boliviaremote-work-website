@@ -954,11 +954,38 @@ export function renderAppHtml(initialState) {
       flex: 1 1 240px;
       min-width: 0;
     }
+    .search-input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+      flex: 1 1 auto;
+      min-width: 0;
+      width: auto;
+    }
     .toolbar #searchInput {
       flex: 1 1 auto;
       max-width: none;
       min-width: 0;
-      width: auto;
+      width: 100%;
+    }
+    .search-input-wrap.has-value #searchInput {
+      padding-right: 126px;
+    }
+    #searchInput::-webkit-search-cancel-button {
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .btn-clear-search-inline {
+      position: absolute;
+      right: 5px;
+      top: 50%;
+      transform: translateY(-50%);
+      padding: 3px 9px;
+      font-size: 0.74em;
+      line-height: 1.25;
+      border-radius: 5px;
+      width: auto !important;
+      z-index: 2;
     }
     .toolbar-search-group .btn-action {
       flex-shrink: 0;
@@ -2277,7 +2304,11 @@ export function renderAppHtml(initialState) {
       .toolbar-search-group {
         flex-wrap: wrap;
       }
-      .toolbar-search-group .btn-action {
+      .search-input-wrap {
+        width: 100%;
+        flex: 1 1 100%;
+      }
+      .toolbar-search-group > .btn-action {
         width: 100%;
       }
       .opp-header {
@@ -2542,7 +2573,12 @@ export function renderAppHtml(initialState) {
         <button type="button" class="btn-tab" data-verdict="SKIP" onclick="setVerdictFilter('SKIP')"><span id="btn-v-skip">Baja Coincidencia</span></button>
       </div>
       <div class="toolbar-search-group">
-        <input type="search" id="searchInput" class="input-text" placeholder="Buscar por cargo, empresa, país..." oninput="onSearchInputChange(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();runSemanticSearch();}">
+        <div class="search-input-wrap" id="search-input-wrap">
+          <input type="search" id="searchInput" class="input-text" placeholder="Buscar por cargo, empresa, país..." oninput="onSearchInputChange(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();runSemanticSearch();}">
+          <button type="button" class="btn-action btn-primary btn-clear-search-inline" id="btn-clear-search-input" onclick="clearSearchInput()" style="display:none;" aria-label="Borrar búsqueda">
+            <span id="lbl-btn-clear-search">Borrar búsqueda</span>
+          </button>
+        </div>
         <button type="button" class="btn-action btn-primary" id="btn-semantic-search" onclick="runSemanticSearch()" style="padding:7px 12px;font-size:0.82em;">
           <span id="lbl-btn-semantic">Buscar con IA</span>
         </button>
@@ -2954,6 +2990,7 @@ export function renderAppHtml(initialState) {
         aiAnalysisHdr: 'Información sobre la Posición',
         draftAiBtn: 'Más información con IA',
         semanticBtn: 'Buscar con IA',
+        clearSearchBtn: 'Borrar búsqueda',
         semanticLoading: 'Buscando Vectores...',
         semanticClear: 'Limpiar Vector',
         semanticBadge: 'Afinidad Vectorial:',
@@ -3087,6 +3124,7 @@ export function renderAppHtml(initialState) {
         'lbl-btn-submit-url': t.btnSubmitUrl,
         'lbl-ai-analysis-hdr': t.aiAnalysisHdr,
         'lbl-btn-semantic': t.semanticBtn,
+        'lbl-btn-clear-search': t.clearSearchBtn,
         'lbl-btn-clear-semantic': t.semanticClear,
         'kpi-apply-title': t.kpiApplyTitle,
         'kpi-apply-sub': t.kpiApplySub,
@@ -3443,6 +3481,7 @@ export function renderAppHtml(initialState) {
       currentTrackFilter = 'ALL';
       updateActiveTrackHighlight();
       document.getElementById('searchInput').value = '';
+      syncSearchClearButton('');
       saveFilters();
       renderFilterChips();
       recomputeAndRender();
@@ -3491,7 +3530,38 @@ export function renderAppHtml(initialState) {
       return m ? m[1].toUpperCase() : 'OTHER';
     }
 
+    function normalizeSearchText(str) {
+      return String(str || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\\u0300-\\u036f]/g, '')
+        .replace(/[¡¿]/g, ' ')
+        .replace(/\\s+/g, ' ')
+        .trim();
+    }
+
+    function syncSearchClearButton(val) {
+      const hasVal = String(val !== undefined ? val : (document.getElementById('searchInput') ? document.getElementById('searchInput').value : '')).length > 0;
+      const wrap = document.getElementById('search-input-wrap');
+      const btn = document.getElementById('btn-clear-search-input');
+      if (wrap && wrap.classList) wrap.classList.toggle('has-value', hasVal);
+      if (btn) btn.style.display = hasVal ? 'inline-flex' : 'none';
+    }
+    window.syncSearchClearButton = syncSearchClearButton;
+
+    function clearSearchInput() {
+      const searchEl = document.getElementById('searchInput');
+      if (searchEl) searchEl.value = '';
+      syncSearchClearButton('');
+      clearSemanticSearch();
+      if (searchEl && typeof searchEl.focus === 'function') {
+        searchEl.focus();
+      }
+    }
+    window.clearSearchInput = clearSearchInput;
+
     function onSearchInputChange(val) {
+      syncSearchClearButton(val);
       if (!String(val || '').trim() && semanticOverrideResults) {
         clearSemanticSearch();
         return;
@@ -3542,35 +3612,48 @@ export function renderAppHtml(initialState) {
         }
         renderResultsCards();
       } catch (e) {
-        // Offline client-side semantic fallback using detectOfferAttributes
+        // Offline client-side forgiving, accent-insensitive semantic fallback
+        const normQuery = normalizeSearchText(query);
         const qAttrs = detectOfferAttributes({
-          title: query,
-          description: query,
+          title: normQuery,
+          description: normQuery,
           tags: '',
           location: 'Bolivia',
           contract_caveat: 'fractional_or_fulltime'
         });
         const qCats = new Set(qAttrs.categories || []);
-        const qWords = query.toLowerCase().split(/\\s+/).filter(w => w.length >= 3);
-        const pool = lastEvaluationResult.surfaced || [];
+        const stopWords = new Set(['de', 'del', 'la', 'las', 'el', 'los', 'en', 'con', 'para', 'por', 'un', 'una', 'y', 'o', 'a', 'al', 'the', 'and', 'for', 'with', 'in', 'of', 'to']);
+        const shortOk = new Set(['ia', 'ai', 'ui', 'ux', 'qa', 'hr', 'it', 'bi', 'ml', 'pm', 'po', 'ti', 'va', 'go', 'js', 'ts', 'c#', 'db']);
+        const rawWords = normQuery.replace(/[^a-z0-9+#.\\s-]/g, ' ').split(/\\s+/).filter(Boolean);
+        const qWords = rawWords.filter(w => (w.length >= 3 || shortOk.has(w)) && !stopWords.has(w));
+        const activeWords = qWords.length > 0 ? qWords : rawWords.filter(w => w.length >= 2);
 
-        const scored = pool.map(r => {
+        const scorePool = (candidates) => candidates.map(r => {
           const rCats = r.detected_categories || [];
           let catOverlap = 0;
           for (const c of rCats) {
             if (qCats.has(c)) catOverlap++;
           }
-          const blob = (r.title + ' ' + r.company + ' ' + r.matched_skills + ' ' + r.description).toLowerCase();
-          let wordHits = 0;
-          for (const w of qWords) {
-            if (blob.includes(w)) wordHits++;
+          const blob = normalizeSearchText(r.title + ' ' + r.company + ' ' + r.platform_name + ' ' + r.matched_skills + ' ' + r.description);
+          let wordScore = 0;
+          for (const w of activeWords) {
+            if (blob.includes(w)) {
+              wordScore += 1.0;
+            } else if (w.length >= 5 && blob.includes(w.slice(0, Math.min(w.length - 1, 5)))) {
+              wordScore += 0.8;
+            }
           }
-          const simScore = Math.min(100, Math.round(catOverlap * 38 + (qWords.length ? (wordHits / qWords.length) * 62 : 0)));
+          const simScore = Math.min(100, Math.round(catOverlap * 38 + (activeWords.length ? (wordScore / activeWords.length) * 62 : 0)));
           return Object.assign({}, r, {
             semantic_score: simScore,
-            blended_score: Math.round(simScore * 0.55 + r.total_score * 0.45)
+            blended_score: Math.round(simScore * 0.58 + r.total_score * 0.42)
           });
-        }).filter(r => r.semantic_score >= 20);
+        }).filter(r => r.semantic_score >= 10);
+
+        let scored = scorePool(lastEvaluationResult.surfaced || []);
+        if (scored.length === 0 && Array.isArray(lastEvaluationResult.all)) {
+          scored = scorePool(lastEvaluationResult.all);
+        }
 
         scored.sort((a, b) => b.blended_score - a.blended_score);
         semanticOverrideResults = scored.slice(0, 30);
@@ -3602,7 +3685,8 @@ export function renderAppHtml(initialState) {
     function renderResultsCards() {
       const isEs = userFilters.ui_lang !== 'en';
       const t = I18N[userFilters.ui_lang] || I18N.es;
-      const q = (document.getElementById('searchInput').value || '').trim().toLowerCase();
+      const q = normalizeSearchText(document.getElementById('searchInput').value || '');
+      const qTokens = q ? q.split(/\\s+/).filter(Boolean) : [];
 
       let pool = [];
       if (Array.isArray(semanticOverrideResults)) {
@@ -3622,9 +3706,10 @@ export function renderAppHtml(initialState) {
       const filtered = pool.filter(r => {
         const tCode = extractTrackCode(r.track);
         if (currentTrackFilter !== 'ALL' && tCode !== currentTrackFilter) return false;
-        if (q && !Array.isArray(semanticOverrideResults)) {
-          const hay = (r.title + ' ' + r.company + ' ' + r.platform_name + ' ' + r.location + ' ' + r.matched_skills + ' ' + r.description).toLowerCase();
-          if (!hay.includes(q)) return false;
+        if (qTokens.length > 0 && !Array.isArray(semanticOverrideResults)) {
+          const hay = normalizeSearchText(r.title + ' ' + r.company + ' ' + r.platform_name + ' ' + r.location + ' ' + r.matched_skills + ' ' + r.description);
+          const allMatch = qTokens.every(tok => hay.includes(tok) || (tok.length >= 5 && hay.includes(tok.slice(0, Math.min(tok.length - 1, 5)))));
+          if (!allMatch) return false;
         }
         return true;
       });
@@ -4485,6 +4570,7 @@ export function renderAppHtml(initialState) {
     // Initialize UI on load (Spanish Bolivia default)
     applyTheme(currentTheme);
     setUiLanguage(userFilters.ui_lang || 'es');
+    syncSearchClearButton();
 
     // Auto-trigger background sync every 15 minutes while page is open
     setInterval(() => {

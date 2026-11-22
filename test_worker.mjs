@@ -116,6 +116,12 @@ async function runTests() {
   assert.ok(html.includes('scheduleNavbarAutoClose') && html.includes("addEventListener('mouseleave', scheduleNavbarAutoClose)"), 'Hamburger menu must auto-close smoothly after pointer stops hovering');
   assert.ok(html.includes('scheduleFilterDropdownAutoClose') && html.includes('initFilterDropdownHoverAutoClose'), 'All filter dropdown menus must auto-close smoothly after pointer stops hovering');
   assert.ok(html.includes('class="toolbar-search-group"'), 'Search with AI input group must use responsive .toolbar-search-group');
+  assert.ok(
+    html.includes('class="search-input-wrap" id="search-input-wrap"') &&
+    html.includes('class="btn-action btn-primary btn-clear-search-inline" id="btn-clear-search-input"') &&
+    html.includes('id="lbl-btn-clear-search">Borrar búsqueda</span>'),
+    'Search field must include inline Borrar búsqueda button inside .search-input-wrap with same btn-primary design as Buscar con IA'
+  );
   assert.ok(html.includes('Management (8+ años)'), 'Experience option must be Management (8+ años)');
   assert.ok(!html.includes('Lead / Manager (8+ yrs)'), 'Must replace Lead / Manager (8+ yrs) with Management (8+ yrs)');
   assert.ok(html.includes('id="pos-dropdown"'), 'Position Type / Professional Area must use a multi-select dropdown');
@@ -342,6 +348,17 @@ async function runTests() {
   assert.equal(typeof vmSandbox.window.toggleCategoriesMenu, 'function', 'toggleCategoriesMenu must be bound');
   assert.equal(typeof vmSandbox.window.closeCategoriesMenu, 'function', 'closeCategoriesMenu must be bound');
   assert.equal(typeof vmSandbox.window.selectFooterTrack, 'function', 'selectFooterTrack must be bound');
+  assert.equal(typeof vmSandbox.window.clearSearchInput, 'function', 'clearSearchInput must be bound');
+  assert.equal(typeof vmSandbox.window.syncSearchClearButton, 'function', 'syncSearchClearButton must be bound');
+  assert.equal(domElements['btn-clear-search-input'].style.display, 'none', 'Inline Borrar búsqueda button must start hidden when search field is empty');
+  domElements['searchInput'].value = 'a';
+  vmSandbox.window.onSearchInputChange('a');
+  assert.equal(domElements['btn-clear-search-input'].style.display, 'inline-flex', 'Inline Borrar búsqueda button must appear as soon as 1 letter is entered');
+  assert.equal(domElements['search-input-wrap'].classList.contains('has-value'), true, 'Search input wrapper must get has-value class when populated');
+  vmSandbox.window.clearSearchInput();
+  assert.equal(domElements['searchInput'].value, '', 'clearSearchInput must empty the search field');
+  assert.equal(domElements['btn-clear-search-input'].style.display, 'none', 'clearSearchInput must hide Borrar búsqueda button');
+  assert.equal(domElements['search-input-wrap'].classList.contains('has-value'), false, 'clearSearchInput must remove has-value class');
   vmSandbox.window.toggleCategoriesMenu();
   assert.equal(domElements['footer-categories-dropdown'].classList.contains('open'), true, 'toggleCategoriesMenu must open footer categories dropdown');
   assert.equal(domElements['nav-hdr-tracks-item'].attributes['aria-expanded'], 'true', 'toggleCategoriesMenu must set aria-expanded=true');
@@ -735,6 +752,44 @@ async function runTests() {
   assert.ok(semLocalData.results.length > 0, 'Semantic search must return ranked results');
   assert.ok(typeof semLocalData.results[0].semantic_score === 'number', 'Results must include semantic_score');
   assert.ok(typeof semLocalData.results[0].blended_score === 'number', 'Results must include blended_score');
+
+  // Test accent-insensitivity & forgiving typo/broad cross-lingual semantic search
+  const accentedVec = buildLocalSemanticVector('diseño programación atención inglés administración');
+  const plainVec = buildLocalSemanticVector('diseno programacion atencion ingles administracion');
+  assert.ok(
+    cosineSimilarity(accentedVec, plainVec) > 0.999,
+    'Vector embeddings must be completely accent-insensitive'
+  );
+  const respSemAccented = await worker.fetch(
+    new Request('https://bolivia-remote-scout.workers.dev/api/search/semantic?q=' + encodeURIComponent('atención al cliente español') + '&limit=5'),
+    {},
+    {}
+  );
+  const respSemUnaccented = await worker.fetch(
+    new Request('https://bolivia-remote-scout.workers.dev/api/search/semantic?q=' + encodeURIComponent('atencion al cliente espanol') + '&limit=5'),
+    {},
+    {}
+  );
+  const semAccData = await respSemAccented.json();
+  const semUnaccData = await respSemUnaccented.json();
+  assert.equal(semAccData.results.length, semUnaccData.results.length, 'Accented and unaccented queries must return identical result counts');
+  assert.equal(semAccData.results[0].job_hash, semUnaccData.results[0].job_hash, 'Accented and unaccented queries must return the exact same top match');
+
+  const respSemTypo = await worker.fetch(
+    new Request('https://bolivia-remote-scout.workers.dev/api/search/semantic?q=' + encodeURIComponent('desarollador pyton') + '&limit=5'),
+    {},
+    {}
+  );
+  const semTypoData = await respSemTypo.json();
+  assert.ok(semTypoData.results.length > 0, 'Forgiving semantic search must match minor typos like "desarollador pyton"');
+
+  const respSemShort = await worker.fetch(
+    new Request('https://bolivia-remote-scout.workers.dev/api/search/semantic?q=ia&limit=5'),
+    {},
+    {}
+  );
+  const semShortData = await respSemShort.json();
+  assert.ok(semShortData.results.length > 0, 'Forgiving semantic search must understand 2-letter acronyms like "ia"');
 
   // Test POST /api/search/semantic & POST /api/vectors/index with mocked Cloudflare Vectorize (`env.VECTORIZE`) & BGE-M3 (`env.AI`)
   let vectorizeUpsertedCount = 0;
