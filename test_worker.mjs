@@ -36,8 +36,15 @@ async function runTests() {
   assert.ok(!html.includes('text-transform: uppercase'), 'Hamburger menu group headers must be decapitalized from uppercase');
   assert.ok(html.includes('id="nav-hdr-tracks">Categorías De Plataformas</span>'), 'Must include Categorías De Plataformas with first letter of each word capitalized');
   assert.ok(html.includes('id="banner-disclaimer"'), 'Must include banner disclaimer below subtitle');
+  assert.ok(html.includes('id="btn-open-notice"'), 'Must render Notice/Aviso as clickable link');
+  assert.ok(html.includes('id="notice-overlay"'), 'Must include Notice overlay container');
+  assert.ok(html.includes('id="notice-overlay-body"'), 'Must include Notice overlay body');
+  assert.ok(html.includes("bannerSubtitle: 'Filter and evaluate global & regional job offers eligible for remote work from Bolivia. Customize your languages, position type, experience level, and contract modality.'"), 'English bannerSubtitle must remove (UTC-4)');
+  assert.ok(!html.includes('remote work from Bolivia (UTC-4).'), 'Must remove (UTC-4) from English banner subtitle');
+  assert.ok(!html.includes('trabajar remoto desde Bolivia (UTC-4).'), 'Must remove (UTC-4) from Spanish banner subtitle');
   assert.ok(html.includes('https://www.languagetransfer.org'), 'Must include Language Transfer link in disclaimer');
   assert.ok(html.includes('aprender inglés</a>. Te abre todo un entorno de oportunidades y con <a href="https://www.languagetransfer.org" title="Language Transfer: aprende inglés y más, ¡gratis!" target="_blank" rel="noopener noreferrer">Language Transfer</a>, es <strong>gratis</strong>!'), 'Must include Spanish anchor text, linked Language Transfer, and bold gratis in disclaimer');
+  assert.ok(html.includes('learn English</a>. It opens up a whole world of opportunities and with <a href="https://www.languagetransfer.org" title="Language Transfer: free audio courses" target="_blank" rel="noopener noreferrer">Language Transfer</a>, it is <strong>free</strong>!'), 'Must preserve English Language Transfer links in notice overlay');
   assert.ok(!/[\uD83C][\uDDE6-\uDDFF][\uD83C][\uDDE6-\uDDFF]/.test(html), 'Must NOT contain any flag emoji anywhere in HTML');
   assert.ok(!EMOJI_REGEX.test(html), 'Must NOT contain any emoji icons anywhere in HTML (excluding favicon)');
   assert.ok(!html.includes('id="tab-view-report"'), 'Must NOT have id="tab-view-report" in toolbar');
@@ -148,6 +155,8 @@ async function runTests() {
   assert.ok(domElements['chips-positions'].innerHTML.includes('togglePositionChip'), 'Must render interactive position chips on load');
   assert.ok(domElements['resultsCardsContainer'].innerHTML.includes('opp-card'), 'Must render job cards on load');
   assert.equal(typeof vmSandbox.window.toggleSidebar, 'function', 'Menu button handler toggleSidebar must be bound');
+  assert.equal(typeof vmSandbox.window.openNoticeOverlay, 'function', 'openNoticeOverlay must be bound');
+  assert.equal(typeof vmSandbox.window.closeNoticeOverlay, 'function', 'closeNoticeOverlay must be bound');
   assert.equal(typeof vmSandbox.window.toggleAiCvPanel, 'function', 'toggleAiCvPanel must be bound');
   assert.equal(typeof vmSandbox.window.setAiCvPanelFolded, 'function', 'setAiCvPanelFolded must be bound');
   assert.equal(typeof vmSandbox.window.renderScanFeedback, 'function', 'renderScanFeedback must be bound');

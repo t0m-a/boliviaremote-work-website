@@ -359,6 +359,75 @@ export function renderAppHtml(initialState) {
     .banner-disclaimer a:hover {
       color: var(--accent-hover);
     }
+    .notice-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      background: rgba(15, 23, 42, 0.5);
+      backdrop-filter: blur(3px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .notice-overlay.open {
+      display: flex;
+    }
+    .notice-overlay-card {
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(203, 213, 225, 0.9);
+      border-radius: 12px;
+      max-width: 560px;
+      width: 100%;
+      padding: 20px 24px;
+      box-shadow: 0 20px 45px rgba(15, 23, 42, 0.25);
+      color: #1e293b;
+    }
+    .notice-overlay-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(203, 213, 225, 0.7);
+    }
+    .notice-overlay-title {
+      margin: 0;
+      font-size: 1.05em;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .notice-overlay-close {
+      border: none;
+      background: transparent;
+      color: #475569;
+      font-size: 1.35em;
+      line-height: 1;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 6px;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .notice-overlay-close:hover {
+      background: rgba(148, 163, 184, 0.2);
+      color: #0f172a;
+    }
+    .notice-overlay-body {
+      margin: 0;
+      font-size: 0.94em;
+      line-height: 1.6;
+      color: #334155;
+    }
+    .notice-overlay-body a {
+      color: var(--accent-primary);
+      text-decoration: underline;
+      font-weight: 600;
+    }
+    .notice-overlay-body a:hover {
+      color: var(--accent-hover);
+    }
     .banner-actions-row {
       display: flex;
       align-items: center;
@@ -1342,6 +1411,37 @@ export function renderAppHtml(initialState) {
     body.dark-mode .banner-disclaimer a:hover {
       color: #7dd3fc;
     }
+    body.dark-mode .notice-overlay {
+      background: rgba(2, 6, 23, 0.65);
+    }
+    body.dark-mode .notice-overlay-card {
+      background: rgba(19, 29, 46, 0.9);
+      border-color: rgba(51, 65, 85, 0.95);
+      color: #e2e8f0;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.55);
+    }
+    body.dark-mode .notice-overlay-header {
+      border-bottom-color: rgba(51, 65, 85, 0.85);
+    }
+    body.dark-mode .notice-overlay-title {
+      color: #f8fafc;
+    }
+    body.dark-mode .notice-overlay-close {
+      color: #94a3b8;
+    }
+    body.dark-mode .notice-overlay-close:hover {
+      background: rgba(148, 163, 184, 0.16);
+      color: #f8fafc;
+    }
+    body.dark-mode .notice-overlay-body {
+      color: #cbd5e1;
+    }
+    body.dark-mode .notice-overlay-body a {
+      color: #38bdf8;
+    }
+    body.dark-mode .notice-overlay-body a:hover {
+      color: #7dd3fc;
+    }
     body.dark-mode .banner-pill {
       background: #0f172a;
       border-color: #334155;
@@ -1813,10 +1913,10 @@ export function renderAppHtml(initialState) {
       <div class="banner-header-block">
         <h1 id="banner-title">Buscador y Evaluador de Empleos Remotos desde Bolivia</h1>
         <p id="banner-subtitle">
-          Filtra y evalúa ofertas globales y regionales que permiten trabajar remoto desde Bolivia (UTC-4). Personaliza tus idiomas, área profesional, experiencia y modalidad de contrato.
+          Filtra y evalúa ofertas globales y regionales que permiten trabajar remoto desde Bolivia. Personaliza tus idiomas, área profesional, experiencia y modalidad de contrato.
         </p>
         <p id="banner-disclaimer" class="banner-disclaimer">
-          Aviso: algunas de estas plataformas requieren registrarse y utilizar una herramienta de traducción en el navegador para aprovechar al máximo su contenido. Para el trabajo remoto a nivel global, se recomienda encarecidamente <a href="https://www.languagetransfer.org" title="Language Transfer: aprende inglés y más, ¡gratis!" target="_blank" rel="noopener noreferrer">aprender inglés</a>. Te abre todo un entorno de oportunidades y con <a href="https://www.languagetransfer.org" title="Language Transfer: aprende inglés y más, ¡gratis!" target="_blank" rel="noopener noreferrer">Language Transfer</a>, es <strong>gratis</strong>!
+          <a href="#notice" id="btn-open-notice" onclick="openNoticeOverlay(event)">Aviso</a>
         </p>
       </div>
       <div class="banner-pills banner-actions-row">
@@ -2278,6 +2378,18 @@ export function renderAppHtml(initialState) {
     </footer>
   </main>
 
+  <div id="notice-overlay" class="notice-overlay" role="dialog" aria-modal="true" aria-labelledby="notice-overlay-title" aria-hidden="true" onclick="if(event.target===this) closeNoticeOverlay();">
+    <div class="notice-overlay-card">
+      <div class="notice-overlay-header">
+        <h3 id="notice-overlay-title" class="notice-overlay-title">Aviso</h3>
+        <button type="button" id="btn-close-notice" class="notice-overlay-close" onclick="closeNoticeOverlay()" aria-label="Cerrar" title="Cerrar">&times;</button>
+      </div>
+      <p id="notice-overlay-body" class="notice-overlay-body">
+        Algunas de estas plataformas requieren registrarse y utilizar una herramienta de traducción en el navegador para aprovechar al máximo su contenido. Para el trabajo remoto a nivel global, se recomienda encarecidamente <a href="https://www.languagetransfer.org" title="Language Transfer: aprende inglés y más, ¡gratis!" target="_blank" rel="noopener noreferrer">aprender inglés</a>. Te abre todo un entorno de oportunidades y con <a href="https://www.languagetransfer.org" title="Language Transfer: aprende inglés y más, ¡gratis!" target="_blank" rel="noopener noreferrer">Language Transfer</a>, es <strong>gratis</strong>!
+      </p>
+    </div>
+  </div>
+
   <script id="initial-payload" type="application/json">${clientPayload}</script>
   <script>
     const PAYLOAD = JSON.parse(document.getElementById('initial-payload').textContent);
@@ -2377,8 +2489,9 @@ export function renderAppHtml(initialState) {
         themeDarkText: 'Oscuro',
         themeLightText: 'Claro',
         bannerTitle: 'Buscador y Evaluador de Empleos Remotos desde Bolivia',
-        bannerSubtitle: 'Filtra y evalúa ofertas globales y regionales que permiten trabajar remoto desde Bolivia (UTC-4). Personaliza tus idiomas, área profesional, experiencia y modalidad de contrato.',
-        bannerDisclaimer: 'Aviso: algunas de estas plataformas requieren registrarse y utilizar una herramienta de traducción en el navegador para aprovechar al máximo su contenido. Para el trabajo remoto a nivel global, se recomienda encarecidamente <a href="https://www.languagetransfer.org" title="Language Transfer: aprende inglés y más, ¡gratis!" target="_blank" rel="noopener noreferrer">aprender inglés</a>. Te abre todo un entorno de oportunidades y con <a href="https://www.languagetransfer.org" title="Language Transfer: aprende inglés y más, ¡gratis!" target="_blank" rel="noopener noreferrer">Language Transfer</a>, es <strong>gratis</strong>!',
+        bannerSubtitle: 'Filtra y evalúa ofertas globales y regionales que permiten trabajar remoto desde Bolivia. Personaliza tus idiomas, área profesional, experiencia y modalidad de contrato.',
+        noticeLink: 'Aviso',
+        bannerDisclaimer: 'Algunas de estas plataformas requieren registrarse y utilizar una herramienta de traducción en el navegador para aprovechar al máximo su contenido. Para el trabajo remoto a nivel global, se recomienda encarecidamente <a href="https://www.languagetransfer.org" title="Language Transfer: aprende inglés y más, ¡gratis!" target="_blank" rel="noopener noreferrer">aprender inglés</a>. Te abre todo un entorno de oportunidades y con <a href="https://www.languagetransfer.org" title="Language Transfer: aprende inglés y más, ¡gratis!" target="_blank" rel="noopener noreferrer">Language Transfer</a>, es <strong>gratis</strong>!',
         scanNow: 'Escanear Ofertas Ahora',
         scanningNow: 'Escaneando plataformas...',
         pillBolivia: 'Filtro Base: 100% Remoto desde Bolivia (UTC-4)',
@@ -2489,8 +2602,9 @@ export function renderAppHtml(initialState) {
         themeDarkText: 'Dark',
         themeLightText: 'Light',
         bannerTitle: 'Remote Job Scout & Evaluator from Bolivia',
-        bannerSubtitle: 'Filter and evaluate global & regional job offers eligible for remote work from Bolivia (UTC-4). Customize your languages, position type, experience level, and contract modality.',
-        bannerDisclaimer: 'Notice: Some of these platforms require registration and using an in-browser translation tool to make the most of their listings. For global remote work, it is strongly recommended to <a href="https://www.languagetransfer.org" title="Language Transfer: free audio courses" target="_blank" rel="noopener noreferrer">learn English</a>. It opens up a whole world of opportunities and with <a href="https://www.languagetransfer.org" title="Language Transfer: free audio courses" target="_blank" rel="noopener noreferrer">Language Transfer</a>, it is <strong>free</strong>!',
+        bannerSubtitle: 'Filter and evaluate global & regional job offers eligible for remote work from Bolivia. Customize your languages, position type, experience level, and contract modality.',
+        noticeLink: 'Notice',
+        bannerDisclaimer: 'Some of these platforms require registration and using an in-browser translation tool to make the most of their listings. For global remote work, it is strongly recommended to <a href="https://www.languagetransfer.org" title="Language Transfer: free audio courses" target="_blank" rel="noopener noreferrer">learn English</a>. It opens up a whole world of opportunities and with <a href="https://www.languagetransfer.org" title="Language Transfer: free audio courses" target="_blank" rel="noopener noreferrer">Language Transfer</a>, it is <strong>free</strong>!',
         scanNow: 'Scan Offers Now',
         scanningNow: 'Scanning platforms...',
         pillBolivia: 'Core Filter: 100% Remote from Bolivia (UTC-4)',
@@ -2642,7 +2756,9 @@ export function renderAppHtml(initialState) {
         'nav-payments-desc': t.navPaymentsDesc,
         'banner-title': t.bannerTitle,
         'banner-subtitle': t.bannerSubtitle,
-        'banner-disclaimer': t.bannerDisclaimer,
+        'btn-open-notice': t.noticeLink,
+        'notice-overlay-title': t.noticeLink,
+        'notice-overlay-body': t.bannerDisclaimer,
         'lbl-scan-now': t.scanNow,
         'pill-bolivia': t.pillBolivia,
         'pill-schedule': t.pillSchedule,
@@ -2709,12 +2825,18 @@ export function renderAppHtml(initialState) {
       for (const [id, text] of Object.entries(map)) {
         const el = document.getElementById(id);
         if (el) {
-          if (id === 'banner-disclaimer' || id === 'footer-text' || id === 'nav-payments-desc') {
+          if (id === 'notice-overlay-body' || id === 'footer-text' || id === 'nav-payments-desc') {
             el.innerHTML = text;
           } else {
             el.textContent = text;
           }
         }
+      }
+      const closeNoticeBtn = document.getElementById('btn-close-notice');
+      if (closeNoticeBtn) {
+        const closeText = userFilters.ui_lang === 'en' ? 'Close' : 'Cerrar';
+        closeNoticeBtn.title = closeText;
+        closeNoticeBtn.setAttribute('aria-label', closeText);
       }
       const unfoldBtn = document.getElementById('sidebar-unfold-btn');
       if (unfoldBtn) {
@@ -3200,6 +3322,31 @@ export function renderAppHtml(initialState) {
       if (navResults) navResults.classList.toggle('active-nav', viewName === 'results');
       if (navManual) navManual.classList.toggle('active-nav', viewName === 'manual');
       if (navPlatforms) navPlatforms.classList.toggle('active-nav', viewName === 'platforms');
+    }
+
+    function openNoticeOverlay(event) {
+      if (event && typeof event.preventDefault === 'function') {
+        event.preventDefault();
+      }
+      const overlay = document.getElementById('notice-overlay');
+      if (!overlay) return;
+      overlay.classList.add('open');
+      overlay.setAttribute('aria-hidden', 'false');
+    }
+    window.openNoticeOverlay = openNoticeOverlay;
+
+    function closeNoticeOverlay() {
+      const overlay = document.getElementById('notice-overlay');
+      if (!overlay) return;
+      overlay.classList.remove('open');
+      overlay.setAttribute('aria-hidden', 'true');
+    }
+    window.closeNoticeOverlay = closeNoticeOverlay;
+
+    if (typeof document.addEventListener === 'function') {
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeNoticeOverlay();
+      });
     }
 
     function toggleSidebar() {
