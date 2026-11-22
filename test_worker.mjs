@@ -201,10 +201,10 @@ async function runTests() {
   assert.ok(!html.includes('id="nav-report"'), 'Must NOT have id="nav-report" in navbar (removed as requested)');
   assert.ok(html.includes('id="sidebar-unfold-btn"'), 'Must have sidebar unfold button');
   assert.ok(
-    /@keyframes boliviaHamburgerCycleLight\s*\{[\s\S]*?#ef4444[\s\S]*?#f59e0b[\s\S]*?#10b981/.test(html) &&
-    /@keyframes boliviaHamburgerCycleDark\s*\{[\s\S]*?#ef4444[\s\S]*?#f59e0b[\s\S]*?#10b981/.test(html) &&
-    /@media only screen and \(max-width: 820px\)[\s\S]*?animation:\s*boliviaHamburgerCycleLight 9s ease-in-out infinite;/.test(html),
-    'Mobile/lower-resolution hamburger icon must cycle slowly red -> yellow -> green in harmonized button tones'
+    /@keyframes boliviaHamburgerCycleLight\s*\{[\s\S]*?#ef4444[\s\S]*?#eab308[\s\S]*?#10b981/.test(html) &&
+    /@keyframes boliviaHamburgerCycleDark\s*\{[\s\S]*?#ef4444[\s\S]*?#facc15[\s\S]*?#10b981/.test(html) &&
+    /@media only screen and \(max-width: 820px\)[\s\S]*?animation:\s*boliviaHamburgerCycleLight 5\.4s ease-in-out infinite;/.test(html),
+    'Mobile/lower-resolution hamburger icon must cycle briskly red -> vivid yellow -> green in harmonized button tones'
   );
   assert.ok(html.includes('<body class="sidebar-collapsed">'), 'Navbar must start folded in hamburger menu by default');
   assert.ok(/<div class="navbar-header">[\s\S]*?id="nav-brand-title">Bolivia Remote Work<\/span>[\s\S]*?id="sidebar-unfold-btn"[\s\S]*?<span class="hamburger-label" id="lbl-unfold-nav">Información Útil<\/span>[\s\S]*?<span class="hamburger-icon">/.test(html), 'Hamburger button must be inside navbar-header on the right with Información Útil on the left of hamburger icon');

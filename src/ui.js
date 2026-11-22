@@ -2327,34 +2327,34 @@ export function renderAppHtml(initialState) {
 
     @keyframes boliviaHamburgerCycleLight {
       0%, 100% {
-        background: rgba(239, 68, 68, 0.12);
+        background: rgba(239, 68, 68, 0.14);
         border-color: #ef4444;
         color: #991b1b;
       }
-      33.33% {
-        background: rgba(245, 158, 11, 0.14);
-        border-color: #f59e0b;
-        color: #92400e;
+      30%, 40% {
+        background: rgba(250, 204, 21, 0.28);
+        border-color: #eab308;
+        color: #a16207;
       }
       66.66% {
-        background: rgba(16, 185, 129, 0.12);
+        background: rgba(16, 185, 129, 0.14);
         border-color: #10b981;
         color: #065f46;
       }
     }
     @keyframes boliviaHamburgerCycleDark {
       0%, 100% {
-        background: rgba(239, 68, 68, 0.18);
+        background: rgba(239, 68, 68, 0.20);
         border-color: #ef4444;
         color: #fca5a5;
       }
-      33.33% {
-        background: rgba(245, 158, 11, 0.18);
-        border-color: #f59e0b;
-        color: #fde68a;
+      30%, 40% {
+        background: rgba(250, 204, 21, 0.30);
+        border-color: #facc15;
+        color: #fef08a;
       }
       66.66% {
-        background: rgba(16, 185, 129, 0.18);
+        background: rgba(16, 185, 129, 0.20);
         border-color: #10b981;
         color: #a7f3d0;
       }
@@ -2369,11 +2369,11 @@ export function renderAppHtml(initialState) {
         width: 36px;
         padding: 0;
         gap: 0;
-        animation: boliviaHamburgerCycleLight 9s ease-in-out infinite;
+        animation: boliviaHamburgerCycleLight 5.4s ease-in-out infinite;
       }
       body.dark-mode .sidebar-fold-btn,
       body.dark-mode #sidebar-unfold-btn {
-        animation: boliviaHamburgerCycleDark 9s ease-in-out infinite;
+        animation: boliviaHamburgerCycleDark 5.4s ease-in-out infinite;
       }
       .hamburger-label {
         display: none;
