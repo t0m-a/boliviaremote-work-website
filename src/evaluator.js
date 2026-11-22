@@ -43,6 +43,7 @@ export const POSITION_CATEGORIES = [
       'customer support', 'atención al cliente', 'customer service', 'servicio al cliente',
       'soporte', 'helpdesk', 'help desk', 'service desk', 'chat support', 'soporte por chat',
       'soporte técnico', 'technical support', 'customer success', 'customer experience',
+      'consumer support', 'solutions engineer', 'customer solutions', 'client care',
       'agente de soporte', 'call center', 'contact center', 'dispatch', 'tier 1', 'tier 2',
       'tier 3', 'troubleshooting', 'asistencia técnica', 'soporte remoto'
     ]
@@ -66,9 +67,10 @@ export const POSITION_CATEGORIES = [
     icon: '',
     keywords: [
       'marketing', 'digital marketing', 'social media', 'community manager', 'redes sociales',
-      'copywriter', 'redactor', 'content writer', 'creador de contenido', 'seo', 'email marketing',
-      'copywriting', 'content manager', 'moderador', 'content moderator', 'traductor',
-      'translator', 'traducción', 'comunicaciones', 'communications', 'growth'
+      'copywriter', 'redactor', 'content writer', 'creador de contenido', 'seo', 'sem', 'ppc',
+      'demand generation', 'performance marketing', 'paid media', 'google ads', 'meta ads',
+      'email marketing', 'copywriting', 'content manager', 'moderador', 'content moderator',
+      'traductor', 'translator', 'traducción', 'comunicaciones', 'communications', 'growth', 'brand'
     ]
   },
   {
@@ -168,6 +170,151 @@ export const POSITION_CATEGORIES = [
       'english teacher', 'spanish tutor', 'online tutor', 'esl', 'tefl', 'tesol',
       'corrección de estilo', 'proofreader', 'proofreading', 'welocalize', 'transperfect', 'latinhire'
     ]
+  },
+  {
+    id: 'cybersecurity',
+    label_es: 'Ciberseguridad, Seguridad Informática & Auditoría TI',
+    label_en: 'Cybersecurity, InfoSec & IT Auditing',
+    icon: '',
+    keywords: [
+      'cybersecurity', 'ciberseguridad', 'security engineer', 'ingeniero de seguridad', 'infosec',
+      'devsecops', 'appsec', 'soc analyst', 'analista soc', 'pentest', 'pentester', 'red team',
+      'blue team', 'siem', 'edr', 'mdr', 'itdr', 'iam', 'zero trust', 'vulnerability',
+      'it auditor', 'auditoría ti', 'iso 27001', 'soc 2', 'security operations', 'threat',
+      'network security', 'cloud security', 'seguridad informática', 'seguridad de la información'
+    ]
+  },
+  {
+    id: 'product_mgmt',
+    label_es: 'Gestión de Producto (Product Management & Product Owner)',
+    label_en: 'Product Management & Product Ownership',
+    icon: '',
+    keywords: [
+      'product manager', 'gestor de producto', 'product owner', 'product management',
+      'head of product', 'vp of product', 'product analyst', 'product operations', 'product ops',
+      'roadmap', 'backlog', 'discovery', 'product strategy', 'estrategia de producto',
+      'technical product manager', 'growth product manager', 'agile product', 'product lead'
+    ]
+  },
+  {
+    id: 'ai_ml_engineering',
+    label_es: 'Ingeniería de IA, Machine Learning & Agentes LLM',
+    label_en: 'AI Engineering, Machine Learning & LLM Agents',
+    icon: '',
+    keywords: [
+      'ai engineer', 'ingeniero de ia', 'machine learning', 'ml engineer', 'mlops', 'deep learning',
+      'llm', 'ai agent', 'agentes ia', 'agentic', 'rag', 'langchain', 'langgraph', 'openai',
+      'anthropic', 'pytorch', 'tensorflow', 'huggingface', 'nlp', 'computer vision',
+      'data scientist', 'científico de datos', 'ai solutions', 'ai automation', 'vector database'
+    ]
+  },
+  {
+    id: 'qa_testing',
+    label_es: 'QA, Control de Calidad & Automatización de Pruebas',
+    label_en: 'QA, Quality Assurance & Test Automation',
+    icon: '',
+    keywords: [
+      'qa', 'quality assurance', 'control de calidad', 'qa engineer', 'qa analyst', 'sdet',
+      'test automation', 'automatización de pruebas', 'software tester', 'tester', 'manual qa',
+      'selenium', 'playwright', 'cypress', 'appium', 'postman', 'regression testing', 'testlio',
+      'bug tracking', 'pruebas de software', 'quality engineer'
+    ]
+  },
+  {
+    id: 'mobile_gamedev',
+    label_es: 'Desarrollo Móvil (iOS / Android) & Videojuegos',
+    label_en: 'Mobile Development (iOS / Android) & Game Dev',
+    icon: '',
+    keywords: [
+      'mobile developer', 'desarrollador móvil', 'ios', 'swift', 'swiftui', 'android', 'kotlin',
+      'flutter', 'react native', 'dart', 'xamarin', 'mobile engineer', 'app developer',
+      'game developer', 'desarrollo de videojuegos', 'unity', 'unreal engine', '3d artist',
+      'game designer', 'godot', 'c++ game'
+    ]
+  },
+  {
+    id: 'writing_editorial',
+    label_es: 'Redacción Técnica, Copywriting & Contenido Editorial',
+    label_en: 'Technical Writing, Copywriting & Editorial Content',
+    icon: '',
+    keywords: [
+      'technical writer', 'redactor técnico', 'copywriter', 'copywriting', 'content writer',
+      'redactor', 'redacción', 'editor', 'editorial', 'journalist', 'periodista', 'blog writer',
+      'ghostwriter', 'documentation', 'documentación técnica', 'ux writer', 'scriptwriter',
+      'guionista', 'seo writer', 'content strategist', 'domain editor', 'corrector'
+    ]
+  },
+  {
+    id: 'education_tutoring',
+    label_es: 'Educación, Docencia Online, Tutoría & E-Learning',
+    label_en: 'Education, Online Teaching, Tutoring & E-Learning',
+    icon: '',
+    keywords: [
+      'teacher', 'profesor', 'docente', 'tutor', 'tutoría', 'tutoring', 'instructor',
+      'educación', 'education', 'e-learning', 'elearning', 'instructional designer',
+      'diseñador instruccional', 'curriculum', 'lms', 'moodle', 'academic', 'académico',
+      'mentor', 'coach', 'capacitación', 'training specialist', 'course creator', 'ai tutor'
+    ]
+  },
+  {
+    id: 'legal_compliance',
+    label_es: 'Legal, Cumplimiento (Compliance) & Contratos',
+    label_en: 'Legal, Compliance & Contract Management',
+    icon: '',
+    keywords: [
+      'legal', 'abogado', 'lawyer', 'attorney', 'paralegal', 'legal assistant', 'asistente legal',
+      'compliance', 'cumplimiento', 'contract manager', 'contratos', 'gdpr', 'privacy',
+      'privacidad', 'regulatory', 'regulatorio', 'aml', 'kyc', 'fraud', 'fraude',
+      'risk analyst', 'gestión de riesgos', 'corporate counsel', 'intellectual property'
+    ]
+  },
+  {
+    id: 'healthcare_medical',
+    label_es: 'Salud, Telemedicina & Facturación Médica',
+    label_en: 'Healthcare, Telehealth & Medical Billing',
+    icon: '',
+    keywords: [
+      'healthcare', 'salud', 'medical', 'médico', 'telemedicine', 'telemedicina', 'telehealth',
+      'medical billing', 'facturación médica', 'medical coding', 'icd-10', 'hipaa', 'ehr',
+      'medical assistant', 'asistente médico', 'clinical', 'clínico', 'nurse', 'enfermería',
+      'patient coordinator', 'coordinador de pacientes', 'dental', 'pharmacy', 'scribe', 'medical scribe'
+    ]
+  },
+  {
+    id: 'ecommerce_retail',
+    label_es: 'E-Commerce, Tiendas Online (Shopify / Amazon) & Logística',
+    label_en: 'E-Commerce, Online Stores (Shopify / Amazon) & Supply Chain',
+    icon: '',
+    keywords: [
+      'ecommerce', 'e-commerce', 'comercio electrónico', 'shopify', 'woocommerce', 'magento',
+      'amazon fba', 'amazon seller', 'mercadolibre', 'marketplace', 'tienda online',
+      'dropshipping', 'catalog manager', 'inventory', 'inventario', 'supply chain',
+      'cadena de suministro', 'logistics', 'logística', 'fulfillment', 'merchandising', 'retail'
+    ]
+  },
+  {
+    id: 'consulting_advisory',
+    label_es: 'Consultoría Estratégica, Negocios & Redes de Expertos',
+    label_en: 'Strategy Consulting, Business Advisory & Expert Networks',
+    icon: '',
+    keywords: [
+      'consultant', 'consultor', 'consultoría', 'consulting', 'advisor', 'advisory', 'asesor',
+      'asesoría', 'business analyst', 'analista de negocios', 'strategy', 'estrategia',
+      'management consulting', 'expert network', 'market research', 'investigación de mercado',
+      'glg', 'alphasights', 'guidepoint', 'dialectica', 'wynter', 'respondent', 'fractional'
+    ]
+  },
+  {
+    id: 'real_estate_insurance',
+    label_es: 'Bienes Raíces, Seguros & Servicios Bancarios Remotos',
+    label_en: 'Real Estate, Insurance & Remote Banking Services',
+    icon: '',
+    keywords: [
+      'real estate', 'bienes raíces', 'inmobiliaria', 'property manager', 'property management',
+      'transaction coordinator', 'airbnb', 'short-term rental', 'mortgage', 'hipoteca',
+      'insurance', 'seguros', 'underwriting', 'claims', 'siniestros', 'banking', 'banca',
+      'financial services', 'servicios financieros', 'fintech', 'loan processor', 'card support'
+    ]
   }
 ];
 
@@ -197,7 +344,7 @@ export const CONTRACT_OPTIONS = [
 export const DEFAULT_FILTERS = {
   ui_lang: 'es',
   require_bolivia_remote: true,
-  languages: ['es', 'en'],
+  languages: ['es'],
   position_types: [],
   custom_keywords: '',
   strict_position_match: false,
@@ -716,13 +863,14 @@ export function evaluateOpportunity(item, rawFilters = {}) {
  * Evaluates all opportunities and sorts them by score descending.
  */
 export function evaluateAllOpportunities(opportunities, filters = {}) {
-  const requireBolivia = filters.require_bolivia_remote !== false;
-  const isOnlySpanishSelected = Array.isArray(filters.languages) &&
-    filters.languages.length === 1 &&
-    filters.languages[0] === 'es';
-  const hasActivePositionFilter = (Array.isArray(filters.position_types) && filters.position_types.length > 0) ||
-    Boolean(filters.custom_keywords && String(filters.custom_keywords).trim());
-  const strictPos = Boolean(filters.strict_position_match) && hasActivePositionFilter;
+  // Always enforce 100% remote eligibility from Bolivia across all evaluations
+  const effectiveFilters = { ...DEFAULT_FILTERS, ...filters, require_bolivia_remote: true };
+  const isOnlySpanishSelected = Array.isArray(effectiveFilters.languages) &&
+    effectiveFilters.languages.length === 1 &&
+    effectiveFilters.languages[0] === 'es';
+  const hasActivePositionFilter = (Array.isArray(effectiveFilters.position_types) && effectiveFilters.position_types.length > 0) ||
+    Boolean(effectiveFilters.custom_keywords && String(effectiveFilters.custom_keywords).trim());
+  const strictPos = Boolean(effectiveFilters.strict_position_match) && hasActivePositionFilter;
 
   const dedupedOpportunities = [];
   const seenKeys = new Set();
@@ -744,23 +892,19 @@ export function evaluateAllOpportunities(opportunities, filters = {}) {
     dedupedOpportunities.push(opp);
   }
 
-  const evaluated = dedupedOpportunities.map(opp => evaluateOpportunity(opp, filters));
+  const evaluatedRaw = dedupedOpportunities.map(opp => evaluateOpportunity(opp, effectiveFilters));
+  const geoExcluded = evaluatedRaw.filter(r => !r.bolivia_eligible);
+  const eligibleOnly = evaluatedRaw.filter(r => r.bolivia_eligible);
 
-  evaluated.sort((a, b) => {
-    if (a.bolivia_eligible !== b.bolivia_eligible) {
-      return a.bolivia_eligible ? -1 : 1;
-    }
+  eligibleOnly.sort((a, b) => {
     if (b.total_score !== a.total_score) {
       return b.total_score - a.total_score;
     }
     return String(b.discovered_at || '').localeCompare(String(a.discovered_at || ''));
   });
 
-  const geoExcluded = evaluated.filter(r => !r.bolivia_eligible);
-
-  // When 'es' is exclusively selected, exclude offers that do NOT have Spanish from surfaced
-  const surfaced = evaluated.filter(r => {
-    if (requireBolivia && !r.bolivia_eligible) return false;
+  // Only 100% remote Bolivia-eligible offers are ever surfaced or reported
+  const surfaced = eligibleOnly.filter(r => {
     if (isOnlySpanishSelected && !(r.detected_languages || []).includes('es')) {
       return false;
     }
@@ -772,10 +916,10 @@ export function evaluateAllOpportunities(opportunities, filters = {}) {
 
   return {
     surfaced,
-    all: evaluated,
+    all: eligibleOnly,
     apply: surfaced.filter(r => r.verdict === 'APPLY'),
     possible: surfaced.filter(r => r.verdict === 'POSSIBLE'),
-    skip: evaluated.filter(r => r.verdict === 'SKIP' && r.bolivia_eligible),
+    skip: eligibleOnly.filter(r => r.verdict === 'SKIP'),
     geo_excluded: geoExcluded
   };
 }

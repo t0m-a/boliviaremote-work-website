@@ -328,7 +328,9 @@ def insert_opportunities(conn: sqlite3.Connection, items: list, cfg: dict) -> in
     inserted = 0
     now_iso = datetime.datetime.now().isoformat(timespec="seconds")
     for item in items:
-        bol_ok = 1 if is_bolivia_remote_eligible(item, cfg) else 0
+        if not is_bolivia_remote_eligible(item, cfg):
+            continue
+        bol_ok = 1
         jhash = compute_hash(item["title"], item["company"], item["url"])
         cur = conn.execute("SELECT 1 FROM opportunities WHERE job_hash = ?", (jhash,))
         if cur.fetchone():

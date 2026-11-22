@@ -25,8 +25,10 @@ export function renderAppHtml(initialState) {
     lastScanAt = new Date().toISOString()
   } = initialState;
 
+  const eligibleOpportunities = (opportunities || []).filter(o => checkBoliviaRemoteEligibility(o).eligible);
+
   const clientPayload = JSON.stringify({
-    opportunities,
+    opportunities: eligibleOpportunities,
     platforms,
     lastScanAt,
     POSITION_CATEGORIES,
@@ -600,8 +602,8 @@ export function renderAppHtml(initialState) {
     }
     .pos-dropdown {
       position: relative;
-      flex: 0 1 320px;
-      min-width: 220px;
+      flex: 1 1 320px;
+      min-width: 0;
       max-width: 100%;
     }
     .pos-dropdown.filter-dropdown-full {
@@ -609,8 +611,9 @@ export function renderAppHtml(initialState) {
       width: 100%;
       min-width: 0;
     }
-    .pos-dropdown.filter-dropdown-full .pos-dropdown-menu {
+    .pos-dropdown .pos-dropdown-menu {
       width: 100%;
+      min-width: 100%;
       max-width: 100%;
     }
     .pos-dropdown-toggle {
@@ -2113,10 +2116,6 @@ export function renderAppHtml(initialState) {
       <div class="panel-header">
         <h2 class="panel-title"><span id="lbl-filters-title">Personaliza tu Búsqueda y Criterios de Evaluación</span></h2>
         <div class="panel-header-actions">
-          <label class="bolivia-only-label">
-            <input type="checkbox" id="chk-bolivia-only" checked onchange="onBoliviaToggle(this.checked)">
-            <span id="lbl-bolivia-only">Mostrar solo ofertas 100% remotas desde Bolivia</span>
-          </label>
           <button type="button" class="btn-action btn-secondary" onclick="resetFilters()" id="btn-reset-filters">↺ Restablecer Filtros</button>
         </div>
       </div>
@@ -2212,13 +2211,6 @@ export function renderAppHtml(initialState) {
               <div id="chips-positions" class="pos-dropdown-list"></div>
             </div>
           </div>
-          <input
-            type="text"
-            id="input-custom-keywords"
-            class="input-text"
-            placeholder="Ej: Asistente Virtual, Soporte, Ventas, Excel, Python, React, Contador, Diseñador, SQL, Azure, QA..."
-            oninput="onCustomKeywordsInput(this.value)"
-          >
           <span style="font-size:0.78em;color:#64748b;" id="lbl-weight-pos">(Peso Posición/Habilidades: 35 pts · Elegibilidad Bolivia: 25 pts)</span>
         </div>
         <div id="pos-selected-tags" class="pos-selected-tags"></div>
@@ -2370,15 +2362,14 @@ export function renderAppHtml(initialState) {
           <div class="guide-step">
             <div class="guide-step-header">
               <span class="guide-step-num">4</span>
-              <h5 class="guide-step-title">Selecciona tus Áreas Profesionales y Palabras Clave</h5>
+              <h5 class="guide-step-title">Selecciona tus Áreas Profesionales</h5>
             </div>
             <div class="guide-step-body">
               En <strong>4. Tipo de Posición / Área Profesional</strong>:
               <ul>
-                <li>Haz clic en uno o varios chips para enfocar tu búsqueda en tus disciplinas (ej: <em>Asistente Virtual, Atención al Cliente, Ventas, Marketing, Finanzas, Diseño, Software, Cloud, Datos</em>).</li>
+                <li>Abre el menú desplegable y marca una o varias áreas profesionales (ej: <em>Asistencia Virtual, Atención al Cliente, Ventas, Marketing, Ciberseguridad, Producto, Finanzas, Diseño, Software, IA, Cloud, Datos, Salud, Legal, E-Commerce</em>).</li>
                 <li><strong>Ver todas las áreas:</strong> Pulsa este botón si deseas explorar oportunidades de cualquier disciplina sin restricción.</li>
                 <li><strong>Casilla "Ocultar ofertas de otras áreas":</strong> Actívala para esconder estrictamente cualquier vacante que no pertenezca a tus categorías seleccionadas.</li>
-                <li><strong>Palabras clave personalizadas:</strong> En el campo de texto inferior, escribe herramientas, tecnologías o habilidades específicas (ej: <code>Excel, Canva, Shopify, HubSpot, Python, React, Quickbooks, SQL</code>). Las ofertas que las mencionen recibirán puntos adicionales.</li>
               </ul>
             </div>
           </div>
@@ -2387,13 +2378,13 @@ export function renderAppHtml(initialState) {
           <div class="guide-step">
             <div class="guide-step-header">
               <span class="guide-step-num">5</span>
-              <h5 class="guide-step-title">El Filtro Base 100% Remoto desde Bolivia</h5>
+              <h5 class="guide-step-title">Filtro Automático 100% Remoto desde Bolivia</h5>
             </div>
             <div class="guide-step-body">
-              La casilla <strong>"Mostrar solo ofertas 100% remotas desde Bolivia"</strong> viene activada por defecto:
+              Todos los motores de búsqueda, escaneo y evaluación de la plataforma aplican automáticamente el filtro <strong>100% remoto desde Bolivia</strong>:
               <ul>
-                <li>Descarta automáticamente vacantes que exijan residencia física o visados en Estados Unidos (<em>US Only</em>, <em>W-2</em>), Europa (<em>EU Only</em>) u otros países específicos.</li>
-                <li>Conserva únicamente vacantes abiertas a Sudamérica, Latinoamérica, esquemas globales de contratación independiente (<em>W-8BEN</em>) y modalidad <em>Work From Anywhere</em>.</li>
+                <li>Descarta automáticamente antes de importar cualquier vacante que exija residencia física o visados en Estados Unidos (<em>US Only</em>, <em>W-2</em>), Europa (<em>EU Only</em>) u otros países específicos.</li>
+                <li>Conserva únicamente vacantes verificadas y abiertas a Sudamérica, Latinoamérica, esquemas globales de contratación independiente (<em>W-8BEN</em>) y modalidad <em>Work From Anywhere</em>.</li>
               </ul>
             </div>
           </div>
@@ -2556,13 +2547,13 @@ export function renderAppHtml(initialState) {
     const EXPERIENCE_OPTIONS = PAYLOAD.EXPERIENCE_OPTIONS;
     const CONTRACT_OPTIONS = PAYLOAD.CONTRACT_OPTIONS;
 
-    // Load saved filters with Spanish (Bolivia) site language locked
-    let userFilters = Object.assign({}, PAYLOAD.DEFAULT_FILTERS, { ui_lang: 'es' });
+    // Load saved filters with Spanish (Bolivia) site language and 100% remote Bolivia locked
+    let userFilters = Object.assign({}, PAYLOAD.DEFAULT_FILTERS, { ui_lang: 'es', require_bolivia_remote: true });
     try {
-      const saved = localStorage.getItem('bolivia_remote_user_filters_v5');
+      const saved = localStorage.getItem('bolivia_remote_user_filters_v6');
       if (saved) {
         const parsed = JSON.parse(saved);
-        userFilters = Object.assign({}, PAYLOAD.DEFAULT_FILTERS, parsed, { ui_lang: 'es' });
+        userFilters = Object.assign({}, PAYLOAD.DEFAULT_FILTERS, parsed, { ui_lang: 'es', require_bolivia_remote: true });
       }
     } catch (e) {}
 
@@ -2736,7 +2727,7 @@ export function renderAppHtml(initialState) {
 
     function saveFilters() {
       try {
-        localStorage.setItem('bolivia_remote_user_filters_v5', JSON.stringify(userFilters));
+        localStorage.setItem('bolivia_remote_user_filters_v6', JSON.stringify(userFilters));
       } catch (e) {}
     }
 
@@ -2986,12 +2977,8 @@ export function renderAppHtml(initialState) {
         }).join('');
       }
 
-      document.getElementById('chk-bolivia-only').checked = userFilters.require_bolivia_remote !== false;
-      document.getElementById('chk-strict-pos').checked = Boolean(userFilters.strict_position_match);
-      const kwInput = document.getElementById('input-custom-keywords');
-      if (kwInput && kwInput.value !== (userFilters.custom_keywords || '')) {
-        kwInput.value = userFilters.custom_keywords || '';
-      }
+      const strictPosEl = document.getElementById('chk-strict-pos');
+      if (strictPosEl) strictPosEl.checked = Boolean(userFilters.strict_position_match);
     }
 
     function toggleLanguageChip(id) {
@@ -3143,21 +3130,8 @@ export function renderAppHtml(initialState) {
     function clearPositions() {
       userFilters.position_types = [];
       userFilters.custom_keywords = '';
-      document.getElementById('input-custom-keywords').value = '';
       saveFilters();
       renderFilterChips();
-      recomputeAndRender();
-    }
-
-    function onCustomKeywordsInput(val) {
-      userFilters.custom_keywords = val;
-      saveFilters();
-      recomputeAndRender();
-    }
-
-    function onBoliviaToggle(checked) {
-      userFilters.require_bolivia_remote = checked;
-      saveFilters();
       recomputeAndRender();
     }
 

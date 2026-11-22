@@ -238,14 +238,14 @@ export async function indexOpportunitiesInVectorStore(opportunities, env, maxIte
     return { indexed_count: 0, backends: [] };
   }
 
-  const slice = opportunities.slice(0, maxItems);
+  const eligibleOpportunities = opportunities.filter(opp => checkBoliviaRemoteEligibility(opp).eligible);
+  const slice = eligibleOpportunities.slice(0, maxItems);
   const backends = [];
   const vectorRecords = [];
 
   for (const opp of slice) {
     const text = buildOpportunityEmbeddingText(opp);
     const emb = await generateEmbedding(text, env);
-    const bol = checkBoliviaRemoteEligibility(opp);
     const id = opp.job_hash || computeJobHash(opp.title, opp.company, opp.url);
     vectorRecords.push({
       id,
@@ -256,7 +256,7 @@ export async function indexOpportunitiesInVectorStore(opportunities, env, maxIte
         company: String(opp.company || '').slice(0, 80),
         platform_name: String(opp.platform_name || '').slice(0, 80),
         track: String(opp.track || '').slice(0, 80),
-        bolivia_eligible: bol.eligible ? 1 : 0,
+        bolivia_eligible: 1,
         published_at: String(opp.published_at || '').slice(0, 10)
       }
     });
@@ -368,8 +368,8 @@ export async function semanticSearchOpportunities(query, opportunities, filters 
   }
 
   const topK = Math.min(Math.max(Number(options.topK) || 25, 1), 100);
-  const evalResult = evaluateAllOpportunities(opportunities, filters);
-  const pool = filters.require_bolivia_remote !== false ? evalResult.surfaced : evalResult.all;
+  const evalResult = evaluateAllOpportunities(opportunities, { ...filters, require_bolivia_remote: true });
+  const pool = evalResult.surfaced;
 
   const externalScoresByHash = new Map();
   let activeBackend = 'edge-multilingual-vectors';

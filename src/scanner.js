@@ -569,15 +569,17 @@ export async function scanCustomPlatformUrl(input, userFilters = {}) {
 
   platformObj.type = detectedType;
 
-  // Evaluate all discovered items
-  const evaluated = discovered.map(item => evaluateOpportunity(item, userFilters));
-  const boliviaEligibleItems = evaluated.filter(item => item.bolivia_eligible);
-  const isDeadLead = Boolean(deadLead || evaluated.length === 0);
+  // Strictly retain only 100% remote opportunities eligible from Bolivia
+  const evaluatedAll = discovered.map(item => evaluateOpportunity(item, { ...userFilters, require_bolivia_remote: true }));
+  const boliviaEligibleItems = evaluatedAll.filter(item => item.bolivia_eligible);
+  const eligibleHashSet = new Set(boliviaEligibleItems.map(item => item.job_hash));
+  const boliviaEligibleRaw = discovered.filter(item => eligibleHashSet.has(item.job_hash));
+  const isDeadLead = Boolean(deadLead || boliviaEligibleItems.length === 0);
   const verdictCounts = {
-    apply: evaluated.filter(r => r.bolivia_eligible && r.verdict === 'APPLY').length,
-    possible: evaluated.filter(r => r.bolivia_eligible && r.verdict === 'POSSIBLE').length,
-    skip: evaluated.filter(r => r.bolivia_eligible && r.verdict === 'SKIP').length,
-    geo: evaluated.filter(r => !r.bolivia_eligible).length,
+    apply: boliviaEligibleItems.filter(r => r.verdict === 'APPLY').length,
+    possible: boliviaEligibleItems.filter(r => r.verdict === 'POSSIBLE').length,
+    skip: boliviaEligibleItems.filter(r => r.verdict === 'SKIP').length,
+    geo: evaluatedAll.filter(r => !r.bolivia_eligible).length,
     dead_lead: isDeadLead ? 1 : 0
   };
 
@@ -586,10 +588,10 @@ export async function scanCustomPlatformUrl(input, userFilters = {}) {
     dead_lead: isDeadLead,
     http_status: httpStatus,
     verdict_counts: verdictCounts,
-    discovered_count: discovered.length,
+    discovered_count: boliviaEligibleRaw.length,
     bolivia_eligible_count: boliviaEligibleItems.length,
-    opportunities: discovered,
-    evaluated_opportunities: evaluated
+    opportunities: boliviaEligibleRaw,
+    evaluated_opportunities: boliviaEligibleItems
   };
 }
 

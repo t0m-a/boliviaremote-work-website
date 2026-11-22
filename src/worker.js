@@ -141,6 +141,7 @@ function normalizeAndMergeState(rawState) {
     if (!rawOpp) continue;
     const opp = cleanOpportunityFields(rawOpp);
     if (!opp.title) continue;
+    if (!checkBoliviaRemoteEligibility(opp).eligible) continue;
     const key = normalizeJobKey(opp.title, opp.company);
     const normUrl = opp.url.toLowerCase().replace(/\/+$/, '');
     const isGenericUrl = /^https?:\/\/[^/]+\/?(?:jobs\/?|careers\/?|work\/?|remote\/?|apply\/?)?$/i.test(normUrl);
@@ -561,9 +562,10 @@ Sitemap: https://boliviaremote.work/sitemap.xml
           state.platforms.unshift(scanRes.platform);
         }
 
-        // Prepend newly discovered opportunities (deduplicated by job_hash)
+        // Prepend newly discovered 100% remote Bolivia-eligible opportunities (deduplicated by job_hash)
         const existingHashes = new Set(state.opportunities.map(o => o.job_hash));
         for (const item of scanRes.opportunities) {
+          if (!checkBoliviaRemoteEligibility(item).eligible) continue;
           if (!existingHashes.has(item.job_hash)) {
             existingHashes.add(item.job_hash);
             state.opportunities.unshift(item);
@@ -623,7 +625,8 @@ Sitemap: https://boliviaremote.work/sitemap.xml
           if (Array.isArray(body.opportunities)) {
             const existingHashes = new Set(state.opportunities.map(o => o.job_hash));
             for (const o of body.opportunities) {
-              if (o && o.job_hash && !existingHashes.has(o.job_hash)) {
+              if (!o || !checkBoliviaRemoteEligibility(o).eligible) continue;
+              if (o.job_hash && !existingHashes.has(o.job_hash)) {
                 existingHashes.add(o.job_hash);
                 state.opportunities.unshift(o);
               }

@@ -92,7 +92,15 @@ async function runTests() {
   assert.ok(html.includes('id="pos-dropdown"'), 'Position Type / Professional Area must use a multi-select dropdown');
   assert.ok(html.includes('id="pos-dropdown-toggle"'), 'Position dropdown must have toggle trigger button');
   assert.ok(html.includes('id="pos-dropdown-menu"') && html.includes('aria-multiselectable="true"'), 'Position dropdown menu must allow selecting one or more options');
-  assert.ok(/<div class="keywords-input-row">[\s\S]*?id="pos-dropdown"[\s\S]*?id="input-custom-keywords"/.test(html), 'Position dropdown and custom keywords input must be in .keywords-input-row');
+  assert.ok(!html.includes('id="input-custom-keywords"'), 'Must remove #input-custom-keywords field');
+  assert.ok(!html.includes('id="lbl-bolivia-only"') && !html.includes('id="chk-bolivia-only"'), 'Must remove Bolivia-only toggle button now that scouting/evaluation enforces 100% Bolivia eligibility');
+  assert.ok(html.includes('"languages":["es"]'), 'Default language selected in 1. Tus Idiomas must be Spanish (es) only');
+  assert.ok(html.includes('Ciberseguridad, Seguridad Informática & Auditoría TI'), 'Must include enriched Cybersecurity position category');
+  assert.ok(html.includes('Gestión de Producto (Product Management & Product Owner)'), 'Must include enriched Product Management position category');
+  assert.ok(html.includes('Ingeniería de IA, Machine Learning & Agentes LLM'), 'Must include enriched AI/ML Engineering position category');
+  assert.ok(html.includes('Salud, Telemedicina & Facturación Médica'), 'Must include enriched Healthcare position category');
+  assert.ok(html.includes('E-Commerce, Tiendas Online (Shopify / Amazon) & Logística'), 'Must include enriched E-Commerce position category');
+  assert.ok(html.includes('Legal, Cumplimiento (Compliance) & Contratos'), 'Must include enriched Legal/Compliance position category');
   assert.ok(!html.includes('trabajar remoto desde Bolivia (UTC-4).'), 'Must remove (UTC-4) from Spanish banner subtitle');
   assert.ok(html.includes('https://www.languagetransfer.org'), 'Must include Language Transfer link in Notice');
   assert.ok(html.includes('aprender inglés</a>. Te abre todo un entorno de oportunidades y con <a href="https://www.languagetransfer.org" title="Language Transfer: aprende inglés y más, ¡gratis!" target="_blank" rel="noopener noreferrer">Language Transfer</a>, es <strong>gratis</strong>!'), 'Must include Spanish anchor text, linked Language Transfer, and bold gratis in Notice');
@@ -251,14 +259,30 @@ async function runTests() {
   vmSandbox.window.closeScanFeedback();
   assert.equal(domElements['scan-feedback-box'].style.display, 'none', 'closeScanFeedback must hide #scan-feedback-box');
 
-  console.log('2. Testing GET /api/state (85 platforms + 137 opportunities)...');
+  console.log('2. Testing GET /api/state (85+ platforms + 100% Bolivia-eligible opportunities only)...');
   const reqState = new Request('https://bolivia-remote-scout.workers.dev/api/state');
   const respState = await worker.fetch(reqState, {}, {});
   assert.equal(respState.status, 200);
   const stateData = await respState.json();
   assert.equal(stateData.schedule, '*/15 * * * *');
   assert.ok(stateData.platforms_count >= 85, `Expected >= 85 platforms, got ${stateData.platforms_count}`);
-  assert.ok(stateData.opportunities_count >= 137, `Expected >= 137 opportunities, got ${stateData.opportunities_count}`);
+  assert.ok(stateData.opportunities_count >= 100, `Expected >= 100 Bolivia-eligible opportunities, got ${stateData.opportunities_count}`);
+  for (const opp of stateData.opportunities) {
+    assert.equal(
+      checkBoliviaRemoteEligibility(opp).eligible,
+      true,
+      `Imported opportunity "${opp.title}" (${opp.location}) must be 100% remote eligible from Bolivia`
+    );
+  }
+  const forcedEval = evaluateAllOpportunities(
+    [
+      { title: 'US Only Engineer', company: 'USCorp', location: 'USA Only', url: 'https://uscorp.example/1', description: 'W-2 US residents only' },
+      { title: 'LATAM Engineer', company: 'GlobalCorp', location: 'LATAM Remote', url: 'https://globalcorp.example/1', description: 'Remote contractor W-8BEN' }
+    ],
+    { require_bolivia_remote: false, languages: ['es', 'en'] }
+  );
+  assert.equal(forcedEval.surfaced.length, 1, 'Evaluator must enforce 100% remote Bolivia eligibility even if require_bolivia_remote=false');
+  assert.equal(forcedEval.all.length, 1, 'Evaluator all-list must contain only Bolivia-eligible offers');
 
   console.log('3. Testing POST /api/evaluate with Spanish-only filter (strict language weighting)...');
   const reqEvalEs = new Request('https://bolivia-remote-scout.workers.dev/api/evaluate', {

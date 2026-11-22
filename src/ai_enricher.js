@@ -221,6 +221,7 @@ export async function matchCvAndGenerateProposal(payload, opportunities, env) {
 
   const effectiveFilters = {
     ...baseFilters,
+    require_bolivia_remote: true,
     position_types: mergedCategories,
     custom_keywords: mergedKeywords
   };
