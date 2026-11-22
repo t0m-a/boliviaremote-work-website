@@ -943,6 +943,20 @@ export function renderAppHtml(initialState) {
       color: #ffffff;
       border-color: var(--accent-primary);
     }
+    .btn-tab.btn-tab-scan {
+      background: #059669;
+      color: #ffffff;
+      border-color: #059669;
+    }
+    .btn-tab.btn-tab-scan:hover {
+      background: #047857;
+      color: #ffffff;
+      border-color: #047857;
+    }
+    .btn-tab.btn-tab-scan:disabled {
+      opacity: 0.65;
+      cursor: wait;
+    }
     .opp-card {
       background: var(--bg-card);
       border: 1px solid #e2e8f0;
@@ -1120,6 +1134,22 @@ export function renderAppHtml(initialState) {
     .panel-subtitle {
       font-size: 0.82em;
       color: #64748b;
+    }
+    #ai-cv-header .panel-collapsible-text {
+      flex-wrap: nowrap;
+      white-space: nowrap;
+      overflow: hidden;
+      gap: 10px;
+    }
+    #ai-cv-header .panel-title {
+      flex: 0 0 auto;
+      white-space: nowrap;
+      font-size: clamp(0.62rem, 1.05vw, 1.02rem);
+    }
+    #ai-cv-header .panel-subtitle {
+      flex: 0 1 auto;
+      white-space: nowrap;
+      font-size: clamp(0.54rem, 0.8vw, 0.82rem);
     }
     .panel-caret {
       display: inline-block;
@@ -1727,6 +1757,16 @@ export function renderAppHtml(initialState) {
       color: #ffffff;
       border-color: var(--accent-primary);
     }
+    body.dark-mode .btn-tab.btn-tab-scan {
+      background: #059669;
+      color: #ffffff;
+      border-color: #059669;
+    }
+    body.dark-mode .btn-tab.btn-tab-scan:hover {
+      background: #047857;
+      color: #ffffff;
+      border-color: #047857;
+    }
     body.dark-mode .opp-card {
       background: var(--bg-card);
       border-color: #1e293b;
@@ -2116,6 +2156,8 @@ export function renderAppHtml(initialState) {
       <li class="nav-track-item nav-track-folded"><a onclick="switchMainView('results'); filterByTrack('TRACK D'); closeNavbarMenu();"><span id="nav-track-d">Portales Europeos &amp; Globales</span></a></li>
       <li class="nav-track-item nav-track-folded"><a onclick="switchMainView('results'); filterByTrack('TRACK E'); closeNavbarMenu();"><span id="nav-track-e">Redes de Consultoría Experta</span></a></li>
       <li class="nav-track-item nav-track-folded"><a onclick="switchMainView('results'); filterByTrack('TRACK F'); closeNavbarMenu();"><span id="nav-track-f">Bolsas de Empleo Remoto</span></a></li>
+
+      <li><a id="nav-platforms" onclick="switchMainView('platforms'); closeNavbarMenu();"><span id="nav-lbl-platforms">Plataformas Monitoreadas</span></a></li>
     </ul>
   </nav>
 
@@ -2139,9 +2181,6 @@ export function renderAppHtml(initialState) {
             <span class="theme-symbol theme-symbol-sun" id="theme-sym-sun" style="display:none;">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
             </span>
-          </button>
-          <button type="button" class="btn-scan-now" id="btn-scan-now" onclick="triggerOnDemandScan()">
-            <span id="lbl-scan-now">Escanear Ofertas Ahora</span>
           </button>
         </div>
       </div>
@@ -2349,10 +2388,10 @@ export function renderAppHtml(initialState) {
     <section class="toolbar">
       <div class="filter-group">
         <button type="button" class="btn-tab active" id="tab-view-results" onclick="switchMainView('results')"><span id="tab-lbl-results">Resultados</span></button>
-        <button type="button" class="btn-tab" id="tab-view-platforms" onclick="switchMainView('platforms')"><span id="tab-lbl-platforms">Plataformas Monitoreadas</span></button>
+        <button type="button" class="btn-tab btn-tab-scan" id="btn-scan-now" onclick="triggerOnDemandScan()"><span id="lbl-scan-now">Escanear Ofertas Ahora</span></button>
       </div>
       <div class="filter-group" id="verdictFilterBar">
-        <button type="button" class="btn-tab active" data-verdict="ALL" onclick="setVerdictFilter('ALL')" id="btn-v-all">Todas las Elegibles</button>
+        <button type="button" class="btn-tab active" data-verdict="ALL" onclick="setVerdictFilter('ALL')" id="btn-v-all">Todos los Elegibles</button>
         <button type="button" class="btn-tab" data-verdict="APPLY" onclick="setVerdictFilter('APPLY')"><span id="btn-v-apply">Postular</span></button>
         <button type="button" class="btn-tab" data-verdict="POSSIBLE" onclick="setVerdictFilter('POSSIBLE')"><span id="btn-v-possible">Explorar</span></button>
         <button type="button" class="btn-tab" data-verdict="SKIP" onclick="setVerdictFilter('SKIP')"><span id="btn-v-skip">Baja Coincidencia</span></button>
@@ -2579,8 +2618,11 @@ export function renderAppHtml(initialState) {
     <section id="view-platforms" style="display:none;">
       <div class="panel-card">
         <div class="panel-header">
-          <h3 class="panel-title"><span id="lbl-platforms-heading">Directorio de Plataformas Remotas Monitoreadas</span></h3>
-          <span style="font-size:0.84em;color:#64748b;" id="lbl-platforms-sub">Haz clic en "Escanear" en cualquier plataforma para buscar nuevas ofertas al instante</span>
+          <div>
+            <h3 class="panel-title"><span id="lbl-platforms-heading">Directorio de Plataformas Remotas Monitoreadas</span></h3>
+            <span style="font-size:0.84em;color:#64748b;" id="lbl-platforms-sub">Haz clic en "Escanear" en cualquier plataforma para buscar nuevas ofertas al instante</span>
+          </div>
+          <button type="button" class="btn-action btn-primary" onclick="switchMainView('results')"><span id="plat-btn-back">Ver Resultados en Vivo</span></button>
         </div>
         <div id="platformsGridContainer" class="radar-grid"></div>
       </div>
@@ -2720,7 +2762,7 @@ export function renderAppHtml(initialState) {
         navViews: 'Vistas Principales',
         navResults: 'Resultados en Vivo',
         navManual: 'Manual de Uso',
-        navPlatforms: 'Plataformas y Escáner URL',
+        navPlatforms: 'Plataformas Monitoreadas',
         navTracks: 'Categorías De Plataformas',
         navTrackAll: 'Todas las Categorías',
         navTrackA: 'B2B Directo & Freelance',
@@ -2798,7 +2840,7 @@ export function renderAppHtml(initialState) {
         tabManual: 'Manual de Uso',
         tabReport: 'Reporte Markdown / Exportar',
         tabPlatforms: 'Plataformas Monitoreadas',
-        vAll: 'Todas las Elegibles',
+        vAll: 'Todos los Elegibles',
         vApply: 'Postular',
         vPossible: 'Explorar',
         vSkip: 'Baja Coincidencia',
@@ -2835,7 +2877,7 @@ export function renderAppHtml(initialState) {
         navViews: 'Main Views',
         navResults: 'Live Results',
         navManual: 'User Manual',
-        navPlatforms: 'Platforms & URL Scanner',
+        navPlatforms: 'Monitored Platforms',
         navTracks: 'Platform Categories',
         navTrackAll: 'All Categories',
         navTrackA: 'Direct B2B & Freelance',
@@ -3071,6 +3113,7 @@ export function renderAppHtml(initialState) {
         'lbl-platforms-heading': t.platformsHeading,
         'lbl-platforms-sub': t.platformsSub,
         'man-btn-back': t.manBtnBack,
+        'plat-btn-back': t.manBtnBack,
         'lbl-btn-top': t.btnTop,
         'footer-credit': t.footerText
       };
@@ -3102,6 +3145,34 @@ export function renderAppHtml(initialState) {
       const searchEl = document.getElementById('searchInput');
       if (searchEl) searchEl.placeholder = t.searchPlaceholder;
       updateThemeButtons();
+      fitAiCvHeaderOneLine();
+    }
+
+    function fitAiCvHeaderOneLine() {
+      const header = document.getElementById('ai-cv-header');
+      if (!header || typeof header.querySelector !== 'function') return;
+      const textWrap = header.querySelector('.panel-collapsible-text');
+      const titleEl = header.querySelector('.panel-title');
+      const subEl = document.getElementById('lbl-ai-cv-sub');
+      if (!textWrap || !titleEl || !subEl) return;
+
+      const baseTitlePx = 16;
+      const baseSubPx = 13;
+      titleEl.style.fontSize = baseTitlePx + 'px';
+      subEl.style.fontSize = baseSubPx + 'px';
+
+      const avail = textWrap.clientWidth;
+      const needed = textWrap.scrollWidth;
+      if (avail > 0 && needed > avail) {
+        const scale = Math.max(0.42, (avail / needed) * 0.98);
+        titleEl.style.fontSize = (baseTitlePx * scale).toFixed(2) + 'px';
+        subEl.style.fontSize = (baseSubPx * scale).toFixed(2) + 'px';
+      }
+    }
+    window.fitAiCvHeaderOneLine = fitAiCvHeaderOneLine;
+
+    if (typeof window.addEventListener === 'function') {
+      window.addEventListener('resize', fitAiCvHeaderOneLine);
     }
 
     function renderFilterChips() {
@@ -3702,8 +3773,8 @@ export function renderAppHtml(initialState) {
       if (vReport) vReport.style.display = viewName === 'report' ? '' : 'none';
       if (vPlatforms) vPlatforms.style.display = viewName === 'platforms' ? '' : 'none';
 
-      const isManual = viewName === 'manual';
-      document.body.classList.toggle('view-manual-active', isManual);
+      const isDedicatedPage = viewName === 'manual' || viewName === 'platforms';
+      document.body.classList.toggle('view-manual-active', isDedicatedPage);
 
       const banner = document.querySelector('.top-banner');
       const filters = document.getElementById('custom-filters-panel');
@@ -3713,15 +3784,15 @@ export function renderAppHtml(initialState) {
       const toolbar = document.querySelector('.toolbar');
       const footer = document.getElementById('footer-text');
 
-      if (banner) banner.style.display = isManual ? 'none' : '';
-      if (filters) filters.style.display = isManual ? 'none' : '';
-      if (urlPanel) urlPanel.style.display = isManual ? 'none' : '';
-      if (aiPanel) aiPanel.style.display = isManual ? 'none' : '';
-      if (kpis) kpis.style.display = isManual ? 'none' : '';
-      if (toolbar) toolbar.style.display = isManual ? 'none' : '';
-      if (footer) footer.style.display = isManual ? 'none' : '';
+      if (banner) banner.style.display = isDedicatedPage ? 'none' : '';
+      if (filters) filters.style.display = isDedicatedPage ? 'none' : '';
+      if (urlPanel) urlPanel.style.display = isDedicatedPage ? 'none' : '';
+      if (aiPanel) aiPanel.style.display = isDedicatedPage ? 'none' : '';
+      if (kpis) kpis.style.display = isDedicatedPage ? 'none' : '';
+      if (toolbar) toolbar.style.display = isDedicatedPage ? 'none' : '';
+      if (footer) footer.style.display = isDedicatedPage ? 'none' : '';
 
-      if (isManual) {
+      if (isDedicatedPage) {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
 

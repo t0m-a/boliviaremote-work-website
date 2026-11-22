@@ -47,11 +47,17 @@ async function runTests() {
   const idxManual = navListHtml.indexOf('id="nav-manual"');
   const idxPayments = navListHtml.indexOf('id="nav-hdr-payments-item"');
   const idxTracks = navListHtml.indexOf('id="nav-hdr-tracks-item"');
+  const idxPlatforms = navListHtml.indexOf('id="nav-platforms"');
   assert.ok(!navListHtml.includes('id="nav-results"'), 'Must remove Live Results item from Information hamburger menu');
   assert.ok(
-    idxNotice > -1 && idxNotice < idxManual && idxManual < idxPayments && idxPayments < idxTracks,
-    'Hamburger menu order must be: 1. Notice, 2. User Manual, 3. Financial Information, 4. Platform Categories'
+    idxNotice > -1 && idxNotice < idxManual && idxManual < idxPayments && idxPayments < idxTracks && idxTracks < idxPlatforms,
+    'Hamburger menu order must be: 1. Notice, 2. User Manual, 3. Financial Information, 4. Platform Categories, 5. Monitored Platforms'
   );
+  assert.ok(!html.includes('id="tab-view-platforms"'), 'Must move Monitored Platforms button out of toolbar into Information menu');
+  assert.ok(/<section class="toolbar">[\s\S]*?id="tab-view-results"[\s\S]*?class="btn-tab btn-tab-scan" id="btn-scan-now"/.test(html), 'Scan Offers Now button must replace Monitored Platforms in toolbar with green btn-tab styling');
+  assert.ok(html.includes('id="btn-v-all">Todos los Elegibles</button>'), 'Spanish toolbar filter must say Todos los Elegibles');
+  assert.ok(!html.includes('Todas las Elegibles'), 'Must replace Todas las Elegibles with Todos los Elegibles');
+  assert.ok(html.includes('fitAiCvHeaderOneLine') && html.includes('#ai-cv-header .panel-collapsible-text'), 'AI Profile Matcher header must auto-adjust font size to stay on one line');
   assert.ok(html.includes("navPayments: 'Financial Information'"), 'English menu must use Financial Information');
   assert.ok(!html.includes('(UTC-4 / W-8BEN)'), 'Must remove (UTC-4 / W-8BEN) from AI Profile Matcher subtitle');
   assert.ok(html.includes("aiCvSub: 'Paste your CV summary or key skills to evaluate remote fit and draft a tailored application letter'"), 'English AI subtitle must not contain (UTC-4 / W-8BEN)');
@@ -81,7 +87,7 @@ async function runTests() {
   assert.ok(!/[\uD83C][\uDDE6-\uDDFF][\uD83C][\uDDE6-\uDDFF]/.test(html), 'Must NOT contain any flag emoji anywhere in HTML');
   assert.ok(!EMOJI_REGEX.test(html), 'Must NOT contain any emoji icons anywhere in HTML (excluding favicon)');
   assert.ok(!html.includes('id="tab-view-report"'), 'Must NOT have id="tab-view-report" in toolbar');
-  assert.ok(!html.includes('id="nav-platforms"'), 'Must NOT have id="nav-platforms" in navbar');
+  assert.ok(html.includes('id="nav-platforms"'), 'Must have id="nav-platforms" under Platform Categories in navbar');
   assert.ok(!html.includes('id="nav-hdr-views"'), 'Must NOT have Vistas Principales header in navbar');
   assert.ok(html.includes('Manual de Uso'), 'Must include Manual de Uso in sidebar');
   assert.ok(html.includes('id="nav-manual"'), 'Must have #nav-manual link in navbar');
@@ -214,6 +220,7 @@ async function runTests() {
   assert.equal(typeof vmSandbox.window.cancelNavbarAutoClose, 'function', 'cancelNavbarAutoClose must be bound');
   assert.equal(typeof vmSandbox.window.scrollToTop, 'function', 'scrollToTop must be bound');
   assert.equal(typeof vmSandbox.window.toggleNoticeMenu, 'function', 'toggleNoticeMenu must be bound');
+  assert.equal(typeof vmSandbox.window.fitAiCvHeaderOneLine, 'function', 'fitAiCvHeaderOneLine must be bound');
   assert.equal(typeof vmSandbox.window.toggleAiCvPanel, 'function', 'toggleAiCvPanel must be bound');
   assert.equal(typeof vmSandbox.window.setAiCvPanelFolded, 'function', 'setAiCvPanelFolded must be bound');
   assert.equal(typeof vmSandbox.window.renderScanFeedback, 'function', 'renderScanFeedback must be bound');
