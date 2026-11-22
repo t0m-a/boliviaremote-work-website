@@ -2345,9 +2345,23 @@ export function renderAppHtml(initialState) {
         padding: 11px 14px;
       }
       #custom-filters-panel .panel-title {
-        font-size: clamp(0.84rem, 2.35vw, 1.04rem);
+        font-size: 0.92em;
         white-space: nowrap;
         flex: 1 1 auto;
+      }
+      .filter-block-langs {
+        flex: 1 1 100%;
+        width: 100%;
+        max-width: 100%;
+      }
+      .filter-block-langs .filter-block-label {
+        justify-content: space-between;
+      }
+      .filter-block-langs .chip-group {
+        width: 100%;
+      }
+      footer {
+        margin-top: 52px;
       }
       .keywords-input-row .input-text {
         flex: 1 1 100%;
@@ -2457,9 +2471,10 @@ export function renderAppHtml(initialState) {
         padding-bottom: 8px;
       }
       #custom-filters-panel .panel-title {
-        font-size: clamp(0.66rem, 3.15vw, 0.94rem);
-        white-space: nowrap;
-        letter-spacing: -0.01em;
+        font-size: 0.88em;
+        white-space: normal;
+        letter-spacing: normal;
+        line-height: 1.35;
         flex: 1 1 auto;
       }
       #custom-filters-panel > .filter-grid {
@@ -2490,6 +2505,7 @@ export function renderAppHtml(initialState) {
       .filter-block {
         padding: 11px 12px;
       }
+      .filter-block-langs,
       .filter-block-grow {
         flex: 1 1 100%;
         min-width: 0;
@@ -4190,6 +4206,7 @@ export function renderAppHtml(initialState) {
       } else if (viewName === 'platforms' && vPlatforms) {
         initCardScrollReveal(vPlatforms);
       }
+      updateBackToTopPosition();
 
       const tabResults = document.getElementById('tab-view-results');
       const tabManual = document.getElementById('tab-view-manual');
@@ -4276,6 +4293,32 @@ export function renderAppHtml(initialState) {
       }
     }
     window.scrollToTop = scrollToTop;
+
+    function updateBackToTopPosition() {
+      const topBtn = document.getElementById('btn-back-to-top');
+      const footer = document.getElementById('footer-text');
+      if (!topBtn || !footer) return;
+      const vw = typeof window.innerWidth === 'number' ? window.innerWidth : 1280;
+      const vh = typeof window.innerHeight === 'number' ? window.innerHeight : 900;
+      if (vw > 820 || footer.style.display === 'none' || typeof footer.getBoundingClientRect !== 'function') {
+        topBtn.style.bottom = '';
+        return;
+      }
+      const baseBottom = vw <= 640 ? 14 : 20;
+      const footerRect = footer.getBoundingClientRect();
+      const dockedBottom = Math.round(vh - footerRect.top + 10);
+      if (dockedBottom > baseBottom) {
+        topBtn.style.bottom = dockedBottom + 'px';
+      } else {
+        topBtn.style.bottom = '';
+      }
+    }
+    window.updateBackToTopPosition = updateBackToTopPosition;
+
+    if (typeof window.addEventListener === 'function') {
+      window.addEventListener('scroll', updateBackToTopPosition, { passive: true });
+      window.addEventListener('resize', updateBackToTopPosition, { passive: true });
+    }
 
     function foldAllNavbarSubsections() {
       const sections = [
@@ -4953,6 +4996,7 @@ export function renderAppHtml(initialState) {
     applyTheme(currentTheme);
     setUiLanguage(userFilters.ui_lang || 'es');
     syncSearchClearButton();
+    updateBackToTopPosition();
 
     // Auto-trigger background sync every 15 minutes while page is open
     setInterval(() => {

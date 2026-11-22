@@ -214,8 +214,9 @@ async function runTests() {
   assert.ok(
     html.includes('class="panel-header-actions filters-reset-actions"') &&
     /\.filters-reset-actions\s*\{[\s\S]*?order:\s*4;/.test(html) &&
-    /#custom-filters-panel \.panel-title\s*\{[\s\S]*?white-space:\s*nowrap;/.test(html),
-    'Mobile layout must move Restablecer Filtros to the bottom after section 4 and keep filter title responsive on one line'
+    /@media only screen and \(max-width: 640px\)[\s\S]*?#custom-filters-panel \.panel-title\s*\{[\s\S]*?font-size:\s*0\.88em;/.test(html) &&
+    /@media only screen and \(max-width: 820px\)[\s\S]*?\.filter-block-langs\s*\{[\s\S]*?flex:\s*1 1 100%;[\s\S]*?width:\s*100%;/.test(html),
+    'Mobile layout must move Restablecer Filtros after section 4, match filter title size (0.88em) to banner title, and expand 1. Tus Idiomas to full width'
   );
   assert.ok(
     html.includes('handleOutsideInteraction') &&
@@ -436,6 +437,15 @@ async function runTests() {
   assert.equal(typeof vmSandbox.window.scheduleNavbarAutoClose, 'function', 'scheduleNavbarAutoClose must be bound');
   assert.equal(typeof vmSandbox.window.cancelNavbarAutoClose, 'function', 'cancelNavbarAutoClose must be bound');
   assert.equal(typeof vmSandbox.window.scrollToTop, 'function', 'scrollToTop must be bound');
+  assert.equal(typeof vmSandbox.window.updateBackToTopPosition, 'function', 'updateBackToTopPosition must be bound');
+  vmSandbox.window.innerWidth = 390;
+  vmSandbox.window.innerHeight = 800;
+  domElements['footer-text'].getBoundingClientRect = () => ({ top: 700 });
+  vmSandbox.window.updateBackToTopPosition();
+  assert.equal(domElements['btn-back-to-top'].style.bottom, '110px', 'On mobile when footer enters viewport, Arriba button must stop cleanly in empty space above footer');
+  vmSandbox.window.innerWidth = 1280;
+  vmSandbox.window.updateBackToTopPosition();
+  assert.equal(domElements['btn-back-to-top'].style.bottom, '', 'On desktop, Arriba button must reset custom bottom offset');
   assert.equal(typeof vmSandbox.window.initCardScrollReveal, 'function', 'initCardScrollReveal must be bound');
   assert.equal(typeof vmSandbox.window.toggleNoticeMenu, 'function', 'toggleNoticeMenu must be bound');
   assert.equal(typeof vmSandbox.window.toggleCreatorMenu, 'function', 'toggleCreatorMenu must be bound');
