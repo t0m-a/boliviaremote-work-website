@@ -71,6 +71,17 @@ async function runTests() {
   assert.ok(html.includes('id="man-btn-back"'), 'Must include back to results button in manual view');
   assert.ok(html.includes('Agregar y Escanear tu Propia URL de Plataforma'), 'Must include Custom Platform URL scanner');
   assert.ok(html.includes('id="ai-cv-panel"'), 'Must include Phase 2 AI CV Matcher & Cover Letter Generator panel');
+  assert.ok(html.includes('class="panel-card ai-cv-folded" id="ai-cv-panel"'), 'AI Profile Matcher panel must be folded by default');
+  assert.ok(html.includes('id="ai-cv-header"'), 'AI Profile Matcher panel must have collapsible header');
+  assert.ok(html.includes('onclick="toggleAiCvPanel()"'), 'AI Profile Matcher header must toggle panel fold state');
+  assert.ok(html.includes('aria-expanded="false"'), 'AI Profile Matcher header must start with aria-expanded="false"');
+  assert.ok(!html.includes('(Cloudflare Workers AI)'), 'Must remove (Cloudflare Workers AI) from AI Profile Matcher section title');
+  assert.ok(html.includes("aiCvTitle: 'AI Profile Matcher & Cover Letter Generator'"), 'English AI title must not contain (Cloudflare Workers AI)');
+  assert.ok(html.includes("aiCvTitle: 'Asistente IA de Perfil y Generador de Cartas de Postulación'"), 'Spanish AI title must not contain (Cloudflare Workers AI)');
+  const resultsIdx = html.indexOf('id="resultsCardsContainer"');
+  const customUrlIdx = html.indexOf('id="custom-url-panel"');
+  const footerIdx = html.indexOf('<footer id="footer-text">');
+  assert.ok(resultsIdx > -1 && customUrlIdx > resultsIdx && footerIdx > customUrlIdx, '#custom-url-panel must be placed at the bottom of the page after results and before footer');
   assert.ok(html.includes('openAiProposalForJob'), 'Must include per-card AI Cover Letter trigger');
   assert.ok(html.includes('rel="icon" type="image/svg+xml"'), 'Must have SVG favicon in head');
   assert.ok(html.includes('data:image/svg+xml'), 'Must have embedded data URI for offline support');
@@ -133,6 +144,8 @@ async function runTests() {
   assert.ok(domElements['chips-positions'].innerHTML.includes('togglePositionChip'), 'Must render interactive position chips on load');
   assert.ok(domElements['resultsCardsContainer'].innerHTML.includes('opp-card'), 'Must render job cards on load');
   assert.equal(typeof vmSandbox.window.toggleSidebar, 'function', 'Menu button handler toggleSidebar must be bound');
+  assert.equal(typeof vmSandbox.window.toggleAiCvPanel, 'function', 'toggleAiCvPanel must be bound');
+  assert.equal(typeof vmSandbox.window.setAiCvPanelFolded, 'function', 'setAiCvPanelFolded must be bound');
   assert.equal(typeof vmSandbox.window.renderScanFeedback, 'function', 'renderScanFeedback must be bound');
   assert.equal(typeof vmSandbox.window.closeScanFeedback, 'function', 'closeScanFeedback must be bound');
 

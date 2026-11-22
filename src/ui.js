@@ -302,6 +302,7 @@ export function renderAppHtml(initialState) {
     body.view-manual-active .top-banner,
     body.view-manual-active #custom-filters-panel,
     body.view-manual-active #custom-url-panel,
+    body.view-manual-active #ai-cv-panel,
     body.view-manual-active .kpi-grid,
     body.view-manual-active .toolbar,
     body.view-manual-active footer {
@@ -913,6 +914,55 @@ export function renderAppHtml(initialState) {
       font-weight: 700;
       max-width: 100%;
     }
+    .panel-collapsible-header {
+      cursor: pointer;
+      user-select: none;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      flex-wrap: nowrap;
+      transition: opacity 0.15s ease;
+    }
+    .panel-collapsible-header:hover .panel-title {
+      color: var(--accent-primary);
+    }
+    .panel-collapsible-text {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px 14px;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .panel-subtitle {
+      font-size: 0.82em;
+      color: #64748b;
+    }
+    .panel-caret {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-right: 2px solid #64748b;
+      border-bottom: 2px solid #64748b;
+      transform: rotate(45deg);
+      transition: transform 0.2s ease, border-color 0.15s ease;
+      margin-left: 10px;
+      flex-shrink: 0;
+    }
+    .panel-collapsible-header:hover .panel-caret {
+      border-color: var(--accent-primary);
+    }
+    #ai-cv-panel.ai-cv-folded .panel-collapsible-header {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+    #ai-cv-panel.ai-cv-folded .panel-caret {
+      transform: rotate(-45deg);
+    }
+    #ai-cv-panel.ai-cv-folded .ai-cv-body {
+      display: none;
+    }
     .ai-cv-grid {
       display: grid;
       grid-template-columns: 1fr;
@@ -1441,6 +1491,18 @@ export function renderAppHtml(initialState) {
       color: #ddd6fe;
       border-color: #7c3aed;
     }
+    body.dark-mode .panel-subtitle {
+      color: #94a3b8;
+    }
+    body.dark-mode .panel-caret {
+      border-color: #94a3b8;
+    }
+    body.dark-mode .panel-collapsible-header:hover .panel-title {
+      color: #38bdf8;
+    }
+    body.dark-mode .panel-collapsible-header:hover .panel-caret {
+      border-color: #38bdf8;
+    }
     body.dark-mode .ai-textarea {
       background: #0f172a;
       color: #f8fafc;
@@ -1849,84 +1911,64 @@ export function renderAppHtml(initialState) {
       </div>
     </section>
 
-    <!-- ADD & SCAN CUSTOM PLATFORM URL PANEL -->
-    <section class="panel-card" id="custom-url-panel">
-      <div class="panel-header" style="margin-bottom:10px;padding-bottom:8px;">
-        <h2 class="panel-title"><span id="lbl-add-url-title">Agregar y Escanear tu Propia URL de Plataforma o Bolsa de Empleo</span></h2>
-        <span style="font-size:0.82em;color:#64748b;" id="lbl-add-url-sub">Auto-detecta APIs JSON, Feeds RSS/Atom y Páginas Web de Empleo</span>
+    <!-- AI PROFILE MATCHER & COVER LETTER GENERATOR PANEL (FOLDED BY DEFAULT) -->
+    <section class="panel-card ai-cv-folded" id="ai-cv-panel">
+      <div
+        class="panel-header panel-collapsible-header"
+        id="ai-cv-header"
+        onclick="toggleAiCvPanel()"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleAiCvPanel();}"
+        role="button"
+        tabindex="0"
+        aria-expanded="false"
+        aria-controls="ai-cv-body"
+      >
+        <div class="panel-collapsible-text">
+          <h2 class="panel-title"><span id="lbl-ai-cv-title">Asistente IA de Perfil y Generador de Cartas de Postulación</span></h2>
+          <span class="panel-subtitle" id="lbl-ai-cv-sub">Pega tu resumen profesional o habilidades para detectar tu afinidad y redactar una carta de presentación a medida (UTC-4 / W-8BEN)</span>
+        </div>
+        <span class="panel-caret" id="ai-cv-caret" aria-hidden="true"></span>
       </div>
-      <form class="url-scanner-form" onsubmit="event.preventDefault(); submitCustomPlatformScan();">
-        <div class="form-field">
-          <label for="scan-url-input" id="lbl-url-field">URL de la Plataforma o Feed a Escanear *</label>
-          <input type="text" id="scan-url-input" class="input-text" placeholder="https://remotive.com/api/remote-jobs o https://empresa.com/careers" required>
-        </div>
-        <div class="form-field">
-          <label for="scan-name-input" id="lbl-name-field">Nombre (Opcional)</label>
-          <input type="text" id="scan-name-input" class="input-text" placeholder="Ej: Mi Portal Remoto">
-        </div>
-        <div class="form-field">
-          <label for="scan-type-select" id="lbl-type-field">Modo de Escaneo</label>
-          <select id="scan-type-select" class="input-select">
-            <option value="auto" id="opt-type-auto">Auto-detectar (Web / RSS / JSON)</option>
-            <option value="html_board">Página Web / Bolsa HTML</option>
-            <option value="rss_feed">Feed RSS / Atom XML</option>
-            <option value="json_api">API JSON</option>
-            <option value="portal_dork">Búsqueda Profunda de Portal</option>
-          </select>
-        </div>
-        <div>
-          <button type="submit" class="btn-action btn-primary" id="btn-submit-url">
-            <span id="lbl-btn-submit-url">Escanear y Evaluar URL</span>
-          </button>
-        </div>
-      </form>
-      <div id="scan-feedback-box" class="scan-alert"></div>
-    </section>
-
-    <!-- CLOUDFLARE WORKERS AI — CV MATCHER & APPLICATION LETTER GENERATOR PANEL -->
-    <section class="panel-card" id="ai-cv-panel">
-      <div class="panel-header" style="margin-bottom:10px;padding-bottom:8px;">
-        <h2 class="panel-title"><span id="lbl-ai-cv-title">Asistente IA de Perfil y Generador de Cartas de Postulación (Cloudflare Workers AI)</span></h2>
-        <span style="font-size:0.82em;color:#64748b;" id="lbl-ai-cv-sub">Pega tu resumen profesional o habilidades para detectar tu afinidad y redactar una carta de presentación a medida (UTC-4 / W-8BEN)</span>
-      </div>
-      <div class="ai-cv-grid">
-        <div class="form-field">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
-            <label for="ai-cv-input" id="lbl-ai-cv-field" style="margin-bottom:0;">Tu Resumen Profesional, Experiencia o Habilidades Clave *</label>
-            <span id="ai-target-job-pill" style="display:none;font-size:0.78em;background:#e0f2fe;color:#0369a1;padding:2px 9px;border-radius:999px;font-weight:700;">
-              <span id="ai-target-job-text"></span>
-              <button type="button" onclick="clearAiTargetJob()" style="border:none;background:none;color:#0369a1;font-weight:800;cursor:pointer;margin-left:6px;">x</button>
-            </span>
+      <div id="ai-cv-body" class="ai-cv-body">
+        <div class="ai-cv-grid">
+          <div class="form-field">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+              <label for="ai-cv-input" id="lbl-ai-cv-field" style="margin-bottom:0;">Tu Resumen Profesional, Experiencia o Habilidades Clave *</label>
+              <span id="ai-target-job-pill" style="display:none;font-size:0.78em;background:#e0f2fe;color:#0369a1;padding:2px 9px;border-radius:999px;font-weight:700;">
+                <span id="ai-target-job-text"></span>
+                <button type="button" onclick="clearAiTargetJob()" style="border:none;background:none;color:#0369a1;font-weight:800;cursor:pointer;margin-left:6px;">x</button>
+              </span>
+            </div>
+            <textarea
+              id="ai-cv-input"
+              class="ai-textarea"
+              placeholder="Ej: Ingeniero de Software / Analista de Datos / Asistente Virtual Bilingüe con 4 años de experiencia en Python, SQL, React, Soporte Técnico, Gestión de Proyectos y Atención al Cliente..."
+            ></textarea>
           </div>
-          <textarea
-            id="ai-cv-input"
-            class="ai-textarea"
-            placeholder="Ej: Ingeniero de Software / Analista de Datos / Asistente Virtual Bilingüe con 4 años de experiencia en Python, SQL, React, Soporte Técnico, Gestión de Proyectos y Atención al Cliente..."
-          ></textarea>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <button type="button" class="btn-action btn-primary" id="btn-submit-ai-cv" onclick="submitAiCvMatch()">
+              <span id="lbl-btn-ai-cv">Analizar CV y Redactar Carta IA</span>
+            </button>
+            <button type="button" class="btn-action btn-secondary" id="btn-apply-ai-filters" onclick="applyAiSkillsToFilters()" style="display:none;">
+              <span id="lbl-btn-apply-ai-filters">Aplicar Habilidades Detectadas a Mis Filtros</span>
+            </button>
+          </div>
         </div>
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-          <button type="button" class="btn-action btn-primary" id="btn-submit-ai-cv" onclick="submitAiCvMatch()">
-            <span id="lbl-btn-ai-cv">Analizar CV y Redactar Carta IA</span>
-          </button>
-          <button type="button" class="btn-action btn-secondary" id="btn-apply-ai-filters" onclick="applyAiSkillsToFilters()" style="display:none;">
-            <span id="lbl-btn-apply-ai-filters">Aplicar Habilidades Detectadas a Mis Filtros</span>
-          </button>
+        <div id="ai-cv-error" class="scan-alert"></div>
+        <div id="ai-cv-result-box" class="ai-result-box">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+            <strong style="font-size:0.92em;" id="lbl-ai-analysis-hdr">Diagnóstico de Compatibilidad Remota (Bolivia UTC-4)</strong>
+            <span id="ai-engine-badge" class="score-pill" style="font-size:0.75em;">Workers AI</span>
+          </div>
+          <p id="ai-cv-analysis-text" style="margin:0 0 12px 0;font-size:0.88em;line-height:1.5;"></p>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+            <strong style="font-size:0.9em;" id="lbl-ai-proposal-hdr">Carta de Postulación Personalizada</strong>
+            <button type="button" class="btn-action btn-secondary" style="padding:4px 10px;font-size:0.78em;" onclick="copyAiProposal()">
+              <span id="lbl-copy-ai-proposal">Copiar Carta</span>
+            </button>
+          </div>
+          <pre id="ai-cv-proposal-pre" class="ai-proposal-pre"></pre>
         </div>
-      </div>
-      <div id="ai-cv-error" class="scan-alert"></div>
-      <div id="ai-cv-result-box" class="ai-result-box">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-          <strong style="font-size:0.92em;" id="lbl-ai-analysis-hdr">Diagnóstico de Compatibilidad Remota (Bolivia UTC-4)</strong>
-          <span id="ai-engine-badge" class="score-pill" style="font-size:0.75em;">Workers AI</span>
-        </div>
-        <p id="ai-cv-analysis-text" style="margin:0 0 12px 0;font-size:0.88em;line-height:1.5;"></p>
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-          <strong style="font-size:0.9em;" id="lbl-ai-proposal-hdr">Carta de Postulación Personalizada</strong>
-          <button type="button" class="btn-action btn-secondary" style="padding:4px 10px;font-size:0.78em;" onclick="copyAiProposal()">
-            <span id="lbl-copy-ai-proposal">Copiar Carta</span>
-          </button>
-        </div>
-        <pre id="ai-cv-proposal-pre" class="ai-proposal-pre"></pre>
       </div>
     </section>
 
@@ -2197,6 +2239,40 @@ export function renderAppHtml(initialState) {
       </div>
     </section>
 
+    <!-- ADD & SCAN CUSTOM PLATFORM URL PANEL -->
+    <section class="panel-card" id="custom-url-panel" style="margin-top:18px;">
+      <div class="panel-header" style="margin-bottom:10px;padding-bottom:8px;">
+        <h2 class="panel-title"><span id="lbl-add-url-title">Agregar y Escanear tu Propia URL de Plataforma o Bolsa de Empleo</span></h2>
+        <span style="font-size:0.82em;color:#64748b;" id="lbl-add-url-sub">Auto-detecta APIs JSON, Feeds RSS/Atom y Páginas Web de Empleo</span>
+      </div>
+      <form class="url-scanner-form" onsubmit="event.preventDefault(); submitCustomPlatformScan();">
+        <div class="form-field">
+          <label for="scan-url-input" id="lbl-url-field">URL de la Plataforma o Feed a Escanear *</label>
+          <input type="text" id="scan-url-input" class="input-text" placeholder="https://remotive.com/api/remote-jobs o https://empresa.com/careers" required>
+        </div>
+        <div class="form-field">
+          <label for="scan-name-input" id="lbl-name-field">Nombre (Opcional)</label>
+          <input type="text" id="scan-name-input" class="input-text" placeholder="Ej: Mi Portal Remoto">
+        </div>
+        <div class="form-field">
+          <label for="scan-type-select" id="lbl-type-field">Modo de Escaneo</label>
+          <select id="scan-type-select" class="input-select">
+            <option value="auto" id="opt-type-auto">Auto-detectar (Web / RSS / JSON)</option>
+            <option value="html_board">Página Web / Bolsa HTML</option>
+            <option value="rss_feed">Feed RSS / Atom XML</option>
+            <option value="json_api">API JSON</option>
+            <option value="portal_dork">Búsqueda Profunda de Portal</option>
+          </select>
+        </div>
+        <div>
+          <button type="submit" class="btn-action btn-primary" id="btn-submit-url">
+            <span id="lbl-btn-submit-url">Escanear y Evaluar URL</span>
+          </button>
+        </div>
+      </form>
+      <div id="scan-feedback-box" class="scan-alert"></div>
+    </section>
+
     <footer id="footer-text">
       Buscador y Evaluador Público de Empleos Remotos desde Bolivia (UTC-4) · Ejecución en Cloudflare Workers (Bajo Demanda + Cada 15 Minutos) · Designed, engineered and hosted by <a href="mailto:contact@tsimon.me">Thomas M. Simon</a> · <a href="https://tsimon.me" title="Thomas Mathieu Simon  · Cloud Systems Architect · NOC &amp; AI Engineer" target="_blank" rel="noopener noreferrer">tsimon.me</a>
     </footer>
@@ -2331,7 +2407,7 @@ export function renderAppHtml(initialState) {
         typeAuto: 'Auto-detectar (Web / RSS / JSON)',
         btnSubmitUrl: 'Escanear y Evaluar URL',
         scanningUrl: 'Escaneando URL...',
-        aiCvTitle: 'Asistente IA de Perfil y Generador de Cartas de Postulación (Cloudflare Workers AI)',
+        aiCvTitle: 'Asistente IA de Perfil y Generador de Cartas de Postulación',
         aiCvSub: 'Pega tu resumen profesional o habilidades para detectar tu afinidad y redactar una carta de presentación a medida (UTC-4 / W-8BEN)',
         aiCvField: 'Tu Resumen Profesional, Experiencia o Habilidades Clave *',
         aiCvPlaceholder: 'Ej: Ingeniero de Software / Analista de Datos / Asistente Virtual Bilingüe con 4 años de experiencia en Python, SQL, React, Soporte Técnico, Gestión de Proyectos y Atención al Cliente...',
@@ -2373,7 +2449,7 @@ export function renderAppHtml(initialState) {
         dlMd: 'Descargar resultados.md',
         dlCsv: 'Exportar CSV',
         platformsHeading: 'Directorio de Plataformas Remotas Monitoreadas',
-        platformsSub: 'Puedes escanear cualquier plataforma bajo demanda o agregar nuevas URLs arriba',
+        platformsSub: 'Puedes escanear cualquier plataforma bajo demanda o agregar nuevas URLs abajo',
         verdictLabels: { APPLY: 'POSTULAR', POSSIBLE: 'EXPLORAR', SKIP: 'BAJA COINCIDENCIA', GEO: 'NO ELEGIBLE BOLIVIA' },
         scorePos: 'Posición/Habilidades',
         scoreBol: 'Remoto Bolivia',
@@ -2443,7 +2519,7 @@ export function renderAppHtml(initialState) {
         typeAuto: 'Auto-detect (Web / RSS / JSON)',
         btnSubmitUrl: 'Scan & Evaluate URL',
         scanningUrl: 'Scanning URL...',
-        aiCvTitle: 'AI Profile Matcher & Cover Letter Generator (Cloudflare Workers AI)',
+        aiCvTitle: 'AI Profile Matcher & Cover Letter Generator',
         aiCvSub: 'Paste your CV summary or key skills to evaluate remote fit and draft a tailored application letter (UTC-4 / W-8BEN)',
         aiCvField: 'Your Professional Summary, Experience, or Key Skills *',
         aiCvPlaceholder: 'E.g., Software Engineer / Data Analyst / Bilingual Virtual Assistant with 4 years of experience in Python, SQL, React, Technical Support, Project Management, and Customer Success...',
@@ -2485,7 +2561,7 @@ export function renderAppHtml(initialState) {
         dlMd: 'Download results.md',
         dlCsv: 'Export CSV',
         platformsHeading: 'Monitored Remote Platforms Directory',
-        platformsSub: 'Scan any platform on demand or add your own custom URLs above',
+        platformsSub: 'Scan any platform on demand or add your own custom URLs below',
         verdictLabels: { APPLY: 'APPLY', POSSIBLE: 'POSSIBLE', SKIP: 'LOW MATCH', GEO: 'GEO-RESTRICTED' },
         scorePos: 'Position/Skills',
         scoreBol: 'Bolivia Remote',
@@ -3338,7 +3414,31 @@ export function renderAppHtml(initialState) {
     let lastAiDetectedProfile = null;
     let lastAiResultData = null;
 
+    function setAiCvPanelFolded(folded) {
+      const panel = document.getElementById('ai-cv-panel');
+      const header = document.getElementById('ai-cv-header');
+      if (panel) {
+        panel.classList.toggle('ai-cv-folded', Boolean(folded));
+      }
+      if (header) {
+        header.setAttribute('aria-expanded', folded ? 'false' : 'true');
+      }
+    }
+    window.setAiCvPanelFolded = setAiCvPanelFolded;
+
+    function toggleAiCvPanel() {
+      const panel = document.getElementById('ai-cv-panel');
+      if (!panel) return;
+      const isFolded = panel.classList.toggle('ai-cv-folded');
+      const header = document.getElementById('ai-cv-header');
+      if (header) {
+        header.setAttribute('aria-expanded', isFolded ? 'false' : 'true');
+      }
+    }
+    window.toggleAiCvPanel = toggleAiCvPanel;
+
     function openAiProposalForJob(jobHash) {
+      setAiCvPanelFolded(false);
       currentAiTargetJobHash = String(jobHash || '');
       const job = opportunitiesState.find(o => o.job_hash === currentAiTargetJobHash);
       const pill = document.getElementById('ai-target-job-pill');
