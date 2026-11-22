@@ -63,11 +63,30 @@ async function runTests() {
   assert.ok(navListHtml.includes('id="nav-creator-desc"') && navListHtml.includes('https://minkalab.net') && navListHtml.includes('mailto:contact@tsimon.me') && navListHtml.includes('https://tsimon.me'), 'Sobre el creador must describe Minka Lab and include minkalab.net and creator contact/site links');
   assert.ok(/#sidebar-unfold-btn\s*\{[\s\S]*?border:\s*1px solid #10b981;[\s\S]*?background:\s*#ecfdf5;[\s\S]*?color:\s*#065f46;/.test(html), 'Información Utiles button must use the .bolivia-only-label green highlight design');
   assert.ok(!html.includes('Exporta tus Resultados y Sincroniza en Segundo Plano') && !html.includes('<!-- PASO 9 -->'), 'User Manual must remove section 9');
+  const manualStartIdx = html.indexOf('<section id="view-manual"');
+  const manualEndIdx = html.indexOf('</section>', manualStartIdx);
+  const manualHtml = html.slice(manualStartIdx, manualEndIdx);
   assert.ok(
-    html.includes('Aprovecha "Más información con IA" y "Buscar con IA"') &&
-    !html.includes('Escanea tus Propias URLs de Plataformas o Empresas'),
-    'User Manual section 8 must explain Más información con IA and Buscar con IA instead of URL scanning'
+    manualHtml.includes('id="man-btn-back">Volver a la Página Principal</span>') &&
+    !manualHtml.includes('Ver Resultados en Vivo'),
+    'Manual de Uso back button must say Volver a la Página Principal'
   );
+  assert.ok(
+    manualHtml.includes('id="man-link-categories"') &&
+    manualHtml.includes('Categorías De Plataformas</a>') &&
+    manualHtml.includes('id="man-link-platforms"') &&
+    manualHtml.includes('Plataformas Monitoreadas</a>'),
+    'Manual de Uso section 3 must include links to Categorías De Plataformas and Plataformas Monitoreadas'
+  );
+  assert.ok(!manualHtml.includes('BLOQUEADAS PAÍS (GEO)'), 'Manual de Uso section 6 must remove BLOQUEADAS PAÍS (GEO)');
+  assert.ok(
+    manualHtml.includes('Aprovecha "Más información con IA" y "Buscar con IA"') &&
+    manualHtml.includes('<strong>"Borrar búsqueda"</strong>') &&
+    !manualHtml.includes('<strong>"Limpiar Vector"</strong>') &&
+    !html.includes('Escanea tus Propias URLs de Plataformas o Empresas'),
+    'User Manual section 8 must explain Más información con IA and Buscar con IA and reference Borrar búsqueda instead of Limpiar Vector'
+  );
+  assert.ok(!html.includes('body.view-manual-active footer'), 'Manual de Uso page must keep the same footer visible as the main page');
   assert.ok(!html.includes('id="tab-view-platforms"'), 'Must move Monitored Platforms button out of toolbar into Information menu');
   assert.ok(/<section class="toolbar">[\s\S]*?id="tab-view-results"[\s\S]*?class="btn-tab btn-tab-scan" id="btn-scan-now"/.test(html), 'Scan Offers Now button must replace Monitored Platforms in toolbar with green btn-tab styling');
   assert.ok(html.includes('id="btn-v-all">Todas las Elegibles</button>'), 'Spanish toolbar filter must say Todas las Elegibles');
@@ -348,6 +367,10 @@ async function runTests() {
   assert.equal(typeof vmSandbox.window.toggleCategoriesMenu, 'function', 'toggleCategoriesMenu must be bound');
   assert.equal(typeof vmSandbox.window.closeCategoriesMenu, 'function', 'closeCategoriesMenu must be bound');
   assert.equal(typeof vmSandbox.window.selectFooterTrack, 'function', 'selectFooterTrack must be bound');
+  assert.equal(typeof vmSandbox.window.openFooterCategoriesFromManual, 'function', 'openFooterCategoriesFromManual must be bound');
+  vmSandbox.switchMainView('manual');
+  assert.equal(domElements['footer-text'].style.display, '', 'switchMainView(manual) must keep #footer-text visible');
+  vmSandbox.switchMainView('results');
   assert.equal(typeof vmSandbox.window.clearSearchInput, 'function', 'clearSearchInput must be bound');
   assert.equal(typeof vmSandbox.window.syncSearchClearButton, 'function', 'syncSearchClearButton must be bound');
   assert.equal(domElements['btn-clear-search-input'].style.display, 'none', 'Inline Borrar búsqueda button must start hidden when search field is empty');

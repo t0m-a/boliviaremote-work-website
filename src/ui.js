@@ -369,8 +369,7 @@ export function renderAppHtml(initialState) {
     body.view-manual-active #custom-url-panel,
     body.view-manual-active #ai-cv-panel,
     body.view-manual-active .kpi-grid,
-    body.view-manual-active .toolbar,
-    body.view-manual-active footer {
+    body.view-manual-active .toolbar {
       display: none !important;
     }
     .manual-card .btn-lang {
@@ -1470,6 +1469,15 @@ export function renderAppHtml(initialState) {
       color: #1e40af;
       margin-top: 8px;
     }
+    .guide-tip a {
+      color: #0369a1;
+      text-decoration: underline;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .guide-tip a:hover {
+      color: #0c4a6e;
+    }
     .info-callout {
       background: #ecfdf5;
       border-left: 4px solid #10b981;
@@ -2097,6 +2105,12 @@ export function renderAppHtml(initialState) {
       color: #93c5fd;
       border-left-color: var(--accent-primary);
     }
+    body.dark-mode .guide-tip a {
+      color: #38bdf8;
+    }
+    body.dark-mode .guide-tip a:hover {
+      color: #7dd3fc;
+    }
     body.dark-mode .info-callout {
       background: #064e3b;
       color: #a7f3d0;
@@ -2602,7 +2616,7 @@ export function renderAppHtml(initialState) {
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:14px;border-bottom:1px solid #f1f5f9;padding-bottom:12px;">
             <h3 id="man-h-intro" style="margin:0;">Guía del Usuario: Bolivia Remote Work</h3>
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-              <button type="button" class="btn-action btn-primary" onclick="switchMainView('results')"><span id="man-btn-back">Ver Resultados en Vivo</span></button>
+              <button type="button" class="btn-action btn-primary" onclick="switchMainView('results')"><span id="man-btn-back">Volver a la Página Principal</span></button>
             </div>
           </div>
           <p id="man-p-intro" style="font-size:0.92em;color:#334155;line-height:1.6;">
@@ -2666,7 +2680,7 @@ export function renderAppHtml(initialState) {
                 <li><strong>Consultoría / Asesoría:</strong> Llamadas de asesoramiento y redes de expertos internacionales.</li>
               </ul>
               <div class="guide-tip">
-                Haz clic en el enlace <strong>"Todos"</strong> para seleccionar simultáneamente todas las modalidades disponibles.
+                Haz clic en el enlace <strong>"Todos"</strong> para seleccionar simultáneamente todas las modalidades disponibles. También puedes explorar las fuentes por tipo en <a href="#footer-categories-dropdown" id="man-link-categories" onclick="openFooterCategoriesFromManual(event)">Categorías De Plataformas</a> o consultar el directorio completo en <a href="#view-platforms" id="man-link-platforms" onclick="event.preventDefault(); switchMainView('platforms');">Plataformas Monitoreadas</a>.
               </div>
             </div>
           </div>
@@ -2714,7 +2728,6 @@ export function renderAppHtml(initialState) {
                 <li><strong style="color:#059669;">POSTULAR (Puntaje ≥ 78):</strong> Máxima afinidad con tus filtros e idiomas, verificada 100% para Bolivia. ¡Recomendada para postular de inmediato!</li>
                 <li><strong style="color:#d97706;">EXPLORAR (Puntaje 58–77):</strong> Ofertas compatibles con pequeñas variaciones de modalidad o experiencia.</li>
                 <li><strong style="color:#475569;">BAJA COINCIDENCIA (&lt; 58):</strong> Ofertas remotas válidas pero fuera de tus áreas o preferencias actuales.</li>
-                <li><strong style="color:#dc2626;">BLOQUEADAS PAÍS (GEO):</strong> Excluidas por restricciones de residencia geográfica local.</li>
               </ul>
               <div class="guide-tip">
                 Usa los botones del semáforo en la barra de herramientas para ver solo vacantes de <strong>Postular</strong> o <strong>Explorar</strong>, o escribe en la barra de búsqueda para filtrar por empresa o cargo al instante.
@@ -2743,7 +2756,7 @@ export function renderAppHtml(initialState) {
               La plataforma integra dos herramientas de inteligencia artificial pensadas para ahorrar tiempo y mejorar tus postulaciones desde Bolivia:
               <ul>
                 <li><strong>Más información con IA (en cada tarjeta de oferta):</strong> Haz clic en el botón <strong>"Más información con IA"</strong> para desplegar justo debajo de la vacante un análisis detallado generado con Cloudflare Workers AI. Te muestra un resumen claro de la posición, los <em>Requisitos de la posición</em>, la <em>Experiencia y habilidades útiles</em>, la <em>Compatibilidad horaria con Bolivia (UTC-4)</em> y <em>Consejos para el candidato</em>. El panel se cierra automáticamente al desplazarte fuera de su área o al pulsar <code>&times;</code>.</li>
-                <li><strong>Buscar con IA (en la barra de herramientas):</strong> Realiza una búsqueda semántica vectorial multilingüe sobre todas las ofertas 100% remotas para Bolivia. Escribe en lenguaje natural lo que buscas (por ejemplo: <em>"soporte al cliente bilingüe"</em>, <em>"desarrollador Python remoto"</em> o <em>"asistente contable"</em>) y pulsa <strong>"Buscar con IA"</strong> para ordenar las vacantes por afinidad semántica y relevancia. Puedes volver a la lista normal en cualquier momento con el botón <strong>"Limpiar Vector"</strong> o cambiando cualquier filtro.</li>
+                <li><strong>Buscar con IA (en la barra de herramientas):</strong> Realiza una búsqueda semántica vectorial multilingüe sobre todas las ofertas 100% remotas para Bolivia. Escribe en lenguaje natural lo que buscas (por ejemplo: <em>"soporte al cliente bilingüe"</em>, <em>"desarrollador Python remoto"</em> o <em>"asistente contable"</em>) y pulsa <strong>"Buscar con IA"</strong> para ordenar las vacantes por afinidad semántica y relevancia. Puedes volver a la lista normal en cualquier momento con el botón <strong>"Borrar búsqueda"</strong> o cambiando cualquier filtro.</li>
               </ul>
             </div>
           </div>
@@ -2774,7 +2787,7 @@ export function renderAppHtml(initialState) {
             <h3 class="panel-title"><span id="lbl-platforms-heading">Directorio de Plataformas Remotas Monitoreadas</span></h3>
             <span style="font-size:0.84em;color:#64748b;" id="lbl-platforms-sub">Haz clic en "Escanear" en cualquier plataforma para buscar nuevas ofertas al instante</span>
           </div>
-          <button type="button" class="btn-action btn-primary" onclick="switchMainView('results')"><span id="plat-btn-back">Ver Resultados en Vivo</span></button>
+          <button type="button" class="btn-action btn-primary" onclick="switchMainView('results')"><span id="plat-btn-back">Volver a la Página Principal</span></button>
         </div>
         <div id="platformsGridContainer" class="radar-grid"></div>
       </div>
@@ -3033,7 +3046,7 @@ export function renderAppHtml(initialState) {
         scanPlatformBtn: 'Escanear esta plataforma',
         openPlatformBtn: 'Abrir Portal',
         noResults: 'No se encontraron ofertas con los filtros actuales. Prueba ampliando los tipos de posición, contrato o palabras clave.',
-        manBtnBack: 'Ver Resultados en Vivo',
+        manBtnBack: 'Volver a la Página Principal',
         btnTop: 'Arriba',
         btnTopTitle: 'Volver arriba',
         footerText: 'Designed, engineered and hosted by <a href="mailto:contact@tsimon.me">Thomas Simon</a> · <a href="https://tsimon.me" title="Thomas Mathieu Simon  · Cloud Systems Architect · NOC &amp; AI Engineer" target="_blank" rel="noopener noreferrer">tsimon.me</a>'
@@ -3862,7 +3875,7 @@ export function renderAppHtml(initialState) {
       if (aiPanel) aiPanel.style.display = isDedicatedPage ? 'none' : '';
       if (kpis) kpis.style.display = isDedicatedPage ? 'none' : '';
       if (toolbar) toolbar.style.display = isDedicatedPage ? 'none' : '';
-      if (footer) footer.style.display = isDedicatedPage ? 'none' : '';
+      if (footer) footer.style.display = '';
 
       if (isDedicatedPage) {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -4098,6 +4111,22 @@ export function renderAppHtml(initialState) {
       }
     }
     window.selectFooterTrack = selectFooterTrack;
+
+    function openFooterCategoriesFromManual(event) {
+      if (event && typeof event.preventDefault === 'function') event.preventDefault();
+      if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+      const dd = document.getElementById('footer-categories-dropdown');
+      const hdr = document.getElementById('nav-hdr-tracks-item');
+      if (dd && typeof dd.scrollIntoView === 'function') {
+        dd.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      if (dd && dd.classList && !dd.classList.contains('open')) {
+        toggleCategoriesMenu();
+      } else if (hdr && typeof hdr.focus === 'function') {
+        hdr.focus();
+      }
+    }
+    window.openFooterCategoriesFromManual = openFooterCategoriesFromManual;
 
     (function initFooterCategoriesHoverAutoClose() {
       const dd = document.getElementById('footer-categories-dropdown');
