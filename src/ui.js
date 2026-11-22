@@ -2013,7 +2013,7 @@ export function renderAppHtml(initialState) {
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;flex:1 1 280px;justify-content:flex-end;">
         <input type="search" id="searchInput" class="input-text" placeholder="Buscar por cargo, empresa, país..." oninput="onSearchInputChange(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();runSemanticSearch();}">
         <button type="button" class="btn-action btn-primary" id="btn-semantic-search" onclick="runSemanticSearch()" style="padding:7px 12px;font-size:0.82em;">
-          <span id="lbl-btn-semantic">Búsqueda Vectorial IA</span>
+          <span id="lbl-btn-semantic">Buscar con IA</span>
         </button>
         <button type="button" class="btn-action btn-secondary" id="btn-clear-semantic" onclick="clearSemanticSearch()" style="display:none;padding:7px 10px;font-size:0.8em;">
           <span id="lbl-btn-clear-semantic">Limpiar Vector</span>
@@ -2274,7 +2274,7 @@ export function renderAppHtml(initialState) {
     </section>
 
     <footer id="footer-text">
-      Buscador y Evaluador Público de Empleos Remotos desde Bolivia (UTC-4) · Ejecución en Cloudflare Workers (Bajo Demanda + Cada 15 Minutos) · Designed, engineered and hosted by <a href="mailto:contact@tsimon.me">Thomas M. Simon</a> · <a href="https://tsimon.me" title="Thomas Mathieu Simon  · Cloud Systems Architect · NOC &amp; AI Engineer" target="_blank" rel="noopener noreferrer">tsimon.me</a>
+      Buscador y Evaluador Público de Empleos Remotos desde Bolivia (UTC-4) · Ejecución en Cloudflare Workers (Bajo Demanda + Cada 15 Minutos) · Designed, engineered and hosted by <a href="mailto:contact@tsimon.me">Thomas Simon</a> · <a href="https://tsimon.me" title="Thomas Mathieu Simon  · Cloud Systems Architect · NOC &amp; AI Engineer" target="_blank" rel="noopener noreferrer">tsimon.me</a>
     </footer>
   </main>
 
@@ -2419,7 +2419,7 @@ export function renderAppHtml(initialState) {
         copyAiProposal: 'Copiar Carta',
         copiedAiProposal: '¡Carta Copiada!',
         draftAiBtn: 'Redactar Carta IA',
-        semanticBtn: 'Búsqueda Vectorial IA',
+        semanticBtn: 'Buscar con IA',
         semanticLoading: 'Buscando Vectores...',
         semanticClear: 'Limpiar Vector',
         semanticBadge: 'Afinidad Vectorial:',
@@ -2463,7 +2463,7 @@ export function renderAppHtml(initialState) {
         openPlatformBtn: 'Abrir Portal',
         noResults: 'No se encontraron ofertas con los filtros actuales. Prueba ampliando los tipos de posición, contrato o palabras clave.',
         manBtnBack: 'Ver Resultados en Vivo',
-        footerText: 'Buscador y Evaluador Público de Empleos Remotos desde Bolivia (UTC-4) · Ejecución en Cloudflare Workers (Bajo Demanda + Cada 15 Minutos) · Designed, engineered and hosted by <a href="mailto:contact@tsimon.me">Thomas M. Simon</a> · <a href="https://tsimon.me" title="Thomas Mathieu Simon  · Cloud Systems Architect · NOC &amp; AI Engineer" target="_blank" rel="noopener noreferrer">tsimon.me</a>'
+        footerText: 'Buscador y Evaluador Público de Empleos Remotos desde Bolivia (UTC-4) · Ejecución en Cloudflare Workers (Bajo Demanda + Cada 15 Minutos) · Designed, engineered and hosted by <a href="mailto:contact@tsimon.me">Thomas Simon</a> · <a href="https://tsimon.me" title="Thomas Mathieu Simon  · Cloud Systems Architect · NOC &amp; AI Engineer" target="_blank" rel="noopener noreferrer">tsimon.me</a>'
       },
       en: {
         pageTitle: 'Remote Jobs from Bolivia — Live Job Scout & Evaluator',
@@ -2531,7 +2531,7 @@ export function renderAppHtml(initialState) {
         copyAiProposal: 'Copy Letter',
         copiedAiProposal: 'Letter Copied!',
         draftAiBtn: 'Draft AI Cover Letter',
-        semanticBtn: 'AI Vector Search',
+        semanticBtn: 'Search with AI',
         semanticLoading: 'Searching Vectors...',
         semanticClear: 'Clear Vector',
         semanticBadge: 'Vector Match:',
@@ -2575,7 +2575,7 @@ export function renderAppHtml(initialState) {
         openPlatformBtn: 'Open Portal',
         noResults: 'No offers matched your current filters. Try broadening your position types, contract modalities, or keywords.',
         manBtnBack: 'View Live Results',
-        footerText: 'Public Remote Job Scout & Evaluator from Bolivia (UTC-4) · Powered by Cloudflare Workers (On-Demand + Every 15 Minutes) · Designed, engineered and hosted by <a href="mailto:contact@tsimon.me">Thomas M. Simon</a> · <a href="https://tsimon.me" title="Thomas Mathieu Simon  · Cloud Systems Architect · NOC &amp; AI Engineer" target="_blank" rel="noopener noreferrer">tsimon.me</a>'
+        footerText: 'Public Remote Job Scout & Evaluator from Bolivia (UTC-4) · Powered by Cloudflare Workers (On-Demand + Every 15 Minutes) · Designed, engineered and hosted by <a href="mailto:contact@tsimon.me">Thomas Simon</a> · <a href="https://tsimon.me" title="Thomas Mathieu Simon  · Cloud Systems Architect · NOC &amp; AI Engineer" target="_blank" rel="noopener noreferrer">tsimon.me</a>'
       }
     };
 

@@ -62,7 +62,11 @@ async function runTests() {
   assert.ok(html.includes('@media only screen and (max-width: 820px)'), 'Must include tablet responsive media query');
   assert.ok(html.includes('@media only screen and (max-width: 640px)'), 'Must include mobile responsive media query');
   assert.ok(html.includes('overflow-wrap: break-word'), 'Must enforce proper text wrapping');
-  assert.ok(html.includes('Designed, engineered and hosted by <a href="mailto:contact@tsimon.me">Thomas M. Simon</a>'), 'Must include footer attribution with mailto link');
+  assert.ok(html.includes('Designed, engineered and hosted by <a href="mailto:contact@tsimon.me">Thomas Simon</a>'), 'Must include footer attribution with mailto link');
+  assert.ok(!html.includes('Thomas M. Simon'), 'Must remove middle initial M. from Thomas Simon in footer');
+  assert.ok(html.includes("semanticBtn: 'Search with AI'"), 'English AI search button must be named Search with AI');
+  assert.ok(html.includes("semanticBtn: 'Buscar con IA'"), 'Spanish AI search button must be named Buscar con IA');
+  assert.ok(!html.includes("semanticBtn: 'AI Vector Search'"), 'Must replace AI Vector Search button label');
   assert.ok(html.includes('https://tsimon.me'), 'Must include footer attribution link to tsimon.me');
   assert.ok(html.includes('title="Thomas Mathieu Simon  · Cloud Systems Architect · NOC &amp; AI Engineer"'), 'Must include title attribute on tsimon.me link');
   assert.ok(html.includes('body.sidebar-collapsed #main-doc'), 'Must expand main-doc when collapsed');
