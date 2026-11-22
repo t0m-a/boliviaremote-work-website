@@ -386,30 +386,37 @@ export function renderAppHtml(initialState) {
       background: var(--bg-card);
       color: var(--text-main);
       border: 1px solid #e2e8f0;
-      padding: 18px 22px;
+      padding: 12px 18px;
       border-radius: 10px;
-      margin-bottom: 18px;
+      margin-bottom: 14px;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
     }
     .banner-header-block {
       width: 100%;
       margin-bottom: 0;
     }
-    .top-banner h1 {
-      margin: 0 0 6px 0;
-      font-size: 1.55em;
-      font-weight: 700;
-      color: #0f172a;
-      line-height: 1.3;
-    }
     .top-banner p,
     .banner-subtitle-line {
-      margin: 4px 0;
+      margin: 0;
       color: #334155;
       font-family: inherit;
       font-size: 0.92em;
       font-weight: 400;
       line-height: 1.5;
+    }
+    .top-banner h1,
+    #banner-title {
+      display: inline;
+      margin: 0;
+      font-size: inherit;
+      font-weight: 700;
+      color: inherit;
+      line-height: inherit;
+    }
+    .banner-inline-sep {
+      display: inline;
+      margin: 0 6px;
+      opacity: 0.65;
     }
     #banner-subtitle,
     .banner-disclaimer {
@@ -1826,9 +1833,7 @@ export function renderAppHtml(initialState) {
       box-shadow: 0 2px 8px rgba(0,0,0,0.3);
       color: #e2e8f0;
     }
-    body.dark-mode .top-banner h1 {
-      color: #f8fafc;
-    }
+    body.dark-mode .top-banner h1,
     body.dark-mode .top-banner p,
     body.dark-mode .banner-subtitle-line,
     body.dark-mode #banner-subtitle,
@@ -2257,8 +2262,8 @@ export function renderAppHtml(initialState) {
       .manual-card {
         padding: 16px;
       }
-      .top-banner h1 {
-        font-size: 1.32em;
+      .top-banner {
+        padding: 11px 14px;
       }
       .keywords-input-row .input-text {
         flex: 1 1 100%;
@@ -2325,9 +2330,8 @@ export function renderAppHtml(initialState) {
       .opp-card {
         padding: 14px;
       }
-      .top-banner h1 {
-        font-size: 1.18em;
-        line-height: 1.3;
+      .top-banner {
+        padding: 10px 12px;
       }
       .banner-subtitle-line {
         font-size: 0.88em;
@@ -2549,10 +2553,9 @@ export function renderAppHtml(initialState) {
     <!-- TOP BANNER -->
     <section class="top-banner">
       <div class="banner-header-block">
-        <h1 id="banner-title">Buscador y Evaluador de Empleos Remotos desde Bolivia</h1>
-        <p class="banner-subtitle-line">
-          <span id="banner-subtitle">Filtra y evalúa ofertas globales y regionales que permiten trabajar remoto desde Bolivia. Personaliza tus idiomas, área profesional, experiencia y modalidad de contrato.</span>
-        </p>
+        <div class="banner-subtitle-line">
+          <h1 id="banner-title">Buscador y Evaluador de Empleos Remotos desde Bolivia</h1><span class="banner-inline-sep" aria-hidden="true">·</span><span id="banner-subtitle">Filtra y evalúa ofertas globales y regionales que permiten trabajar remoto desde Bolivia. Personaliza tus idiomas, área profesional, experiencia y modalidad de contrato.</span>
+        </div>
       </div>
     </section>
 

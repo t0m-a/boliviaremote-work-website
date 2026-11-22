@@ -30,6 +30,11 @@ async function runTests() {
   assert.ok(!html.includes('id="theme-toggle-text"'), 'Must remove text label from theme toggle button');
   assert.ok(html.includes('body.dark-mode'), 'Must have dark mode stylesheet rules');
   assert.ok(html.includes('class="banner-header-block"'), 'Must have full-width banner-header-block so title and subtitle do not break');
+  assert.ok(
+    /<div class="banner-subtitle-line">\s*<h1 id="banner-title">Buscador y Evaluador de Empleos Remotos desde Bolivia<\/h1><span class="banner-inline-sep"[^>]*>·<\/span><span id="banner-subtitle">Filtra y evalúa ofertas globales y regionales que permiten trabajar remoto desde Bolivia\. Personaliza tus idiomas, área profesional, experiencia y modalidad de contrato\.<\/span>\s*<\/div>/.test(html) &&
+    /\.top-banner h1,\s*#banner-title\s*\{[\s\S]*?display:\s*inline;[\s\S]*?font-size:\s*inherit;/.test(html),
+    'Top banner title and subtitle must share .banner-subtitle-line styling inline on the same line'
+  );
   assert.ok(!html.includes('id="btn-lang-en"') && !html.includes('id="btn-lang-es"'), 'Must remove site display language switcher buttons');
   assert.ok(!html.includes('id="man-btn-lang-en"') && !html.includes('id="man-btn-lang-es"'), 'Must remove language switcher buttons from User Manual');
   assert.ok(!html.includes("setUiLanguage('en')"), 'Must remove English site switcher');
