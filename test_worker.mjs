@@ -45,22 +45,19 @@ async function runTests() {
   assert.ok(html.includes('id="nav-hdr-tracks">Categorías De Plataformas</span>'), 'Must include Categorías De Plataformas with first letter of each word capitalized');
   assert.ok(!html.includes('id="banner-disclaimer"'), 'Must remove Notice from the main page banner');
   assert.ok(!html.includes('id="notice-overlay"'), 'Must remove Notice overlay from the main page');
-  assert.ok(html.includes('id="nav-hdr-notice-item"') && html.includes('onclick="toggleNoticeMenu()"'), 'Notice must be a collapsible dropdown section in the Information hamburger menu');
-  assert.ok(html.includes('class="nav-notice-item nav-notice-folded nav-notice-desc"'), 'Notice content inside menu must start folded');
-  assert.ok(html.includes('id="nav-notice-desc"'), 'Notice description must live inside the hamburger menu');
+  assert.ok(!html.includes('id="nav-hdr-notice-item"') && !html.includes('id="nav-notice-desc"'), 'Must remove Avisos section from the hamburger menu on all versions');
   const navListStart = html.indexOf('<ul id="navbar-menu-list">');
   const navListEnd = html.indexOf('</ul>', navListStart);
   const navListHtml = html.slice(navListStart, navListEnd);
-  const idxNotice = navListHtml.indexOf('id="nav-hdr-notice-item"');
   const idxManual = navListHtml.indexOf('id="nav-manual"');
   const idxPayments = navListHtml.indexOf('id="nav-hdr-payments-item"');
   const idxCreator = navListHtml.indexOf('id="nav-hdr-creator-item"');
   assert.ok(!navListHtml.includes('id="nav-results"'), 'Must remove Live Results item from Information hamburger menu');
-  assert.ok(!navListHtml.includes('id="nav-hdr-tracks-item"'), 'Must move Categorías De Plataformas out of Información Utiles menu');
-  assert.ok(!navListHtml.includes('id="nav-platforms"'), 'Must move Plataformas Monitoreadas out of Información Utiles menu');
+  assert.ok(!navListHtml.includes('id="nav-hdr-tracks-item"'), 'Must move Categorías De Plataformas out of Información Útil menu');
+  assert.ok(!navListHtml.includes('id="nav-platforms"'), 'Must move Plataformas Monitoreadas out of Información Útil menu');
   assert.ok(
-    idxNotice > -1 && idxNotice < idxManual && idxManual < idxPayments && idxPayments < idxCreator,
-    'Hamburger menu order must be: 1. Notice, 2. User Manual, 3. Financial Information, 4. Sobre el creador'
+    idxManual > -1 && idxManual < idxPayments && idxPayments < idxCreator,
+    'Hamburger menu order must be: 1. Guía del Usuario: Bolivia Remote Work, 2. Información Financiera y de Pago, 3. Sobre el creador'
   );
   assert.ok(/#navbar a#nav-manual\s*\{[\s\S]*?background:\s*#f1f5f9;/.test(html), 'Manual de Uso must share the same light-mode background color (#f1f5f9) as Aviso');
   assert.ok(/body\.dark-mode #navbar a#nav-manual\s*\{[\s\S]*?background:\s*#131d2e;/.test(html), 'Manual de Uso must share the same dark-mode background color (#131d2e) as Aviso');
@@ -194,18 +191,21 @@ async function runTests() {
   assert.ok(html.includes('E-Commerce, Tiendas Online (Shopify / Amazon) & Logística'), 'Must include enriched E-Commerce position category');
   assert.ok(html.includes('Legal, Cumplimiento (Compliance) & Contratos'), 'Must include enriched Legal/Compliance position category');
   assert.ok(!html.includes('trabajar remoto desde Bolivia (UTC-4).'), 'Must remove (UTC-4) from Spanish banner subtitle');
-  assert.ok(html.includes('https://www.languagetransfer.org'), 'Must include Language Transfer link in Notice');
-  assert.ok(html.includes('aprender inglés</a>. Te abre todo un entorno de oportunidades y con <a href="https://www.languagetransfer.org" title="Language Transfer: aprende inglés y más, ¡gratis!" target="_blank" rel="noopener noreferrer">Language Transfer</a>, es <strong>gratis</strong>!'), 'Must include Spanish anchor text, linked Language Transfer, and bold gratis in Notice');
   assert.ok(!/[\uD83C][\uDDE6-\uDDFF][\uD83C][\uDDE6-\uDDFF]/.test(html), 'Must NOT contain any flag emoji anywhere in HTML');
   assert.ok(!EMOJI_REGEX.test(html), 'Must NOT contain any emoji icons anywhere in HTML (excluding favicon)');
   assert.ok(!html.includes('id="tab-view-report"'), 'Must NOT have id="tab-view-report" in toolbar');
   assert.ok(html.includes('id="nav-platforms"'), 'Must have id="nav-platforms" in footer status pills');
   assert.ok(!html.includes('id="nav-hdr-views"'), 'Must NOT have Vistas Principales header in navbar');
-  assert.ok(navListHtml.includes('id="nav-hdr-notice">Avisos</span>'), 'Hamburger menu must label Notice section as Avisos');
   assert.ok(navListHtml.includes('id="nav-lbl-manual">Guía del Usuario: Bolivia Remote Work</span>'), 'Hamburger menu must label guide link as Guía del Usuario: Bolivia Remote Work');
   assert.ok(html.includes('id="nav-manual"'), 'Must have #nav-manual link in navbar');
   assert.ok(!html.includes('id="nav-report"'), 'Must NOT have id="nav-report" in navbar (removed as requested)');
   assert.ok(html.includes('id="sidebar-unfold-btn"'), 'Must have sidebar unfold button');
+  assert.ok(
+    /@keyframes boliviaHamburgerCycleLight\s*\{[\s\S]*?#ef4444[\s\S]*?#f59e0b[\s\S]*?#10b981/.test(html) &&
+    /@keyframes boliviaHamburgerCycleDark\s*\{[\s\S]*?#ef4444[\s\S]*?#f59e0b[\s\S]*?#10b981/.test(html) &&
+    /@media only screen and \(max-width: 820px\)[\s\S]*?animation:\s*boliviaHamburgerCycleLight 9s ease-in-out infinite;/.test(html),
+    'Mobile/lower-resolution hamburger icon must cycle slowly red -> yellow -> green in harmonized button tones'
+  );
   assert.ok(html.includes('<body class="sidebar-collapsed">'), 'Navbar must start folded in hamburger menu by default');
   assert.ok(/<div class="navbar-header">[\s\S]*?id="nav-brand-title">Bolivia Remote Work<\/span>[\s\S]*?id="sidebar-unfold-btn"[\s\S]*?<span class="hamburger-label" id="lbl-unfold-nav">Información Útil<\/span>[\s\S]*?<span class="hamburger-icon">/.test(html), 'Hamburger button must be inside navbar-header on the right with Información Útil on the left of hamburger icon');
   assert.ok(!html.includes('Información Utiles'), 'Must replace Información Utiles with Información Útil');
@@ -465,7 +465,6 @@ async function runTests() {
   vmSandbox.window.scrollY = 0;
   vmSandbox.window.updateNavbarStickyState();
   assert.equal(domElements['navbar'].classList.contains('navbar-scrolled'), false, 'Scrolling back to top must remove .navbar-scrolled from #navbar');
-  assert.equal(typeof vmSandbox.window.toggleNoticeMenu, 'function', 'toggleNoticeMenu must be bound');
   assert.equal(typeof vmSandbox.window.toggleCreatorMenu, 'function', 'toggleCreatorMenu must be bound');
   assert.equal(typeof vmSandbox.window.toggleCategoriesMenu, 'function', 'toggleCategoriesMenu must be bound');
   assert.equal(typeof vmSandbox.window.closeCategoriesMenu, 'function', 'closeCategoriesMenu must be bound');

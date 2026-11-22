@@ -285,7 +285,6 @@ export function renderAppHtml(initialState) {
     #navbar li.nav-collapsible-header.expanded .nav-caret {
       transform: rotate(45deg);
     }
-    #navbar li.nav-notice-item.nav-notice-folded,
     #navbar li.nav-payment-item.nav-payment-folded,
     #navbar li.nav-creator-item.nav-creator-folded {
       display: none !important;
@@ -294,13 +293,11 @@ export function renderAppHtml(initialState) {
       padding-left: 26px;
       font-size: 0.85em;
     }
-    #navbar li.nav-notice-desc,
     #navbar li.nav-payment-desc,
     #navbar li.nav-creator-desc {
       padding: 10px 16px 12px 26px;
       background: #f8fafc;
     }
-    #navbar li.nav-notice-desc p,
     #navbar li.nav-payment-desc p,
     #navbar li.nav-creator-desc p {
       margin: 0 0 8px 0;
@@ -308,12 +305,10 @@ export function renderAppHtml(initialState) {
       line-height: 1.45;
       color: #475569;
     }
-    #navbar li.nav-notice-desc p:last-child,
     #navbar li.nav-payment-desc p:last-child,
     #navbar li.nav-creator-desc p:last-child {
       margin-bottom: 0;
     }
-    #navbar li.nav-notice-desc p a,
     #navbar li.nav-creator-desc p a {
       display: inline;
       padding: 0;
@@ -324,7 +319,6 @@ export function renderAppHtml(initialState) {
       background: transparent;
       border-left: none;
     }
-    #navbar li.nav-notice-desc p a:hover,
     #navbar li.nav-creator-desc p a:hover {
       background: transparent;
       color: var(--accent-hover);
@@ -1187,6 +1181,10 @@ export function renderAppHtml(initialState) {
       .guide-step.card-reveal-visible {
         transition: none;
       }
+      .sidebar-fold-btn,
+      #sidebar-unfold-btn {
+        animation: none !important;
+      }
     }
     .opp-header {
       display: flex;
@@ -1915,26 +1913,21 @@ export function renderAppHtml(initialState) {
       color: #f8fafc;
       border-left-color: #38bdf8;
     }
-    body.dark-mode #navbar li.nav-notice-desc,
     body.dark-mode #navbar li.nav-payment-desc,
     body.dark-mode #navbar li.nav-creator-desc {
       background: #0f172a;
     }
-    body.dark-mode #navbar li.nav-notice-desc p,
     body.dark-mode #navbar li.nav-payment-desc p,
     body.dark-mode #navbar li.nav-creator-desc p {
       color: #94a3b8;
     }
-    body.dark-mode #navbar li.nav-notice-desc p strong,
     body.dark-mode #navbar li.nav-payment-desc p strong,
     body.dark-mode #navbar li.nav-creator-desc p strong {
       color: #e2e8f0;
     }
-    body.dark-mode #navbar li.nav-notice-desc p a,
     body.dark-mode #navbar li.nav-creator-desc p a {
       color: #38bdf8;
     }
-    body.dark-mode #navbar li.nav-notice-desc p a:hover,
     body.dark-mode #navbar li.nav-creator-desc p a:hover {
       color: #7dd3fc;
     }
@@ -2332,6 +2325,41 @@ export function renderAppHtml(initialState) {
       }
     }
 
+    @keyframes boliviaHamburgerCycleLight {
+      0%, 100% {
+        background: rgba(239, 68, 68, 0.12);
+        border-color: #ef4444;
+        color: #991b1b;
+      }
+      33.33% {
+        background: rgba(245, 158, 11, 0.14);
+        border-color: #f59e0b;
+        color: #92400e;
+      }
+      66.66% {
+        background: rgba(16, 185, 129, 0.12);
+        border-color: #10b981;
+        color: #065f46;
+      }
+    }
+    @keyframes boliviaHamburgerCycleDark {
+      0%, 100% {
+        background: rgba(239, 68, 68, 0.18);
+        border-color: #ef4444;
+        color: #fca5a5;
+      }
+      33.33% {
+        background: rgba(245, 158, 11, 0.18);
+        border-color: #f59e0b;
+        color: #fde68a;
+      }
+      66.66% {
+        background: rgba(16, 185, 129, 0.18);
+        border-color: #10b981;
+        color: #a7f3d0;
+      }
+    }
+
     @media only screen and (max-width: 820px) {
       .navbar-header {
         padding: 10px 16px;
@@ -2341,6 +2369,11 @@ export function renderAppHtml(initialState) {
         width: 36px;
         padding: 0;
         gap: 0;
+        animation: boliviaHamburgerCycleLight 9s ease-in-out infinite;
+      }
+      body.dark-mode .sidebar-fold-btn,
+      body.dark-mode #sidebar-unfold-btn {
+        animation: boliviaHamburgerCycleDark 9s ease-in-out infinite;
       }
       .hamburger-label {
         display: none;
@@ -2683,14 +2716,6 @@ export function renderAppHtml(initialState) {
       </div>
     </div>
     <ul id="navbar-menu-list">
-      <li class="nav-group-header nav-collapsible-header" id="nav-hdr-notice-item" onclick="toggleNoticeMenu()" role="button" tabindex="0" aria-expanded="false">
-        <span id="nav-hdr-notice">Avisos</span>
-        <span class="nav-caret" id="nav-notice-caret" aria-hidden="true"></span>
-      </li>
-      <li class="nav-notice-item nav-notice-folded nav-notice-desc">
-        <p id="nav-notice-desc">Algunas de estas plataformas requieren registrarse y utilizar una herramienta de traducción en el navegador para aprovechar al máximo su contenido. Para el trabajo remoto a nivel global, se recomienda encarecidamente <a href="https://www.languagetransfer.org" title="Language Transfer: aprende inglés y más, ¡gratis!" target="_blank" rel="noopener noreferrer">aprender inglés</a>. Te abre todo un entorno de oportunidades y con <a href="https://www.languagetransfer.org" title="Language Transfer: aprende inglés y más, ¡gratis!" target="_blank" rel="noopener noreferrer">Language Transfer</a>, es <strong>gratis</strong>!</p>
-      </li>
-
       <li><a id="nav-manual" onclick="switchMainView('manual'); closeNavbarMenu();"><span id="nav-lbl-manual">Guía del Usuario: Bolivia Remote Work</span></a></li>
 
       <li class="nav-group-header nav-collapsible-header" id="nav-hdr-payments-item" onclick="togglePaymentsMenu()" role="button" tabindex="0" aria-expanded="false">
@@ -3263,8 +3288,6 @@ export function renderAppHtml(initialState) {
         themeLightText: 'Claro',
         bannerTitle: 'Buscador y Evaluador de Empleos Remotos desde Bolivia',
         bannerSubtitle: 'Filtra y evalúa ofertas globales y regionales que permiten trabajar remoto desde Bolivia. Personaliza tus idiomas, área profesional, experiencia y modalidad de contrato.',
-        noticeLink: 'Avisos',
-        bannerDisclaimer: 'Algunas de estas plataformas requieren registrarse y utilizar una herramienta de traducción en el navegador para aprovechar al máximo su contenido. Para el trabajo remoto a nivel global, se recomienda encarecidamente <a href="https://www.languagetransfer.org" title="Language Transfer: aprende inglés y más, ¡gratis!" target="_blank" rel="noopener noreferrer">aprender inglés</a>. Te abre todo un entorno de oportunidades y con <a href="https://www.languagetransfer.org" title="Language Transfer: aprende inglés y más, ¡gratis!" target="_blank" rel="noopener noreferrer">Language Transfer</a>, es <strong>gratis</strong>!',
         scanNow: 'Escanear Ofertas Ahora',
         scanningNow: 'Escaneando plataformas...',
         pillSchedule: 'Ejecución: Bajo Demanda + Automático cada 15 min',
@@ -3396,8 +3419,6 @@ export function renderAppHtml(initialState) {
         'nav-track-d': t.navTrackD,
         'nav-track-e': t.navTrackE,
         'nav-track-f': t.navTrackF,
-        'nav-hdr-notice': t.noticeLink,
-        'nav-notice-desc': t.bannerDisclaimer,
         'nav-hdr-payments': t.navPayments,
         'nav-payments-desc': t.navPaymentsDesc,
         'banner-title': t.bannerTitle,
@@ -3463,7 +3484,7 @@ export function renderAppHtml(initialState) {
       for (const [id, text] of Object.entries(map)) {
         const el = document.getElementById(id);
         if (el) {
-          if (id === 'nav-notice-desc' || id === 'footer-credit' || id === 'nav-payments-desc') {
+          if (id === 'footer-credit' || id === 'nav-payments-desc') {
             el.innerHTML = text;
           } else {
             el.textContent = text;
@@ -4280,21 +4301,6 @@ export function renderAppHtml(initialState) {
       });
     }
 
-    function toggleNoticeMenu() {
-      const hdr = document.getElementById('nav-hdr-notice-item');
-      const items = document.querySelectorAll('#navbar li.nav-notice-item');
-      let nowExpanded = false;
-      items.forEach(item => {
-        const isFolded = item.classList.toggle('nav-notice-folded');
-        if (!isFolded) nowExpanded = true;
-      });
-      if (hdr) {
-        hdr.classList.toggle('expanded', nowExpanded);
-        hdr.setAttribute('aria-expanded', nowExpanded ? 'true' : 'false');
-      }
-    }
-    window.toggleNoticeMenu = toggleNoticeMenu;
-
     function toggleCreatorMenu() {
       const hdr = document.getElementById('nav-hdr-creator-item');
       const items = document.querySelectorAll('#navbar li.nav-creator-item');
@@ -4374,7 +4380,6 @@ export function renderAppHtml(initialState) {
 
     function foldAllNavbarSubsections() {
       const sections = [
-        { hdrId: 'nav-hdr-notice-item', itemSelector: '#navbar li.nav-notice-item', foldedClass: 'nav-notice-folded' },
         { hdrId: 'nav-hdr-payments-item', itemSelector: '#navbar li.nav-payment-item', foldedClass: 'nav-payment-folded' },
         { hdrId: 'nav-hdr-creator-item', itemSelector: '#navbar li.nav-creator-item', foldedClass: 'nav-creator-folded' }
       ];
