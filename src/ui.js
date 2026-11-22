@@ -1276,6 +1276,18 @@ export function renderAppHtml(initialState) {
     .btn-secondary:hover {
       background: #e2e8f0;
     }
+    .btn-ai-info {
+      background: #ecfdf5;
+      color: #065f46 !important;
+      border: 1px solid #10b981;
+      border-radius: 6px;
+      font-weight: 700;
+    }
+    .btn-ai-info:hover {
+      background: #d1fae5;
+      border-color: #059669;
+      color: #064e3b !important;
+    }
     .report-box {
       background: #0f172a;
       color: #f8fafc;
@@ -1850,6 +1862,16 @@ export function renderAppHtml(initialState) {
     body.dark-mode .btn-secondary:hover {
       background: #334155;
     }
+    body.dark-mode .btn-ai-info {
+      background: #064e3b;
+      color: #a7f3d0 !important;
+      border-color: #10b981;
+    }
+    body.dark-mode .btn-ai-info:hover {
+      background: #047857;
+      color: #ffffff !important;
+      border-color: #34d399;
+    }
     body.dark-mode .radar-box {
       background: #0f172a;
       border-color: #1e293b;
@@ -2349,7 +2371,7 @@ export function renderAppHtml(initialState) {
         <button type="button" class="btn-tab btn-tab-scan" id="btn-scan-now" onclick="triggerOnDemandScan()"><span id="lbl-scan-now">Escanear Ofertas Ahora</span></button>
       </div>
       <div class="filter-group" id="verdictFilterBar">
-        <button type="button" class="btn-tab active" data-verdict="ALL" onclick="setVerdictFilter('ALL')" id="btn-v-all">Todos los Elegibles</button>
+        <button type="button" class="btn-tab active" data-verdict="ALL" onclick="setVerdictFilter('ALL')" id="btn-v-all">Todas las Elegibles</button>
         <button type="button" class="btn-tab" data-verdict="APPLY" onclick="setVerdictFilter('APPLY')"><span id="btn-v-apply">Postular</span></button>
         <button type="button" class="btn-tab" data-verdict="POSSIBLE" onclick="setVerdictFilter('POSSIBLE')"><span id="btn-v-possible">Explorar</span></button>
         <button type="button" class="btn-tab" data-verdict="SKIP" onclick="setVerdictFilter('SKIP')"><span id="btn-v-skip">Baja Coincidencia</span></button>
@@ -2766,7 +2788,7 @@ export function renderAppHtml(initialState) {
         tabManual: 'Manual de Uso',
         tabReport: 'Reporte Markdown / Exportar',
         tabPlatforms: 'Plataformas Monitoreadas',
-        vAll: 'Todos los Elegibles',
+        vAll: 'Todas las Elegibles',
         vApply: 'Postular',
         vPossible: 'Explorar',
         vSkip: 'Baja Coincidencia',
@@ -3489,7 +3511,7 @@ export function renderAppHtml(initialState) {
           '<div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">' +
             '<a class="btn-action btn-primary" href="' + escapeHtml(r.url) + '" target="_blank" rel="noopener">' +
               escapeHtml(t.openOfferBtn) + '</a>' +
-            '<button type="button" class="btn-action btn-secondary" onclick="openAiProposalForJob(\\'' + escapeHtml(r.job_hash) + '\\', this)">' +
+            '<button type="button" class="btn-action btn-ai-info" onclick="openAiProposalForJob(\\'' + escapeHtml(r.job_hash) + '\\', this)">' +
               escapeHtml(t.draftAiBtn || 'Más información con IA') + '</button>' +
           '</div>' +
         '</article>';
@@ -3647,12 +3669,42 @@ export function renderAppHtml(initialState) {
     }
     window.scrollToTop = scrollToTop;
 
+    function foldAllNavbarSubsections() {
+      const sections = [
+        { hdrId: 'nav-hdr-notice-item', itemSelector: '#navbar li.nav-notice-item', foldedClass: 'nav-notice-folded' },
+        { hdrId: 'nav-hdr-payments-item', itemSelector: '#navbar li.nav-payment-item', foldedClass: 'nav-payment-folded' },
+        { hdrId: 'nav-hdr-tracks-item', itemSelector: '#navbar li.nav-track-item', foldedClass: 'nav-track-folded' },
+        { hdrId: 'nav-hdr-creator-item', itemSelector: '#navbar li.nav-creator-item', foldedClass: 'nav-creator-folded' }
+      ];
+      sections.forEach(sec => {
+        const hdr = document.getElementById(sec.hdrId);
+        if (hdr) {
+          if (hdr.classList && typeof hdr.classList.remove === 'function') {
+            hdr.classList.remove('expanded');
+          }
+          if (typeof hdr.setAttribute === 'function') {
+            hdr.setAttribute('aria-expanded', 'false');
+          }
+        }
+        const items = typeof document.querySelectorAll === 'function' ? document.querySelectorAll(sec.itemSelector) : [];
+        items.forEach(item => {
+          if (item && item.classList && typeof item.classList.add === 'function') {
+            item.classList.add(sec.foldedClass);
+          }
+        });
+      });
+    }
+    window.foldAllNavbarSubsections = foldAllNavbarSubsections;
+
     function toggleSidebar() {
       cancelNavbarAutoClose();
       const isCollapsed = document.body.classList.toggle('sidebar-collapsed');
       const btn = document.getElementById('sidebar-unfold-btn');
       if (btn) {
         btn.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+      }
+      if (isCollapsed) {
+        foldAllNavbarSubsections();
       }
     }
     window.toggleSidebar = toggleSidebar;
@@ -3664,6 +3716,7 @@ export function renderAppHtml(initialState) {
       if (btn) {
         btn.setAttribute('aria-expanded', 'false');
       }
+      foldAllNavbarSubsections();
     }
     window.closeNavbarMenu = closeNavbarMenu;
 

@@ -68,8 +68,11 @@ async function runTests() {
   );
   assert.ok(!html.includes('id="tab-view-platforms"'), 'Must move Monitored Platforms button out of toolbar into Information menu');
   assert.ok(/<section class="toolbar">[\s\S]*?id="tab-view-results"[\s\S]*?class="btn-tab btn-tab-scan" id="btn-scan-now"/.test(html), 'Scan Offers Now button must replace Monitored Platforms in toolbar with green btn-tab styling');
-  assert.ok(html.includes('id="btn-v-all">Todos los Elegibles</button>'), 'Spanish toolbar filter must say Todos los Elegibles');
-  assert.ok(!html.includes('Todas las Elegibles'), 'Must replace Todas las Elegibles with Todos los Elegibles');
+  assert.ok(html.includes('id="btn-v-all">Todas las Elegibles</button>'), 'Spanish toolbar filter must say Todas las Elegibles');
+  assert.ok(!html.includes('Todos los Elegibles'), 'Must replace Todos los Elegibles with Todas las Elegibles');
+  assert.ok(/\.btn-ai-info\s*\{[\s\S]*?background:\s*#ecfdf5;[\s\S]*?color:\s*#065f46 !important;[\s\S]*?border:\s*1px solid #10b981;/.test(html), 'Más información con IA button must use the same green design as Información Utiles');
+  assert.ok(/body\.dark-mode \.btn-ai-info\s*\{[\s\S]*?background:\s*#064e3b;[\s\S]*?color:\s*#a7f3d0 !important;[\s\S]*?border-color:\s*#10b981;/.test(html), 'Más información con IA dark mode must match Información Utiles');
+  assert.ok(html.includes('function foldAllNavbarSubsections()') && html.includes('foldAllNavbarSubsections();'), 'Closing Información Utiles menu must refold all subsections');
   assert.ok(!html.includes('Asistente IA de Perfil y Generador de Cartas de Postulación'), 'Must remove AI Profile Matcher & Cover Letter Generator feature');
   assert.ok(!html.includes('panel-collapsible-header'), 'Must mask/remove panel-collapsible-header from #ai-cv-panel');
   assert.ok(!html.includes('id="ai-cv-input"'), 'Must remove CV input form from #ai-cv-panel');
@@ -196,6 +199,8 @@ async function runTests() {
   const domElements = {};
   const getMockEl = (id) => {
     if (!domElements[id]) {
+      const classes = new Set();
+      const attrs = {};
       domElements[id] = {
         id,
         textContent: id === 'initial-payload' ? allScripts[1][1] : '',
@@ -204,9 +209,22 @@ async function runTests() {
         checked: false,
         disabled: false,
         style: {},
-        classList: { add() {}, remove() {}, toggle() { return false; } },
-        setAttribute() {},
-        getAttribute() { return ''; },
+        attributes: attrs,
+        classList: {
+          add(...cls) { cls.forEach(c => classes.add(c)); },
+          remove(...cls) { cls.forEach(c => classes.delete(c)); },
+          contains(c) { return classes.has(c); },
+          toggle(c, force) {
+            if (typeof force === 'boolean') {
+              if (force) classes.add(c); else classes.delete(c);
+              return force;
+            }
+            if (classes.has(c)) { classes.delete(c); return false; }
+            classes.add(c); return true;
+          }
+        },
+        setAttribute(k, v) { attrs[k] = String(v); },
+        getAttribute(k) { return attrs[k] || ''; },
         querySelector() { return getMockEl('sub-' + id); },
         scrollIntoView() {}
       };
@@ -283,9 +301,18 @@ async function runTests() {
   assert.equal(typeof vmSandbox.window.togglePositionsDropdown, 'function', 'togglePositionsDropdown must be bound');
   assert.equal(typeof vmSandbox.window.closePositionsDropdown, 'function', 'closePositionsDropdown must be bound');
   assert.ok(domElements['resultsCardsContainer'].innerHTML.includes('opp-card'), 'Must render job cards on load');
+  assert.ok(domElements['resultsCardsContainer'].innerHTML.includes('class="btn-action btn-ai-info"'), 'Job card AI button must use btn-ai-info styling matching Información Utiles');
   assert.ok(domElements['resultsCardsContainer'].innerHTML.includes('Más información con IA'), 'Job card AI button must say Más información con IA');
   assert.ok(!domElements['resultsCardsContainer'].innerHTML.includes('Redactar Carta IA'), 'Job card AI button must not say Redactar Carta IA');
   assert.equal(typeof vmSandbox.window.toggleSidebar, 'function', 'Menu button handler toggleSidebar must be bound');
+  assert.equal(typeof vmSandbox.window.foldAllNavbarSubsections, 'function', 'foldAllNavbarSubsections must be bound');
+  assert.equal(typeof vmSandbox.window.closeNavbarMenu, 'function', 'closeNavbarMenu must be bound');
+  domElements['nav-hdr-creator-item'] = getMockEl('nav-hdr-creator-item');
+  domElements['nav-hdr-creator-item'].classList.add('expanded');
+  domElements['nav-hdr-creator-item'].setAttribute('aria-expanded', 'true');
+  vmSandbox.window.closeNavbarMenu();
+  assert.equal(domElements['nav-hdr-creator-item'].classList.contains('expanded'), false, 'closeNavbarMenu must refold expanded subsections');
+  assert.equal(domElements['nav-hdr-creator-item'].attributes['aria-expanded'], 'false', 'closeNavbarMenu must reset aria-expanded to false');
   assert.equal(typeof vmSandbox.window.scheduleNavbarAutoClose, 'function', 'scheduleNavbarAutoClose must be bound');
   assert.equal(typeof vmSandbox.window.cancelNavbarAutoClose, 'function', 'cancelNavbarAutoClose must be bound');
   assert.equal(typeof vmSandbox.window.scrollToTop, 'function', 'scrollToTop must be bound');

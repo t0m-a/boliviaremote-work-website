@@ -28,10 +28,9 @@
    - [Paso 1: Acceso, navegación y modo claro/oscuro](#paso-1-acceso-navegación-y-modo-clarooscuro)
    - [Paso 2: Configuración de tus filtros personalizados (25 Categorías)](#paso-2-configuración-de-tus-filtros-personalizados-25-categorías)
    - [Paso 3: Garantía de elegibilidad 100% Remoto desde Bolivia](#paso-3-garantía-de-elegibilidad-100-remoto-desde-bolivia)
-   - [Paso 4: Semáforo de calificación e información enriquecida con IA](#paso-4-semáforo-de-calificación-e-información-enriquecida-con-ia)
+   - [Paso 4: Semáforo de calificación, "Más información con IA" y "Buscar con IA"](#paso-4-semáforo-de-calificación-más-información-con-ia-y-buscar-con-ia)
    - [Paso 5: Escanear y evaluar URLs de plataformas personalizadas](#paso-5-escanear-y-evaluar-urls-de-plataformas-personalizadas)
    - [Paso 6: Sección interactiva "Manual de Uso" integrada](#paso-6-sección-interactiva-manual-de-uso-integrada)
-   - [Paso 7: Generación y descarga de resultados en vivo](#paso-7-generación-y-descarga-de-resultados-en-vivo)
 3. [Cómo Funciona la Arquitectura Interna](#cómo-funciona-la-arquitectura-interna)
    - [Diagrama de flujo del sistema](#diagrama-de-flujo-del-sistema)
    - [Motor de calificación y rúbrica dinámica de 100 puntos](#motor-de-calificación-y-rúbrica-dinámica-de-100-puntos)
@@ -57,20 +56,20 @@ Esta herramienta es una **solución pública y gratuita** en **Español (Bolivia
 ### Principales Características y Novedades (v5.8)
 
 - **Interfaz 100% Español (Bolivia) y Diseño Responsivo:** Adaptación fluida a escritorio, tabletas (`<= 1200px`, `<= 820px`) y celulares (`<= 640px`), con botón flotante translúcido **Arriba** en la esquina inferior derecha, grillas KPI balanceadas de 3 tarjetas (`POSTULAR`, `EXPLORAR`, `BAJA COINCIDENCIA`) y cierre automático suave al retirar el puntero en todos los menús desplegables.
-- **Menú Hamburguesa `Información Utiles` y Modo Claro/Oscuro:** La barra superior muestra **Bolivia Remote Work** a la izquierda y, a la derecha, el selector discreto de modo claro/oscuro junto al menú **Información Utiles**, organizado en orden: **Aviso** (con enlace directo a [Language Transfer](https://www.languagetransfer.org)), **Manual de Uso**, **Información Financiera** (AirTM, Wise, Payoneer, Tipalti y Dólar Bolivia Hoy), **Categorías De Plataformas** y **Plataformas Monitoreadas**.
+- **Menú Hamburguesa `Información Utiles` y Modo Claro/Oscuro:** La barra superior muestra **Bolivia Remote Work** a la izquierda y, a la derecha, el selector discreto de modo claro/oscuro junto al botón destacado en verde **Información Utiles** (que repliega automáticamente todas sus subsecciones al cerrarse). Está organizado en orden: **Aviso** (con enlace directo a [Language Transfer](https://www.languagetransfer.org)), **Manual de Uso**, **Información Financiera** (AirTM, Wise, Payoneer, Tipalti y Dólar Bolivia Hoy), **Categorías De Plataformas**, **Plataformas Monitoreadas** y **Sobre el creador** (con información del proyecto comunitario **Minka Lab** en [minkalab.net](https://minkalab.net) y enlaces de contacto).
 - **Filtro Estricto de Idiomas (`Español` e `Inglés`):** Por defecto inicia con **Español** seleccionado. Soporta tres modos simétricos con refresco inmediato de resultados y tarjetas KPI:
   - **Solo Español:** Muestra y prioriza únicamente vacantes compatibles con español, descartando ofertas exclusivas en inglés.
   - **Solo Inglés:** Muestra y prioriza únicamente vacantes compatibles con inglés, descartando ofertas exclusivas en español.
   - **Ambos (`Español` + `Inglés`):** Muestra la unión completa de ofertas en español, inglés y bilingües con puntaje completo de idioma (`20/20`).
 - **25 Categorías Profesionales Enriquecidas:** Desplegable responsivo multi-selección (`Tipo de Posición / Área Profesional`) ampliado para cubrir áreas técnicas, administrativas, comerciales, creativas, de salud, legales, e-commerce, producto, ciberseguridad, IA/ML y traducción.
 - **Filtro 100% Remoto desde Bolivia Obligatorio en Toda la Tubería:** El escáner, el evaluador, el índice vectorial y el analizador IA filtran automáticamente cualquier restricción geográfica (`US Only`, `EU Only`, `W-2`, presencial/híbrido) antes de importar o mostrar vacantes.
-- **Panel Contextual `Más información con IA` (Cloudflare Workers AI):** En cada tarjeta de oferta, el botón **Más información con IA** despliega un panel inmediatamente debajo de la vacante (y se cierra automáticamente al salir de la pantalla al hacer scroll) con análisis estructurado en español mediante Llama 3.1 y respaldo determinístico de borde (`POST /api/ai/analyze-position`):
+- **Panel Contextual `Más información con IA` (Cloudflare Workers AI):** En cada tarjeta de oferta, el botón destacado en verde **Más información con IA** (con el mismo estilo visual que **Información Utiles**) despliega un panel inmediatamente debajo de la vacante (y se cierra automáticamente al salir de la pantalla al hacer scroll) con análisis estructurado en español mediante Llama 3.1 y respaldo determinístico de borde (`POST /api/ai/analyze-position`):
   - Resumen informativo de la posición.
   - **Requisitos de la posición**.
   - **Experiencia y habilidades útiles**.
   - **Compatibilidad horaria con Bolivia (UTC-4)**.
   - **Consejos para el candidato**.
-- **Búsqueda Semántica (`Buscar con IA`) y Barra de Herramientas Unificada:** Incluye botón verde **Escanear Ofertas Ahora**, filtro **Todos los Elegibles** y búsqueda vectorial multilingüe (`@cf/baai/bge-m3` + Cloudflare Vectorize / Qdrant / vectores locales).
+- **Búsqueda Semántica (`Buscar con IA`) y Barra de Herramientas Unificada:** Incluye botón verde **Escanear Ofertas Ahora**, filtro **Todas las Elegibles** y búsqueda vectorial multilingüe (`@cf/baai/bge-m3` + Cloudflare Vectorize / Qdrant / vectores locales).
 - **Sincronización Automática de Nuevas Plataformas (`custom_*`):** Motor [`src/seed_sync.js`](src/seed_sync.js), script CLI [`sync_platforms.mjs`](sync_platforms.mjs) (`npm run sync-platforms`) y endpoint `/api/platforms/sync` para persistir plataformas personalizadas hacia [`platforms_config.json`](platforms_config.json) y [`src/seed_data.js`](src/seed_data.js).
 - **Identidad y Favicon Patrio:** Favicon vectorial del planeta Tierra con los colores de la bandera de Bolivia (`#EF4444`, `#FDE047`, `#10B981`) disponible en `/favicon.svg`, `/favicon.ico` y `/favicon.png`.
 
@@ -88,8 +87,8 @@ Si estás utilizando la versión alojada públicamente en línea, esta guía te 
 │ 1. Elige tus Idiomas ──▶ 2. Ajusta tus Filtros ──▶ 3. Revisa tu Semáforo    │
 │    (Español / Inglés)      (25 Áreas, Exp, Mod)      (Postular / Explorar)  │
 │                                                                             │
-│ 4. Más Info con IA   ──▶ 5. Escanea tu URL     ──▶ 6. Exporta tu Reporte    │
-│    (Requisitos, UTC-4)     (Evaluación en vivo)      (Markdown / CSV)       │
+│ 4. Más Info / Buscar ──▶ 5. Escanea tu URL     ──▶ 6. Postula Directamente  │
+│    (IA + Vectores)         (Evaluación en vivo)      (Sin intermediarios)   │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -97,13 +96,14 @@ Si estás utilizando la versión alojada públicamente en línea, esta guía te 
 
 Al abrir el portal, la aplicación carga completamente en **Español (Bolivia)** (`es-BO`) bajo la marca **Bolivia Remote Work**.
 
-- En la esquina superior derecha tienes el botón discreto de **Modo Claro / Modo Oscuro** junto al menú **Información Utiles** (que se cierra suavemente al retirar el puntero).
+- En la esquina superior derecha tienes el botón discreto de **Modo Claro / Modo Oscuro** junto al botón destacado **Información Utiles** (que se cierra suavemente al retirar el puntero y repliega automáticamente todas sus subsecciones).
 - Dentro de **Información Utiles** encontrarás:
   1. **Aviso** (con recomendación formativa y enlace a [Language Transfer](https://www.languagetransfer.org)).
   2. **Manual de Uso**.
   3. **Información Financiera** (plataformas de cobro internacional: AirTM, Wise, Payoneer, Tipalti y Dólar Bolivia Hoy).
   4. **Categorías De Plataformas** (acceso por categoría de fuente).
   5. **Plataformas Monitoreadas** (directorio completo de las 86 fuentes).
+  6. **Sobre el creador** (presentación del autor, descripción del proyecto comunitario **Minka Lab** en [minkalab.net](https://minkalab.net) y enlaces de contacto).
 
 ---
 
@@ -136,7 +136,7 @@ Se conservan exclusivamente oportunidades abiertas a **Bolivia / LATAM / Sudamé
 
 ---
 
-### Paso 4: Semáforo de calificación e información enriquecida con IA
+### Paso 4: Semáforo de calificación, "Más información con IA" y "Buscar con IA"
 
 Cada vacante elegible es calificada sobre **100 puntos** y agrupada en tres tarjetas KPI responsivas:
 
@@ -152,6 +152,11 @@ graph TD
 1. **POSTULAR (Puntaje ≥ 78/100):** Alta afinidad con tus idiomas, área profesional, experiencia y modalidad. Incluye acceso directo **"Ver Oferta y Postular"** y el botón **"Más información con IA"**.
 2. **EXPLORAR (Puntaje 58–77/100):** Vacantes compatibles con variaciones menores respecto a tus preferencias.
 3. **BAJA COINCIDENCIA (< 58/100):** Ofertas válidas para Bolivia pero fuera de tus filtros activos.
+
+En la barra de herramientas principal también cuentas con:
+- **Todas las Elegibles / Postular / Explorar / Baja Coincidencia:** Filtra rápidamente el listado por categoría del semáforo.
+- **Escanear Ofertas Ahora:** Botón verde para solicitar a Cloudflare Workers una actualización en vivo de las plataformas activas.
+- **Buscar con IA:** Escribe en lenguaje natural lo que buscas (por ejemplo, *"soporte al cliente bilingüe"* o *"desarrollador Python remoto"*) y pulsa **Buscar con IA** para ordenar las vacantes por similitud semántica vectorial; usa **Limpiar Vector** o cambia cualquier filtro para volver a la lista normal.
 
 Al hacer clic en **"Más información con IA"** sobre cualquier tarjeta, se despliega justo debajo de esa vacante el panel **Información sobre la Posición** con:
 - Resumen general de la vacante.
@@ -177,16 +182,7 @@ Al final de la página encontrarás el panel **"Agregar y Escanear tu Propia URL
 
 ### Paso 6: Sección interactiva "Manual de Uso" integrada
 
-Desde **Información Utiles → Manual de Uso** accedes a la guía paso a paso integrada dentro de la propia aplicación, cubriendo configuración de idiomas (`Español` / `Inglés`), experiencia, contratos, áreas profesionales, interpretación del semáforo, análisis IA, escaneo de URLs personalizadas y exportación de reportes.
-
----
-
-### Paso 7: Generación y descarga de resultados en vivo
-
-- **Botón `Escanear Ofertas Ahora`:** Disponible en color verde directamente en la barra de herramientas principal para disparar una actualización en vivo desde Cloudflare Workers.
-- **Búsqueda Semántica (`Buscar con IA`):** Ordena las vacantes elegibles por similitud vectorial frente a tu consulta en lenguaje natural.
-- **Reporte Markdown Directo:** Disponible mediante `/api/results.md?lang=es` (o `?lang=en`).
-- **Exportación CSV:** Descarga las ofertas filtradas con puntajes, idiomas detectados, modalidad y enlaces directos.
+Desde **Información Utiles → Manual de Uso** accedes a la guía de 8 pasos integrada dentro de la propia aplicación, cubriendo configuración de idiomas (`Español` / `Inglés`), experiencia, contratos, áreas profesionales, filtro automático 100% remoto desde Bolivia, interpretación del semáforo, postulación directa y uso de **"Más información con IA"** junto con **"Buscar con IA"**.
 
 ---
 
