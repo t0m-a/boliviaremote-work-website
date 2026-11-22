@@ -473,11 +473,11 @@ export function renderAppHtml(initialState) {
     .btn-scan-now {
       padding: 5px 12px;
       border-radius: 999px;
-      border: 1px solid #059669;
-      background: #059669;
-      color: #ffffff;
+      border: 1px solid #10b981;
+      background: rgba(16, 185, 129, 0.11);
+      color: #065f46;
       font-size: 0.79em;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
@@ -487,11 +487,12 @@ export function renderAppHtml(initialState) {
       white-space: normal;
       text-align: center;
       max-width: 100%;
-      transition: all 0.15s ease;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     }
     .btn-scan-now:hover {
-      background: #047857;
-      border-color: #047857;
+      background: rgba(16, 185, 129, 0.20);
+      border-color: #059669;
+      color: #064e3b;
     }
     .btn-scan-now:disabled {
       opacity: 0.65;
@@ -775,13 +776,13 @@ export function renderAppHtml(initialState) {
       padding: 5px 10px;
       border-radius: 999px;
       border: 1px solid #cbd5e1;
-      background: #ffffff;
+      background: rgba(100, 116, 139, 0.08);
       color: #334155;
       font-size: 0.81em;
       font-weight: 600;
       cursor: pointer;
       user-select: none;
-      transition: all 0.12s ease;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
       max-width: 100%;
       white-space: normal;
       text-align: left;
@@ -789,13 +790,20 @@ export function renderAppHtml(initialState) {
       overflow-wrap: anywhere;
     }
     .chip:hover {
-      border-color: var(--accent-primary);
-      color: var(--accent-primary);
+      background: rgba(2, 132, 199, 0.08);
+      border-color: #0ea5e9;
+      color: #0369a1;
     }
     .chip.selected {
-      background: var(--accent-primary);
-      color: #ffffff;
-      border-color: var(--accent-primary);
+      background: rgba(2, 132, 199, 0.12);
+      color: #0369a1;
+      border-color: #0ea5e9;
+      font-weight: 700;
+    }
+    .chip.selected:hover {
+      background: rgba(2, 132, 199, 0.20);
+      color: #0c4a6e;
+      border-color: #0284c7;
     }
     .input-text, .input-select {
       width: 100%;
@@ -965,14 +973,14 @@ export function renderAppHtml(initialState) {
     }
     .btn-tab {
       border: 1px solid #cbd5e1;
-      background: #f8fafc;
+      background: rgba(100, 116, 139, 0.08);
       color: #334155;
       padding: 7px 13px;
       border-radius: 6px;
       font-size: 0.85em;
       font-weight: 600;
       cursor: pointer;
-      transition: all 0.15s ease;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -982,19 +990,26 @@ export function renderAppHtml(initialState) {
       max-width: 100%;
     }
     .btn-tab:hover, .btn-tab.active {
-      background: var(--accent-primary);
-      color: #ffffff;
-      border-color: var(--accent-primary);
+      background: rgba(2, 132, 199, 0.12);
+      color: #0369a1;
+      border-color: #0ea5e9;
+      font-weight: 700;
+    }
+    .btn-tab.active:hover {
+      background: rgba(2, 132, 199, 0.20);
+      color: #0c4a6e;
+      border-color: #0284c7;
     }
     .btn-tab.btn-tab-scan {
-      background: #059669;
-      color: #ffffff;
-      border-color: #059669;
+      background: rgba(16, 185, 129, 0.11);
+      color: #065f46;
+      border-color: #10b981;
+      font-weight: 700;
     }
     .btn-tab.btn-tab-scan:hover {
-      background: #047857;
-      color: #ffffff;
-      border-color: #047857;
+      background: rgba(16, 185, 129, 0.20);
+      color: #064e3b;
+      border-color: #059669;
     }
     .btn-tab.btn-tab-scan:disabled {
       opacity: 0.65;
@@ -1273,21 +1288,27 @@ export function renderAppHtml(initialState) {
       text-align: center;
       line-height: 1.35;
       max-width: 100%;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     }
     .btn-primary {
-      background: var(--accent-primary);
-      color: #ffffff !important;
+      background: rgba(2, 132, 199, 0.12);
+      color: #0369a1 !important;
+      border: 1px solid #0ea5e9;
     }
     .btn-primary:hover {
-      background: #0369a1;
+      background: rgba(2, 132, 199, 0.20);
+      border-color: #0284c7;
+      color: #0c4a6e !important;
     }
     .btn-secondary {
-      background: #f8fafc;
-      color: #0f172a !important;
-      border-color: #cbd5e1;
+      background: rgba(100, 116, 139, 0.08);
+      color: #334155 !important;
+      border: 1px solid #94a3b8;
     }
     .btn-secondary:hover {
-      background: #e2e8f0;
+      background: rgba(100, 116, 139, 0.16);
+      border-color: #64748b;
+      color: #0f172a !important;
     }
     .btn-ai-info {
       background: #ecfdf5;
@@ -1795,18 +1816,24 @@ export function renderAppHtml(initialState) {
       color: #f1f5f9;
     }
     body.dark-mode .chip {
-      background: #1e293b;
+      background: rgba(148, 163, 184, 0.10);
       color: #cbd5e1;
       border-color: #334155;
     }
     body.dark-mode .chip:hover {
+      background: rgba(14, 165, 233, 0.14);
       border-color: #38bdf8;
-      color: #38bdf8;
+      color: #7dd3fc;
     }
     body.dark-mode .chip.selected {
-      background: var(--accent-primary);
-      color: #ffffff;
-      border-color: var(--accent-primary);
+      background: rgba(14, 165, 233, 0.18);
+      color: #7dd3fc;
+      border-color: #0ea5e9;
+    }
+    body.dark-mode .chip.selected:hover {
+      background: rgba(14, 165, 233, 0.28);
+      color: #e0f2fe;
+      border-color: #38bdf8;
     }
     body.dark-mode .input-text, body.dark-mode .input-select {
       background: #0f172a;
@@ -1880,24 +1907,31 @@ export function renderAppHtml(initialState) {
       border-color: #1e293b;
     }
     body.dark-mode .btn-tab {
-      background: #0f172a;
+      background: rgba(148, 163, 184, 0.10);
       color: #cbd5e1;
       border-color: #334155;
     }
     body.dark-mode .btn-tab:hover, body.dark-mode .btn-tab.active {
-      background: var(--accent-primary);
-      color: #ffffff;
-      border-color: var(--accent-primary);
+      background: rgba(14, 165, 233, 0.18);
+      color: #7dd3fc;
+      border-color: #0ea5e9;
     }
-    body.dark-mode .btn-tab.btn-tab-scan {
-      background: #059669;
-      color: #ffffff;
-      border-color: #059669;
+    body.dark-mode .btn-tab.active:hover {
+      background: rgba(14, 165, 233, 0.28);
+      color: #e0f2fe;
+      border-color: #38bdf8;
     }
-    body.dark-mode .btn-tab.btn-tab-scan:hover {
-      background: #047857;
+    body.dark-mode .btn-tab.btn-tab-scan,
+    body.dark-mode .btn-scan-now {
+      background: rgba(16, 185, 129, 0.16);
+      color: #a7f3d0;
+      border-color: #10b981;
+    }
+    body.dark-mode .btn-tab.btn-tab-scan:hover,
+    body.dark-mode .btn-scan-now:hover {
+      background: rgba(16, 185, 129, 0.28);
       color: #ffffff;
-      border-color: #047857;
+      border-color: #34d399;
     }
     body.dark-mode .opp-card {
       background: var(--bg-card);
@@ -1963,13 +1997,25 @@ export function renderAppHtml(initialState) {
       background: #451a03;
       color: #fde047;
     }
+    body.dark-mode .btn-primary {
+      background: rgba(14, 165, 233, 0.18);
+      color: #7dd3fc !important;
+      border-color: #0ea5e9;
+    }
+    body.dark-mode .btn-primary:hover {
+      background: rgba(14, 165, 233, 0.28);
+      color: #e0f2fe !important;
+      border-color: #38bdf8;
+    }
     body.dark-mode .btn-secondary {
-      background: #1e293b;
-      color: #f8fafc !important;
-      border-color: #334155;
+      background: rgba(148, 163, 184, 0.12);
+      color: #e2e8f0 !important;
+      border-color: #475569;
     }
     body.dark-mode .btn-secondary:hover {
-      background: #334155;
+      background: rgba(148, 163, 184, 0.22);
+      border-color: #64748b;
+      color: #ffffff !important;
     }
     body.dark-mode .btn-ai-info {
       background: #064e3b;
