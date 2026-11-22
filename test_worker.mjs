@@ -35,23 +35,38 @@ async function runTests() {
   assert.ok(html.includes('text-transform: capitalize'), 'Hamburger menu group headers must keep only the first letter of each word capitalized');
   assert.ok(!html.includes('text-transform: uppercase'), 'Hamburger menu group headers must be decapitalized from uppercase');
   assert.ok(html.includes('id="nav-hdr-tracks">Categorías De Plataformas</span>'), 'Must include Categorías De Plataformas with first letter of each word capitalized');
-  assert.ok(html.includes('id="banner-disclaimer"'), 'Must include banner disclaimer');
-  assert.ok(/<p class="banner-subtitle-line">[\s\S]*?<span id="banner-subtitle">[\s\S]*?<span id="banner-disclaimer"/.test(html), 'Notice/Aviso link must stay inline on the same line as banner subtitle');
+  assert.ok(!html.includes('id="banner-disclaimer"'), 'Must remove Notice from the main page banner');
+  assert.ok(!html.includes('id="notice-overlay"'), 'Must remove Notice overlay from the main page');
+  assert.ok(html.includes('id="nav-hdr-notice-item"') && html.includes('onclick="toggleNoticeMenu()"'), 'Notice must be a collapsible dropdown section in the Information hamburger menu');
+  assert.ok(html.includes('class="nav-notice-item nav-notice-folded nav-notice-desc"'), 'Notice content inside menu must start folded');
+  assert.ok(html.includes('id="nav-notice-desc"'), 'Notice description must live inside the hamburger menu');
+  const navListStart = html.indexOf('<ul id="navbar-menu-list">');
+  const navListEnd = html.indexOf('</ul>', navListStart);
+  const navListHtml = html.slice(navListStart, navListEnd);
+  const idxNotice = navListHtml.indexOf('id="nav-hdr-notice-item"');
+  const idxManual = navListHtml.indexOf('id="nav-manual"');
+  const idxPayments = navListHtml.indexOf('id="nav-hdr-payments-item"');
+  const idxResults = navListHtml.indexOf('id="nav-results"');
+  const idxTracks = navListHtml.indexOf('id="nav-hdr-tracks-item"');
+  assert.ok(
+    idxNotice > -1 && idxNotice < idxManual && idxManual < idxPayments && idxPayments < idxResults && idxResults < idxTracks,
+    'Hamburger menu order must be: 1. Notice, 2. User Manual, 3. Financial Information, 4. Live Results, 5. Platform Categories'
+  );
+  assert.ok(!html.includes('id="tab-view-manual"'), 'Must remove User Manual button from toolbar');
+  assert.ok(!html.includes('data-verdict="GEO"'), 'Must remove Geo-Blocked button from verdictFilterBar');
+  assert.ok(html.includes('class="toolbar-search-group"'), 'Search with AI input group must use responsive .toolbar-search-group');
   assert.ok(html.includes('Management (8+ yrs)'), 'Experience option must be Management (8+ yrs)');
   assert.ok(!html.includes('Lead / Manager (8+ yrs)'), 'Must replace Lead / Manager (8+ yrs) with Management (8+ yrs)');
   assert.ok(html.includes('id="pos-dropdown"'), 'Position Type / Professional Area must use a multi-select dropdown');
   assert.ok(html.includes('id="pos-dropdown-toggle"'), 'Position dropdown must have toggle trigger button');
   assert.ok(html.includes('id="pos-dropdown-menu"') && html.includes('aria-multiselectable="true"'), 'Position dropdown menu must allow selecting one or more options');
   assert.ok(/<div class="keywords-input-row">[\s\S]*?id="pos-dropdown"[\s\S]*?id="input-custom-keywords"/.test(html), 'Position dropdown and custom keywords input must be in .keywords-input-row');
-  assert.ok(html.includes('id="btn-open-notice"'), 'Must render Notice/Aviso as clickable link');
-  assert.ok(html.includes('id="notice-overlay"'), 'Must include Notice overlay container');
-  assert.ok(html.includes('id="notice-overlay-body"'), 'Must include Notice overlay body');
   assert.ok(html.includes("bannerSubtitle: 'Filter and evaluate global & regional job offers eligible for remote work from Bolivia. Customize your languages, position type, experience level, and contract modality.'"), 'English bannerSubtitle must remove (UTC-4)');
   assert.ok(!html.includes('remote work from Bolivia (UTC-4).'), 'Must remove (UTC-4) from English banner subtitle');
   assert.ok(!html.includes('trabajar remoto desde Bolivia (UTC-4).'), 'Must remove (UTC-4) from Spanish banner subtitle');
-  assert.ok(html.includes('https://www.languagetransfer.org'), 'Must include Language Transfer link in disclaimer');
-  assert.ok(html.includes('aprender inglés</a>. Te abre todo un entorno de oportunidades y con <a href="https://www.languagetransfer.org" title="Language Transfer: aprende inglés y más, ¡gratis!" target="_blank" rel="noopener noreferrer">Language Transfer</a>, es <strong>gratis</strong>!'), 'Must include Spanish anchor text, linked Language Transfer, and bold gratis in disclaimer');
-  assert.ok(html.includes('learn English</a>. It opens up a whole world of opportunities and with <a href="https://www.languagetransfer.org" title="Language Transfer: free audio courses" target="_blank" rel="noopener noreferrer">Language Transfer</a>, it is <strong>free</strong>!'), 'Must preserve English Language Transfer links in notice overlay');
+  assert.ok(html.includes('https://www.languagetransfer.org'), 'Must include Language Transfer link in Notice');
+  assert.ok(html.includes('aprender inglés</a>. Te abre todo un entorno de oportunidades y con <a href="https://www.languagetransfer.org" title="Language Transfer: aprende inglés y más, ¡gratis!" target="_blank" rel="noopener noreferrer">Language Transfer</a>, es <strong>gratis</strong>!'), 'Must include Spanish anchor text, linked Language Transfer, and bold gratis in Notice');
+  assert.ok(html.includes('learn English</a>. It opens up a whole world of opportunities and with <a href="https://www.languagetransfer.org" title="Language Transfer: free audio courses" target="_blank" rel="noopener noreferrer">Language Transfer</a>, it is <strong>free</strong>!'), 'Must preserve English Language Transfer links in Notice');
   assert.ok(!/[\uD83C][\uDDE6-\uDDFF][\uD83C][\uDDE6-\uDDFF]/.test(html), 'Must NOT contain any flag emoji anywhere in HTML');
   assert.ok(!EMOJI_REGEX.test(html), 'Must NOT contain any emoji icons anywhere in HTML (excluding favicon)');
   assert.ok(!html.includes('id="tab-view-report"'), 'Must NOT have id="tab-view-report" in toolbar');
@@ -181,8 +196,7 @@ async function runTests() {
   assert.equal(typeof vmSandbox.window.closePositionsDropdown, 'function', 'closePositionsDropdown must be bound');
   assert.ok(domElements['resultsCardsContainer'].innerHTML.includes('opp-card'), 'Must render job cards on load');
   assert.equal(typeof vmSandbox.window.toggleSidebar, 'function', 'Menu button handler toggleSidebar must be bound');
-  assert.equal(typeof vmSandbox.window.openNoticeOverlay, 'function', 'openNoticeOverlay must be bound');
-  assert.equal(typeof vmSandbox.window.closeNoticeOverlay, 'function', 'closeNoticeOverlay must be bound');
+  assert.equal(typeof vmSandbox.window.toggleNoticeMenu, 'function', 'toggleNoticeMenu must be bound');
   assert.equal(typeof vmSandbox.window.toggleAiCvPanel, 'function', 'toggleAiCvPanel must be bound');
   assert.equal(typeof vmSandbox.window.setAiCvPanelFolded, 'function', 'setAiCvPanelFolded must be bound');
   assert.equal(typeof vmSandbox.window.renderScanFeedback, 'function', 'renderScanFeedback must be bound');

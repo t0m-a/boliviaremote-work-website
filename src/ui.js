@@ -239,6 +239,7 @@ export function renderAppHtml(initialState) {
     #navbar li.nav-collapsible-header.expanded .nav-caret {
       transform: rotate(45deg);
     }
+    #navbar li.nav-notice-item.nav-notice-folded,
     #navbar li.nav-track-item.nav-track-folded,
     #navbar li.nav-payment-item.nav-payment-folded {
       display: none !important;
@@ -248,15 +249,32 @@ export function renderAppHtml(initialState) {
       padding-left: 26px;
       font-size: 0.85em;
     }
+    #navbar li.nav-notice-desc,
     #navbar li.nav-payment-desc {
       padding: 10px 16px 12px 26px;
       background: #f8fafc;
     }
+    #navbar li.nav-notice-desc p,
     #navbar li.nav-payment-desc p {
       margin: 0;
       font-size: 0.78em;
       line-height: 1.45;
       color: #475569;
+    }
+    #navbar li.nav-notice-desc p a {
+      display: inline;
+      padding: 0;
+      color: var(--accent-primary);
+      text-decoration: underline;
+      font-size: inherit;
+      font-weight: 600;
+      background: transparent;
+      border-left: none;
+    }
+    #navbar li.nav-notice-desc p a:hover {
+      background: transparent;
+      color: var(--accent-hover);
+      border-left: none;
     }
     #navbar a {
       display: block;
@@ -364,75 +382,6 @@ export function renderAppHtml(initialState) {
       font-weight: 600;
     }
     .banner-disclaimer a:hover {
-      color: var(--accent-hover);
-    }
-    .notice-overlay {
-      position: fixed;
-      inset: 0;
-      z-index: 2000;
-      background: rgba(15, 23, 42, 0.5);
-      backdrop-filter: blur(3px);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-    .notice-overlay.open {
-      display: flex;
-    }
-    .notice-overlay-card {
-      background: rgba(255, 255, 255, 0.9);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(203, 213, 225, 0.9);
-      border-radius: 12px;
-      max-width: 560px;
-      width: 100%;
-      padding: 20px 24px;
-      box-shadow: 0 20px 45px rgba(15, 23, 42, 0.25);
-      color: #1e293b;
-    }
-    .notice-overlay-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 10px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid rgba(203, 213, 225, 0.7);
-    }
-    .notice-overlay-title {
-      margin: 0;
-      font-size: 1.05em;
-      font-weight: 700;
-      color: #0f172a;
-    }
-    .notice-overlay-close {
-      border: none;
-      background: transparent;
-      color: #475569;
-      font-size: 1.35em;
-      line-height: 1;
-      cursor: pointer;
-      padding: 2px 6px;
-      border-radius: 6px;
-      transition: background 0.15s ease, color 0.15s ease;
-    }
-    .notice-overlay-close:hover {
-      background: rgba(148, 163, 184, 0.2);
-      color: #0f172a;
-    }
-    .notice-overlay-body {
-      margin: 0;
-      font-size: 0.94em;
-      line-height: 1.6;
-      color: #334155;
-    }
-    .notice-overlay-body a {
-      color: var(--accent-primary);
-      text-decoration: underline;
-      font-weight: 600;
-    }
-    .notice-overlay-body a:hover {
       color: var(--accent-hover);
     }
     .banner-actions-row {
@@ -931,11 +880,23 @@ export function renderAppHtml(initialState) {
       margin-bottom: 18px;
       width: 100%;
     }
+    .toolbar-search-group {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: nowrap;
+      flex: 1 1 240px;
+      min-width: 0;
+    }
     .toolbar #searchInput {
-      flex: 1 1 220px;
-      max-width: 300px;
-      min-width: min(100%, 180px);
+      flex: 1 1 auto;
+      max-width: none;
+      min-width: 0;
       width: auto;
+    }
+    .toolbar-search-group .btn-action {
+      flex-shrink: 0;
+      white-space: nowrap;
     }
     .filter-group {
       display: flex;
@@ -1531,14 +1492,23 @@ export function renderAppHtml(initialState) {
       color: #38bdf8;
       border-left-color: #38bdf8;
     }
+    body.dark-mode #navbar li.nav-notice-desc,
     body.dark-mode #navbar li.nav-payment-desc {
       background: #0f172a;
     }
+    body.dark-mode #navbar li.nav-notice-desc p,
     body.dark-mode #navbar li.nav-payment-desc p {
       color: #94a3b8;
     }
+    body.dark-mode #navbar li.nav-notice-desc p strong,
     body.dark-mode #navbar li.nav-payment-desc p strong {
       color: #e2e8f0;
+    }
+    body.dark-mode #navbar li.nav-notice-desc p a {
+      color: #38bdf8;
+    }
+    body.dark-mode #navbar li.nav-notice-desc p a:hover {
+      color: #7dd3fc;
     }
     body.dark-mode .top-banner {
       background: var(--bg-card);
@@ -1559,37 +1529,6 @@ export function renderAppHtml(initialState) {
       color: #38bdf8;
     }
     body.dark-mode .banner-disclaimer a:hover {
-      color: #7dd3fc;
-    }
-    body.dark-mode .notice-overlay {
-      background: rgba(2, 6, 23, 0.65);
-    }
-    body.dark-mode .notice-overlay-card {
-      background: rgba(19, 29, 46, 0.9);
-      border-color: rgba(51, 65, 85, 0.95);
-      color: #e2e8f0;
-      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.55);
-    }
-    body.dark-mode .notice-overlay-header {
-      border-bottom-color: rgba(51, 65, 85, 0.85);
-    }
-    body.dark-mode .notice-overlay-title {
-      color: #f8fafc;
-    }
-    body.dark-mode .notice-overlay-close {
-      color: #94a3b8;
-    }
-    body.dark-mode .notice-overlay-close:hover {
-      background: rgba(148, 163, 184, 0.16);
-      color: #f8fafc;
-    }
-    body.dark-mode .notice-overlay-body {
-      color: #cbd5e1;
-    }
-    body.dark-mode .notice-overlay-body a {
-      color: #38bdf8;
-    }
-    body.dark-mode .notice-overlay-body a:hover {
       color: #7dd3fc;
     }
     body.dark-mode .banner-pill {
@@ -1859,9 +1798,12 @@ export function renderAppHtml(initialState) {
       .url-scanner-form {
         grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
       }
-      .toolbar #searchInput {
-        max-width: 100%;
+      .toolbar-search-group {
         flex: 1 1 100%;
+      }
+      .toolbar #searchInput {
+        max-width: none;
+        flex: 1 1 auto;
       }
     }
 
@@ -1916,10 +1858,14 @@ export function renderAppHtml(initialState) {
       .toolbar .filter-group {
         width: 100%;
       }
+      .toolbar-search-group {
+        width: 100%;
+        flex: 1 1 auto;
+      }
       .toolbar #searchInput,
       #searchInput {
-        max-width: 100% !important;
-        width: 100%;
+        max-width: none !important;
+        width: auto;
         flex: 1 1 auto;
       }
       .kpi-grid {
@@ -2002,6 +1948,12 @@ export function renderAppHtml(initialState) {
       .toolbar .filter-group .btn-tab {
         flex: 1 1 auto;
       }
+      .toolbar-search-group {
+        flex-wrap: wrap;
+      }
+      .toolbar-search-group .btn-action {
+        width: 100%;
+      }
       .opp-header {
         flex-direction: column;
         align-items: flex-start;
@@ -2052,20 +2004,15 @@ export function renderAppHtml(initialState) {
       </button>
     </div>
     <ul id="navbar-menu-list">
-      <li><a id="nav-results" class="active-nav" onclick="switchMainView('results'); closeNavbarMenu();"><span id="nav-lbl-results">Resultados en Vivo</span> (<span id="nav-cnt-results">0</span>)</a></li>
-      <li><a id="nav-manual" onclick="switchMainView('manual'); closeNavbarMenu();"><span id="nav-lbl-manual">Manual de Uso</span></a></li>
-
-      <li class="nav-group-header nav-collapsible-header" id="nav-hdr-tracks-item" onclick="toggleCategoriesMenu()" role="button" tabindex="0" aria-expanded="false">
-        <span id="nav-hdr-tracks">Categorías De Plataformas</span>
-        <span class="nav-caret" id="nav-tracks-caret" aria-hidden="true"></span>
+      <li class="nav-group-header nav-collapsible-header" id="nav-hdr-notice-item" onclick="toggleNoticeMenu()" role="button" tabindex="0" aria-expanded="false">
+        <span id="nav-hdr-notice">Aviso</span>
+        <span class="nav-caret" id="nav-notice-caret" aria-hidden="true"></span>
       </li>
-      <li class="nav-track-item nav-track-folded"><a onclick="switchMainView('results'); filterByTrack('ALL'); closeNavbarMenu();"><span id="nav-track-all">Todas las Categorías</span></a></li>
-      <li class="nav-track-item nav-track-folded"><a onclick="switchMainView('results'); filterByTrack('TRACK A'); closeNavbarMenu();"><span id="nav-track-a">B2B Directo &amp; Freelance</span></a></li>
-      <li class="nav-track-item nav-track-folded"><a onclick="switchMainView('results'); filterByTrack('TRACK B'); closeNavbarMenu();"><span id="nav-track-b">Entrenamiento IA &amp; RLHF</span></a></li>
-      <li class="nav-track-item nav-track-folded"><a onclick="switchMainView('results'); filterByTrack('TRACK C'); closeNavbarMenu();"><span id="nav-track-c">Redes LATAM &amp; Globales</span></a></li>
-      <li class="nav-track-item nav-track-folded"><a onclick="switchMainView('results'); filterByTrack('TRACK D'); closeNavbarMenu();"><span id="nav-track-d">Portales Europeos &amp; Globales</span></a></li>
-      <li class="nav-track-item nav-track-folded"><a onclick="switchMainView('results'); filterByTrack('TRACK E'); closeNavbarMenu();"><span id="nav-track-e">Redes de Consultoría Experta</span></a></li>
-      <li class="nav-track-item nav-track-folded"><a onclick="switchMainView('results'); filterByTrack('TRACK F'); closeNavbarMenu();"><span id="nav-track-f">Bolsas de Empleo Remoto</span></a></li>
+      <li class="nav-notice-item nav-notice-folded nav-notice-desc">
+        <p id="nav-notice-desc">Algunas de estas plataformas requieren registrarse y utilizar una herramienta de traducción en el navegador para aprovechar al máximo su contenido. Para el trabajo remoto a nivel global, se recomienda encarecidamente <a href="https://www.languagetransfer.org" title="Language Transfer: aprende inglés y más, ¡gratis!" target="_blank" rel="noopener noreferrer">aprender inglés</a>. Te abre todo un entorno de oportunidades y con <a href="https://www.languagetransfer.org" title="Language Transfer: aprende inglés y más, ¡gratis!" target="_blank" rel="noopener noreferrer">Language Transfer</a>, es <strong>gratis</strong>!</p>
+      </li>
+
+      <li><a id="nav-manual" onclick="switchMainView('manual'); closeNavbarMenu();"><span id="nav-lbl-manual">Manual de Uso</span></a></li>
 
       <li class="nav-group-header nav-collapsible-header" id="nav-hdr-payments-item" onclick="togglePaymentsMenu()" role="button" tabindex="0" aria-expanded="false">
         <span id="nav-hdr-payments">Información Financiera</span>
@@ -2079,6 +2026,20 @@ export function renderAppHtml(initialState) {
       <li class="nav-payment-item nav-payment-folded nav-payment-desc">
         <p id="nav-payments-desc">Las empresas suelen liquidar mediante plataformas de nómina global como <strong>AirTM. Wise, Payoneer o Tipalti</strong>. Desde estas cuentas puedes transferir vía SWIFT O transferancia ACH hacia tu cuenta bancaria boliviana en Boliviano o en USD, usar tarjetas de débito internacionales, o liquidar honorarios a través de pasarelas reguladas entre tus cuentas globales y locales.</p>
       </li>
+
+      <li><a id="nav-results" class="active-nav" onclick="switchMainView('results'); closeNavbarMenu();"><span id="nav-lbl-results">Resultados en Vivo</span> (<span id="nav-cnt-results">0</span>)</a></li>
+
+      <li class="nav-group-header nav-collapsible-header" id="nav-hdr-tracks-item" onclick="toggleCategoriesMenu()" role="button" tabindex="0" aria-expanded="false">
+        <span id="nav-hdr-tracks">Categorías De Plataformas</span>
+        <span class="nav-caret" id="nav-tracks-caret" aria-hidden="true"></span>
+      </li>
+      <li class="nav-track-item nav-track-folded"><a onclick="switchMainView('results'); filterByTrack('ALL'); closeNavbarMenu();"><span id="nav-track-all">Todas las Categorías</span></a></li>
+      <li class="nav-track-item nav-track-folded"><a onclick="switchMainView('results'); filterByTrack('TRACK A'); closeNavbarMenu();"><span id="nav-track-a">B2B Directo &amp; Freelance</span></a></li>
+      <li class="nav-track-item nav-track-folded"><a onclick="switchMainView('results'); filterByTrack('TRACK B'); closeNavbarMenu();"><span id="nav-track-b">Entrenamiento IA &amp; RLHF</span></a></li>
+      <li class="nav-track-item nav-track-folded"><a onclick="switchMainView('results'); filterByTrack('TRACK C'); closeNavbarMenu();"><span id="nav-track-c">Redes LATAM &amp; Globales</span></a></li>
+      <li class="nav-track-item nav-track-folded"><a onclick="switchMainView('results'); filterByTrack('TRACK D'); closeNavbarMenu();"><span id="nav-track-d">Portales Europeos &amp; Globales</span></a></li>
+      <li class="nav-track-item nav-track-folded"><a onclick="switchMainView('results'); filterByTrack('TRACK E'); closeNavbarMenu();"><span id="nav-track-e">Redes de Consultoría Experta</span></a></li>
+      <li class="nav-track-item nav-track-folded"><a onclick="switchMainView('results'); filterByTrack('TRACK F'); closeNavbarMenu();"><span id="nav-track-f">Bolsas de Empleo Remoto</span></a></li>
     </ul>
   </nav>
 
@@ -2089,7 +2050,6 @@ export function renderAppHtml(initialState) {
         <h1 id="banner-title">Buscador y Evaluador de Empleos Remotos desde Bolivia</h1>
         <p class="banner-subtitle-line">
           <span id="banner-subtitle">Filtra y evalúa ofertas globales y regionales que permiten trabajar remoto desde Bolivia. Personaliza tus idiomas, área profesional, experiencia y modalidad de contrato.</span>
-          <span id="banner-disclaimer" class="banner-disclaimer"><a href="#notice" id="btn-open-notice" onclick="openNoticeOverlay(event)">Aviso</a></span>
         </p>
       </div>
       <div class="banner-pills banner-actions-row">
@@ -2317,7 +2277,6 @@ export function renderAppHtml(initialState) {
     <section class="toolbar">
       <div class="filter-group">
         <button type="button" class="btn-tab active" id="tab-view-results" onclick="switchMainView('results')"><span id="tab-lbl-results">Resultados</span></button>
-        <button type="button" class="btn-tab" id="tab-view-manual" onclick="switchMainView('manual')"><span id="tab-lbl-manual">Manual de Uso</span></button>
         <button type="button" class="btn-tab" id="tab-view-platforms" onclick="switchMainView('platforms')"><span id="tab-lbl-platforms">Plataformas Monitoreadas</span></button>
       </div>
       <div class="filter-group" id="verdictFilterBar">
@@ -2325,9 +2284,8 @@ export function renderAppHtml(initialState) {
         <button type="button" class="btn-tab" data-verdict="APPLY" onclick="setVerdictFilter('APPLY')"><span id="btn-v-apply">Postular</span></button>
         <button type="button" class="btn-tab" data-verdict="POSSIBLE" onclick="setVerdictFilter('POSSIBLE')"><span id="btn-v-possible">Explorar</span></button>
         <button type="button" class="btn-tab" data-verdict="SKIP" onclick="setVerdictFilter('SKIP')"><span id="btn-v-skip">Baja Coincidencia</span></button>
-        <button type="button" class="btn-tab" data-verdict="GEO" onclick="setVerdictFilter('GEO')"><span id="btn-v-geo">Bloqueadas País</span></button>
       </div>
-      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;flex:1 1 280px;justify-content:flex-end;">
+      <div class="toolbar-search-group">
         <input type="search" id="searchInput" class="input-text" placeholder="Buscar por cargo, empresa, país..." oninput="onSearchInputChange(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();runSemanticSearch();}">
         <button type="button" class="btn-action btn-primary" id="btn-semantic-search" onclick="runSemanticSearch()" style="padding:7px 12px;font-size:0.82em;">
           <span id="lbl-btn-semantic">Buscar con IA</span>
@@ -2602,18 +2560,6 @@ export function renderAppHtml(initialState) {
       </div>
     </footer>
   </main>
-
-  <div id="notice-overlay" class="notice-overlay" role="dialog" aria-modal="true" aria-labelledby="notice-overlay-title" aria-hidden="true" onclick="if(event.target===this) closeNoticeOverlay();">
-    <div class="notice-overlay-card">
-      <div class="notice-overlay-header">
-        <h3 id="notice-overlay-title" class="notice-overlay-title">Aviso</h3>
-        <button type="button" id="btn-close-notice" class="notice-overlay-close" onclick="closeNoticeOverlay()" aria-label="Cerrar" title="Cerrar">&times;</button>
-      </div>
-      <p id="notice-overlay-body" class="notice-overlay-body">
-        Algunas de estas plataformas requieren registrarse y utilizar una herramienta de traducción en el navegador para aprovechar al máximo su contenido. Para el trabajo remoto a nivel global, se recomienda encarecidamente <a href="https://www.languagetransfer.org" title="Language Transfer: aprende inglés y más, ¡gratis!" target="_blank" rel="noopener noreferrer">aprender inglés</a>. Te abre todo un entorno de oportunidades y con <a href="https://www.languagetransfer.org" title="Language Transfer: aprende inglés y más, ¡gratis!" target="_blank" rel="noopener noreferrer">Language Transfer</a>, es <strong>gratis</strong>!
-      </p>
-    </div>
-  </div>
 
   <script id="initial-payload" type="application/json">${clientPayload}</script>
   <script>
@@ -2977,13 +2923,12 @@ export function renderAppHtml(initialState) {
         'nav-track-d': t.navTrackD,
         'nav-track-e': t.navTrackE,
         'nav-track-f': t.navTrackF,
+        'nav-hdr-notice': t.noticeLink,
+        'nav-notice-desc': t.bannerDisclaimer,
         'nav-hdr-payments': t.navPayments,
         'nav-payments-desc': t.navPaymentsDesc,
         'banner-title': t.bannerTitle,
         'banner-subtitle': t.bannerSubtitle,
-        'btn-open-notice': t.noticeLink,
-        'notice-overlay-title': t.noticeLink,
-        'notice-overlay-body': t.bannerDisclaimer,
         'lbl-scan-now': t.scanNow,
         'pill-bolivia': t.pillBolivia,
         'pill-schedule': t.pillSchedule,
@@ -3050,18 +2995,12 @@ export function renderAppHtml(initialState) {
       for (const [id, text] of Object.entries(map)) {
         const el = document.getElementById(id);
         if (el) {
-          if (id === 'notice-overlay-body' || id === 'footer-credit' || id === 'nav-payments-desc') {
+          if (id === 'nav-notice-desc' || id === 'footer-credit' || id === 'nav-payments-desc') {
             el.innerHTML = text;
           } else {
             el.textContent = text;
           }
         }
-      }
-      const closeNoticeBtn = document.getElementById('btn-close-notice');
-      if (closeNoticeBtn) {
-        const closeText = userFilters.ui_lang === 'en' ? 'Close' : 'Cerrar';
-        closeNoticeBtn.title = closeText;
-        closeNoticeBtn.setAttribute('aria-label', closeText);
       }
       const unfoldBtn = document.getElementById('sidebar-unfold-btn');
       if (unfoldBtn) {
@@ -3680,33 +3619,28 @@ export function renderAppHtml(initialState) {
       if (navPlatforms) navPlatforms.classList.toggle('active-nav', viewName === 'platforms');
     }
 
-    function openNoticeOverlay(event) {
-      if (event && typeof event.preventDefault === 'function') {
-        event.preventDefault();
-      }
-      const overlay = document.getElementById('notice-overlay');
-      if (!overlay) return;
-      overlay.classList.add('open');
-      overlay.setAttribute('aria-hidden', 'false');
-    }
-    window.openNoticeOverlay = openNoticeOverlay;
-
-    function closeNoticeOverlay() {
-      const overlay = document.getElementById('notice-overlay');
-      if (!overlay) return;
-      overlay.classList.remove('open');
-      overlay.setAttribute('aria-hidden', 'true');
-    }
-    window.closeNoticeOverlay = closeNoticeOverlay;
-
     if (typeof document.addEventListener === 'function') {
       document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') {
-          closeNoticeOverlay();
           closePositionsDropdown();
         }
       });
     }
+
+    function toggleNoticeMenu() {
+      const hdr = document.getElementById('nav-hdr-notice-item');
+      const items = document.querySelectorAll('#navbar li.nav-notice-item');
+      let nowExpanded = false;
+      items.forEach(item => {
+        const isFolded = item.classList.toggle('nav-notice-folded');
+        if (!isFolded) nowExpanded = true;
+      });
+      if (hdr) {
+        hdr.classList.toggle('expanded', nowExpanded);
+        hdr.setAttribute('aria-expanded', nowExpanded ? 'true' : 'false');
+      }
+    }
+    window.toggleNoticeMenu = toggleNoticeMenu;
 
     function toggleSidebar() {
       const isCollapsed = document.body.classList.toggle('sidebar-collapsed');
