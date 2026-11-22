@@ -605,6 +605,15 @@ export function renderAppHtml(initialState) {
       flex-wrap: wrap;
       gap: 6px;
     }
+    .strict-pos-label {
+      font-size: 0.8em;
+      font-weight: 600;
+      color: #334155;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+    }
     .keywords-input-row {
       display: flex;
       flex-wrap: wrap;
@@ -1416,6 +1425,10 @@ export function renderAppHtml(initialState) {
       border-bottom: 1px solid #f1f5f9;
       padding-bottom: 8px;
     }
+    .manual-card h4 {
+      color: #0f172a;
+      border-bottom: 1px solid #f1f5f9;
+    }
     .guide-step {
       background: #f8fafc;
       border: 1px solid #e2e8f0;
@@ -1448,6 +1461,11 @@ export function renderAppHtml(initialState) {
       color: #0f172a;
       margin: 0;
     }
+    #man-p-intro {
+      font-size: 0.92em;
+      color: #334155;
+      line-height: 1.6;
+    }
     .guide-step-body {
       font-size: 0.88em;
       color: #334155;
@@ -1469,13 +1487,15 @@ export function renderAppHtml(initialState) {
       color: #1e40af;
       margin-top: 8px;
     }
-    .guide-tip a {
+    .guide-tip a,
+    #man-p-intro a {
       color: #0369a1;
       text-decoration: underline;
       font-weight: 700;
       cursor: pointer;
     }
-    .guide-tip a:hover {
+    .guide-tip a:hover,
+    #man-p-intro a:hover {
       color: #0c4a6e;
     }
     .info-callout {
@@ -1850,6 +1870,9 @@ export function renderAppHtml(initialState) {
     body.dark-mode .filter-block-label {
       color: #f1f5f9;
     }
+    body.dark-mode .strict-pos-label {
+      color: #94a3b8;
+    }
     body.dark-mode .chip {
       background: rgba(148, 163, 184, 0.10);
       color: #cbd5e1;
@@ -2097,6 +2120,7 @@ export function renderAppHtml(initialState) {
     body.dark-mode .guide-step-title {
       color: #f8fafc;
     }
+    body.dark-mode #man-p-intro,
     body.dark-mode .guide-step-body {
       color: #cbd5e1;
     }
@@ -2105,10 +2129,12 @@ export function renderAppHtml(initialState) {
       color: #93c5fd;
       border-left-color: var(--accent-primary);
     }
-    body.dark-mode .guide-tip a {
+    body.dark-mode .guide-tip a,
+    body.dark-mode #man-p-intro a {
       color: #38bdf8;
     }
-    body.dark-mode .guide-tip a:hover {
+    body.dark-mode .guide-tip a:hover,
+    body.dark-mode #man-p-intro a:hover {
       color: #7dd3fc;
     }
     body.dark-mode .info-callout {
@@ -2416,7 +2442,7 @@ export function renderAppHtml(initialState) {
         <div id="nav-creator-desc">
           <p>Soy <strong>Thomas Simon</strong>, Cloud Systems Architect, NOC &amp; AI Engineer radicado en La Paz, Bolivia. Creé esta herramienta abierta y gratuita para facilitar el acceso al empleo remoto internacional desde Bolivia.</p>
           <p>Este proyecto forma parte de <strong>Minka Lab</strong> (<em>Laboratorio Abierto de Experimentación Tecnológica y Social</em>), una iniciativa comunitaria sin fines de lucro en La Paz y El Alto inspirada en la tradición andina de la <em>Minka</em>, dedicada a la higiene y seguridad digital, espacios maker con IA e idiomas, y hardware abierto accesible.</p>
-          <p><strong>Minka Lab:</strong> <a href="https://minkalab.net" title="Minka Lab · Laboratorio Abierto de Experimentación Tecnológica y Social" target="_blank" rel="noopener noreferrer">minkalab.net</a><br><strong>Contacto:</strong> <a href="mailto:contact@tsimon.me">Thomas Simon</a> · <a href="https://tsimon.me" title="Thomas Mathieu Simon · Cloud Systems Architect · NOC &amp; AI Engineer" target="_blank" rel="noopener noreferrer">tsimon.me</a></p>
+          <p><strong>Minka Lab:</strong> <a href="https://minkalab.net" title="Minka Lab · Laboratorio Abierto de Experimentación Tecnológica y Social" target="_blank" rel="noopener noreferrer">minkalab.net</a><br><strong>Contacto:</strong> <a href="mailto:contact@tsimon.me">Thomas Simon</a> · <a href="https://tsimon.me" title="Thomas Mathieu Simon · Cloud Systems Architect · NOC &amp; AI Engineer" target="_blank" rel="noopener noreferrer">tsimon.me</a><br><strong>Redes:</strong> <a href="https://www.facebook.com/thomas.mathieu.simon" title="Facebook de Thomas Simon" target="_blank" rel="noopener noreferrer">Facebook</a> · <a href="https://www.linkedin.com/in/tsimonfreelance/" title="LinkedIn de Thomas Simon" target="_blank" rel="noopener noreferrer">LinkedIn</a> · <a href="https://github.com/t0m-a" title="GitHub de Thomas Simon" target="_blank" rel="noopener noreferrer">GitHub</a></p>
         </div>
       </li>
     </ul>
@@ -2508,7 +2534,7 @@ export function renderAppHtml(initialState) {
         <div class="filter-block-label">
           <span id="lbl-filter-positions">4. Tipo de Posición / Área Profesional (Selecciona una o varias, o déjalo vacío para ver todas)</span>
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-            <label style="font-size:0.8em;font-weight:600;color:#334155;display:inline-flex;align-items:center;gap:4px;cursor:pointer;">
+            <label class="strict-pos-label">
               <input type="checkbox" id="chk-strict-pos" onchange="onStrictPosToggle(this.checked)">
               <span id="lbl-strict-pos">Ocultar ofertas de otras áreas</span>
             </label>
@@ -2619,14 +2645,14 @@ export function renderAppHtml(initialState) {
               <button type="button" class="btn-action btn-primary" onclick="switchMainView('results')"><span id="man-btn-back">Volver a la Página Principal</span></button>
             </div>
           </div>
-          <p id="man-p-intro" style="font-size:0.92em;color:#334155;line-height:1.6;">
-            <strong>Bolivia Remote Work</strong> es una plataforma pública, gratuita e interactiva diseñada para encontrar, filtrar y evaluar en vivo oportunidades laborales internacionales que admiten trabajo 100% remoto desde Bolivia (UTC-4), eliminando el ruido de ofertas con restricciones territoriales o visados extranjeros.
+          <p id="man-p-intro">
+            <strong>Bolivia Remote Work</strong> es una plataforma pública, gratuita e interactiva diseñada para encontrar, filtrar y evaluar en vivo oportunidades laborales internacionales que admiten trabajo 100% remoto desde Bolivia (UTC-4), eliminando el ruido de ofertas con restricciones territoriales o visados extranjeros. También puedes explorar las fuentes por tipo en <a href="#footer-categories-dropdown" id="man-link-categories" onclick="openFooterCategoriesFromManual(event)">Categorías De Plataformas</a> o consultar el directorio completo en <a href="#view-platforms" id="man-link-platforms" onclick="event.preventDefault(); switchMainView('platforms');">Plataformas Monitoreadas</a>.
           </p>
           <div class="info-callout" id="man-box-privacy">
             <strong>Privacidad Total y Sin Registros:</strong> No necesitas crear una cuenta ni ingresar datos personales. Tus filtros y preferencias se guardan de forma privada en tu propio navegador (localStorage).
           </div>
 
-          <h4 style="margin:20px 0 14px 0;color:#0f172a;font-size:1.08em;display:flex;align-items:center;gap:8px;border-bottom:1px solid #f1f5f9;padding-bottom:8px;">
+          <h4 style="margin:20px 0 14px 0;font-size:1.08em;display:flex;align-items:center;gap:8px;padding-bottom:8px;">
             Cómo Utilizar la Herramienta Paso a Paso
           </h4>
 
@@ -2680,7 +2706,7 @@ export function renderAppHtml(initialState) {
                 <li><strong>Consultoría / Asesoría:</strong> Llamadas de asesoramiento y redes de expertos internacionales.</li>
               </ul>
               <div class="guide-tip">
-                Haz clic en el enlace <strong>"Todos"</strong> para seleccionar simultáneamente todas las modalidades disponibles. También puedes explorar las fuentes por tipo en <a href="#footer-categories-dropdown" id="man-link-categories" onclick="openFooterCategoriesFromManual(event)">Categorías De Plataformas</a> o consultar el directorio completo en <a href="#view-platforms" id="man-link-platforms" onclick="event.preventDefault(); switchMainView('platforms');">Plataformas Monitoreadas</a>.
+                Haz clic en el enlace <strong>"Todos"</strong> para seleccionar simultáneamente todas las modalidades disponibles.
               </div>
             </div>
           </div>

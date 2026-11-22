@@ -60,7 +60,16 @@ async function runTests() {
   assert.ok(/#navbar a#nav-manual\s*\{[\s\S]*?background:\s*#f1f5f9;/.test(html), 'Manual de Uso must share the same light-mode background color (#f1f5f9) as Aviso');
   assert.ok(/body\.dark-mode #navbar a#nav-manual\s*\{[\s\S]*?background:\s*#131d2e;/.test(html), 'Manual de Uso must share the same dark-mode background color (#131d2e) as Aviso');
   assert.ok(navListHtml.includes('id="nav-hdr-creator">Sobre el creador</span>') && navListHtml.includes('onclick="toggleCreatorMenu()"'), 'Hamburger menu must include collapsible Sobre el creador section');
-  assert.ok(navListHtml.includes('id="nav-creator-desc"') && navListHtml.includes('https://minkalab.net') && navListHtml.includes('mailto:contact@tsimon.me') && navListHtml.includes('https://tsimon.me'), 'Sobre el creador must describe Minka Lab and include minkalab.net and creator contact/site links');
+  assert.ok(
+    navListHtml.includes('id="nav-creator-desc"') &&
+    navListHtml.includes('https://minkalab.net') &&
+    navListHtml.includes('mailto:contact@tsimon.me') &&
+    navListHtml.includes('https://tsimon.me') &&
+    navListHtml.includes('https://www.facebook.com/thomas.mathieu.simon') &&
+    navListHtml.includes('https://www.linkedin.com/in/tsimonfreelance/') &&
+    navListHtml.includes('https://github.com/t0m-a'),
+    'Sobre el creador must describe Minka Lab and include minkalab.net, contact/site, Facebook, LinkedIn, and GitHub links'
+  );
   assert.ok(/#sidebar-unfold-btn\s*\{[\s\S]*?border:\s*1px solid #10b981;[\s\S]*?background:\s*#ecfdf5;[\s\S]*?color:\s*#065f46;/.test(html), 'Información Utiles button must use the .bolivia-only-label green highlight design');
   assert.ok(!html.includes('Exporta tus Resultados y Sincroniza en Segundo Plano') && !html.includes('<!-- PASO 9 -->'), 'User Manual must remove section 9');
   const manualStartIdx = html.indexOf('<section id="view-manual"');
@@ -71,12 +80,16 @@ async function runTests() {
     !manualHtml.includes('Ver Resultados en Vivo'),
     'Manual de Uso back button must say Volver a la Página Principal'
   );
+  const manualIntroStart = manualHtml.indexOf('<p id="man-p-intro"');
+  const manualIntroEnd = manualHtml.indexOf('</p>', manualIntroStart);
+  const manualIntroHtml = manualHtml.slice(manualIntroStart, manualIntroEnd);
   assert.ok(
-    manualHtml.includes('id="man-link-categories"') &&
-    manualHtml.includes('Categorías De Plataformas</a>') &&
-    manualHtml.includes('id="man-link-platforms"') &&
-    manualHtml.includes('Plataformas Monitoreadas</a>'),
-    'Manual de Uso section 3 must include links to Categorías De Plataformas and Plataformas Monitoreadas'
+    manualIntroHtml.includes('territoriales o visados extranjeros. También puedes explorar las fuentes por tipo en') &&
+    manualIntroHtml.includes('id="man-link-categories"') &&
+    manualIntroHtml.includes('Categorías De Plataformas</a>') &&
+    manualIntroHtml.includes('id="man-link-platforms"') &&
+    manualIntroHtml.includes('Plataformas Monitoreadas</a>'),
+    'Manual de Uso intro paragraph must include links to Categorías De Plataformas and Plataformas Monitoreadas right after territoriales o visados extranjeros.'
   );
   assert.ok(!manualHtml.includes('BLOQUEADAS PAÍS (GEO)'), 'Manual de Uso section 6 must remove BLOQUEADAS PAÍS (GEO)');
   assert.ok(
@@ -87,6 +100,16 @@ async function runTests() {
     'User Manual section 8 must explain Más información con IA and Buscar con IA and reference Borrar búsqueda instead of Limpiar Vector'
   );
   assert.ok(!html.includes('body.view-manual-active footer'), 'Manual de Uso page must keep the same footer visible as the main page');
+  assert.ok(
+    html.includes('class="strict-pos-label"') &&
+    /body\.dark-mode \.strict-pos-label\s*\{[\s\S]*?color:\s*#94a3b8;/.test(html),
+    'Ocultar ofertas de otras áreas must use clear light muted color (#94a3b8) in dark mode'
+  );
+  assert.ok(
+    manualHtml.includes('<p id="man-p-intro">') &&
+    /body\.dark-mode #man-p-intro,\s*body\.dark-mode \.guide-step-body\s*\{[\s\S]*?color:\s*#cbd5e1;/.test(html),
+    'Manual de Uso intro paragraph must share the same dark-mode text color (#cbd5e1) as .guide-step-body'
+  );
   assert.ok(!html.includes('id="tab-view-platforms"'), 'Must move Monitored Platforms button out of toolbar into Information menu');
   assert.ok(/<section class="toolbar">[\s\S]*?id="tab-view-results"[\s\S]*?class="btn-tab btn-tab-scan" id="btn-scan-now"/.test(html), 'Scan Offers Now button must replace Monitored Platforms in toolbar with green btn-tab styling');
   assert.ok(html.includes('id="btn-v-all">Todas las Elegibles</button>'), 'Spanish toolbar filter must say Todas las Elegibles');
