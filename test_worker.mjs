@@ -221,8 +221,9 @@ async function runTests() {
   assert.ok(
     /@keyframes boliviaHamburgerCycleLight\s*\{[\s\S]*?#ef4444[\s\S]*?#eab308[\s\S]*?#10b981/.test(html) &&
     /@keyframes boliviaHamburgerCycleDark\s*\{[\s\S]*?#ef4444[\s\S]*?#facc15[\s\S]*?#10b981/.test(html) &&
-    /@media only screen and \(max-width: 820px\)[\s\S]*?animation:\s*boliviaHamburgerCycleLight 5\.4s ease-in-out infinite;/.test(html),
-    'Mobile/lower-resolution hamburger icon must cycle briskly red -> vivid yellow -> green in harmonized button tones'
+    /#sidebar-unfold-btn\s*\{[\s\S]*?animation:\s*boliviaHamburgerCycleLight 5\.4s ease-in-out infinite;/.test(html) &&
+    /body\.dark-mode #sidebar-unfold-btn\s*\{[\s\S]*?animation:\s*boliviaHamburgerCycleDark 5\.4s ease-in-out infinite;/.test(html),
+    'Información Útil hamburger button must cycle red -> vivid yellow -> green in harmonized button tones on both desktop and mobile (light and dark modes)'
   );
   assert.ok(html.includes('<body class="sidebar-collapsed">'), 'Navbar must start folded in hamburger menu by default');
   assert.ok(/<div class="navbar-header">[\s\S]*?id="nav-brand-title">Bolivia Remote Work<\/span>[\s\S]*?id="sidebar-unfold-btn"[\s\S]*?<span class="hamburger-label" id="lbl-unfold-nav">Información Útil<\/span>[\s\S]*?<span class="hamburger-icon">/.test(html), 'Hamburger button must be inside navbar-header on the right with Información Útil on the left of hamburger icon');

@@ -198,7 +198,9 @@ export function renderAppHtml(initialState) {
       line-height: 1.35;
       cursor: pointer;
       flex-shrink: 0;
-      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+      touch-action: manipulation;
+      animation: boliviaHamburgerCycleLight 5.4s ease-in-out infinite;
+      transition: filter 0.15s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     }
     .hamburger-label {
       display: inline-block;
@@ -209,6 +211,7 @@ export function renderAppHtml(initialState) {
       background: #d1fae5;
       border-color: #059669;
       color: #064e3b;
+      filter: brightness(0.95);
     }
     .hamburger-icon {
       display: inline-flex;
@@ -1872,12 +1875,14 @@ export function renderAppHtml(initialState) {
       background: #064e3b;
       color: #a7f3d0;
       border-color: #10b981;
+      animation: boliviaHamburgerCycleDark 5.4s ease-in-out infinite;
     }
     body.dark-mode .sidebar-fold-btn:hover,
     body.dark-mode #sidebar-unfold-btn:hover {
       background: #047857;
       color: #ffffff;
       border-color: #34d399;
+      filter: brightness(1.12);
     }
     body.dark-mode #navbar ul {
       background: #0f172a;
@@ -2389,11 +2394,6 @@ export function renderAppHtml(initialState) {
         width: 36px;
         padding: 0;
         gap: 0;
-        animation: boliviaHamburgerCycleLight 5.4s ease-in-out infinite;
-      }
-      body.dark-mode .sidebar-fold-btn,
-      body.dark-mode #sidebar-unfold-btn {
-        animation: boliviaHamburgerCycleDark 5.4s ease-in-out infinite;
       }
       .hamburger-label {
         display: none;
