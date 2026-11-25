@@ -1806,6 +1806,58 @@ export function renderAppHtml(initialState, options = {}) {
       border-left-color: #f59e0b;
       color: #92400e;
     }
+    .manual-memory-showcase {
+      margin: 16px 0 6px 0;
+      padding: 16px 18px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #f0f9ff 0%, #f0fdfa 100%);
+      border: 1px solid #bae6fd;
+      border-left: 4px solid #0284c7;
+    }
+    .manual-memory-showcase h4 {
+      margin: 0 0 8px 0;
+      font-size: 1.04em;
+      color: #0f172a;
+    }
+    .manual-memory-lead {
+      margin: 0 0 12px 0;
+      font-size: 0.89em;
+      line-height: 1.55;
+      color: #334155;
+    }
+    .manual-memory-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    @media (max-width: 820px) {
+      .manual-memory-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .manual-memory-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 0.85em;
+      line-height: 1.5;
+      color: #334155;
+    }
+    .manual-memory-card strong {
+      display: block;
+      margin-bottom: 5px;
+      color: #0369a1;
+      font-size: 0.96em;
+    }
+    .manual-memory-footnote {
+      margin: 0;
+      font-size: 0.82em;
+      line-height: 1.45;
+      color: #0f766e;
+      font-weight: 600;
+    }
 
     footer {
       margin-top: 40px;
@@ -2545,6 +2597,28 @@ export function renderAppHtml(initialState, options = {}) {
       color: #a7f3d0;
       border-left-color: #10b981;
     }
+    body.dark-mode .manual-memory-showcase {
+      background: linear-gradient(135deg, #0c1f33 0%, #0b2729 100%);
+      border-color: #1e3a5f;
+      border-left-color: #38bdf8;
+    }
+    body.dark-mode .manual-memory-showcase h4 {
+      color: #f8fafc;
+    }
+    body.dark-mode .manual-memory-lead {
+      color: #cbd5e1;
+    }
+    body.dark-mode .manual-memory-card {
+      background: #0f172a;
+      border-color: #1e293b;
+      color: #cbd5e1;
+    }
+    body.dark-mode .manual-memory-card strong {
+      color: #38bdf8;
+    }
+    body.dark-mode .manual-memory-footnote {
+      color: #5eead4;
+    }
     body.dark-mode footer {
       border-top-color: #1e293b;
     }
@@ -3243,7 +3317,31 @@ export function renderAppHtml(initialState, options = {}) {
             <strong>Bolivia Remote Work</strong> es una plataforma pública, gratuita e interactiva diseñada para encontrar, filtrar y evaluar en vivo oportunidades laborales internacionales que admiten trabajo 100% remoto desde Bolivia (UTC-4), eliminando el ruido de ofertas con restricciones territoriales o visados extranjeros. Puedes verificar las fuentes por tipo en <a href="#footer-categories-dropdown" id="man-link-categories" onclick="openFooterCategoriesFromManual(event)">Categorías De Plataformas</a> o consultar el directorio completo en <a href="#view-platforms" id="man-link-platforms" onclick="event.preventDefault(); switchMainView('platforms');">Plataformas Monitoreadas</a>.
           </p>
           <div class="info-callout" id="man-box-privacy">
-            <strong>Privacidad Total y Sin Registros:</strong> No necesitas crear una cuenta ni ingresar datos personales. Tus filtros y preferencias se guardan de forma privada en tu propio navegador (localStorage).
+            <strong>Privacidad Total y Sin Registros:</strong> No necesitas crear una cuenta ni ingresar datos personales. Tus filtros se guardan solo en tu navegador (localStorage) y cualquier dato privado escrito en una búsqueda se limpia automáticamente en memoria antes de procesarse.
+          </div>
+
+          <div class="manual-memory-showcase" id="man-box-ai-memory">
+            <h4>¿Qué hace única a esta plataforma? IA con Memoria en Capas</h4>
+            <p class="manual-memory-lead">
+              La mayoría de bolsas de empleo solo copian enlaces y olvidan todo al día siguiente. <strong>Bolivia Remote Work</strong> combina Inteligencia Artificial con una <strong>arquitectura de memoria en 3 capas</strong> diseñada específicamente para quienes trabajan remoto desde Bolivia:
+            </p>
+            <div class="manual-memory-grid">
+              <div class="manual-memory-card">
+                <strong>1. Memoria Histórica de Vacantes</strong>
+                Recuerda cuándo apareció cada oferta y detecta si una empresa la vuelve a publicar repetidamente sin contratar. Así te alerta sobre posibles <em>vacantes fantasma</em> y destaca lo recién publicado (<em>Nueva hoy</em>).
+              </div>
+              <div class="manual-memory-card">
+                <strong>2. Memoria de Empresas y Cobros en Bolivia</strong>
+                Conserva información verificada sobre las 86 plataformas y empresas contratantes: canales de cobro útiles en Bolivia (<em>AirTM, Payoneer, Deel, Tipalti, USDC</em>), advertencias locales, modalidad independiente (<em>W-8BEN</em>) y guías prácticas para <em>UTC-4</em>.
+              </div>
+              <div class="manual-memory-card">
+                <strong>3. Memoria Semántica e IA de Búsqueda</strong>
+                Entiende lo que buscas en español o inglés —incluso sin tildes o con errores de tipeo— combinando búsqueda exacta, significado real y reordenamiento inteligente con IA para mostrarte primero las mejores opciones.
+              </div>
+            </div>
+            <p class="manual-memory-footnote">
+              En resumen: nuestra memoria recuerda el mercado laboral para ahorrarte tiempo y evitar frustraciones, pero nunca almacena tus datos personales ni tu historial.
+            </p>
           </div>
 
           <h4 style="margin:20px 0 14px 0;font-size:1.08em;display:flex;align-items:center;gap:8px;padding-bottom:8px;">
@@ -3279,7 +3377,7 @@ export function renderAppHtml(initialState, options = {}) {
                 <li><strong>Inicial / Sin Experiencia (0-1 años):</strong> Puestos de entrada, pasantías y roles de entrenamiento.</li>
                 <li><strong>Junior (1-2 años):</strong> Roles iniciales con supervisión mínima.</li>
                 <li><strong>Semi-Senior / Mid (3-5 años):</strong> Profesionales autónomos con experiencia demostrada.</li>
-                <li><strong>Senior (5+ años) &amp; Lead (8+ años):</strong> Especialistas, líderes técnicos y directores de área.</li>
+                <li><strong>Senior (5+ años) y Management (8+ años):</strong> Especialistas, líderes técnicos y directores de área.</li>
               </ul>
             </div>
           </div>
@@ -3350,7 +3448,7 @@ export function renderAppHtml(initialState, options = {}) {
                 <li><strong style="color:#475569;">BAJA COINCIDENCIA (&lt; 58):</strong> Ofertas remotas válidas pero fuera de tus áreas o preferencias actuales.</li>
               </ul>
               <div class="guide-tip">
-                Usa los botones del semáforo en la barra de herramientas para ver solo vacantes de <strong>Postular</strong> o <strong>Explorar</strong>, o escribe en la barra de búsqueda para filtrar por empresa o cargo al instante.
+                Además del puntaje, cada tarjeta muestra etiquetas rápidas de nuestra memoria: <strong>Cobro verificado</strong> (canales compatibles en Bolivia), avisos de precaución local, <strong>Nueva hoy</strong> o alertas de <strong>Re-publicada</strong> para identificar vacantes fantasma. Usa los botones del semáforo para ver solo <strong>Postular</strong> o <strong>Explorar</strong>.
               </div>
             </div>
           </div>
@@ -3362,7 +3460,7 @@ export function renderAppHtml(initialState, options = {}) {
               <h5 class="guide-step-title">Postula Directamente a la Fuente Original</h5>
             </div>
             <div class="guide-step-body">
-              En cada tarjeta de oferta, haz clic en el botón azul <strong>"Ver Oferta y Postular"</strong> para abrir directamente la página oficial de la empresa o bolsa de trabajo contratante, sin registros intermedios ni cobro de comisiones.
+              En cada tarjeta de oferta, haz clic en el botón azul <strong>"Ver Oferta y Postular"</strong> para abrir directamente la página oficial de la empresa o bolsa de trabajo contratante, sin registros intermedios ni cobro de comisiones. Antes de firmar un contrato internacional, también puedes consultar la <strong>Guía Legal y Fiscal (EE. UU. y Bolivia)</strong> dentro del menú <strong>Información Útil</strong>.
             </div>
           </div>
 
@@ -3373,10 +3471,10 @@ export function renderAppHtml(initialState, options = {}) {
               <h5 class="guide-step-title">Aprovecha "Más información con IA" y "Buscar con IA"</h5>
             </div>
             <div class="guide-step-body">
-              La plataforma integra dos herramientas de inteligencia artificial pensadas para ahorrar tiempo y mejorar tus postulaciones desde Bolivia:
+              Aquí es donde nuestra IA conectada a la memoria en capas marca la mayor diferencia frente a cualquier bolsa tradicional:
               <ul>
-                <li><strong>Más información con IA (en cada tarjeta de oferta):</strong> Haz clic en el botón <strong>"Más información con IA"</strong> para desplegar justo debajo de la vacante un análisis detallado generado con Cloudflare Workers AI. Te muestra un resumen claro de la posición, los <em>Requisitos de la posición</em>, la <em>Experiencia y habilidades útiles</em>, la <em>Compatibilidad horaria con Bolivia (UTC-4)</em> y <em>Consejos para el candidato</em>. El panel se cierra automáticamente al desplazarte fuera de su área o al pulsar <code>&times;</code>.</li>
-                <li><strong>Buscar con IA (en la barra de herramientas):</strong> Realiza una búsqueda semántica vectorial multilingüe sobre todas las ofertas 100% remotas para Bolivia. Escribe en lenguaje natural lo que buscas (por ejemplo: <em>"soporte al cliente bilingüe"</em>, <em>"desarrollador Python remoto"</em> o <em>"asistente contable"</em>) y pulsa <strong>"Buscar con IA"</strong> para ordenar las vacantes por afinidad semántica y relevancia. Puedes volver a la lista normal en cualquier momento con el botón <strong>"Borrar búsqueda"</strong> o cambiando cualquier filtro.</li>
+                <li><strong>Más información con IA (en cada tarjeta de oferta):</strong> Haz clic en <strong>"Más información con IA"</strong> para abrir justo debajo de la vacante un análisis fundamentado con IA y memoria de Bolivia. Te muestra un resumen claro y 5 bloques prácticos: <em>Requisitos de la posición</em>, <em>Experiencia y habilidades útiles</em>, <em>Compatibilidad horaria con Bolivia (UTC-4)</em>, <em>Consejos para el candidato</em> y <strong>Realidad desde Bolivia: Contrato, Cobro e Historial</strong> (canales de cobro conocidos, modalidad W-8BEN/EOR, advertencias locales e historial de re-publicaciones). El panel se cierra automáticamente al desplazarte fuera de su área o al pulsar <code>&times;</code>.</li>
+                <li><strong>Buscar con IA (en la barra de herramientas):</strong> Combina búsqueda exacta, comprensión semántica bilingüe (español/inglés, sin tildes y tolerante a errores de tipeo) y reordenamiento inteligente con IA sobre todas las vacantes 100% remotas para Bolivia. Escribe en lenguaje natural (por ejemplo: <em>"soporte al cliente bilingüe"</em>, <em>"desarrollador Python remoto"</em> o <em>"asistente contable"</em>) y pulsa <strong>"Buscar con IA"</strong>. Puedes volver a la lista normal en cualquier momento con el botón <strong>"Borrar búsqueda"</strong> o cambiando cualquier filtro.</li>
               </ul>
             </div>
           </div>
