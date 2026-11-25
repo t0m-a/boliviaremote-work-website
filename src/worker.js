@@ -359,6 +359,18 @@ export default {
       });
     }
 
+    // 1a. Dedicated Spanish Legal & Tax Guide Page (Bolivia Remote Independent Contractors)
+    if (request.method === 'GET' && (path === '/guia-legal-fiscal' || path === '/guia-legal-fiscal/' || path === '/legal-fiscal' || path === '/legal-fiscal/')) {
+      const html = renderAppHtml(state, { initialView: 'legal-tax' });
+      return new Response(html, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0'
+        }
+      });
+    }
+
     // 1b. Favicon Endpoints (Earth with Bolivian flag colors)
     if (request.method === 'GET' && (path === '/favicon.ico' || path === '/favicon.svg' || path === '/favicon.png')) {
       return new Response(FAVICON_SVG, {
@@ -385,6 +397,14 @@ export default {
     <lastmod>${lastModDate}</lastmod>
     <changefreq>hourly</changefreq>
     <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://boliviaremote.work/guia-legal-fiscal</loc>
+    <xhtml:link rel="alternate" hreflang="es-BO" href="https://boliviaremote.work/guia-legal-fiscal" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://boliviaremote.work/guia-legal-fiscal" />
+    <lastmod>${lastModDate}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://boliviaremote.work/api/results.md?lang=es</loc>

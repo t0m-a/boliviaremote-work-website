@@ -30,7 +30,7 @@
    - [Paso 3: Garantía de elegibilidad 100% Remoto desde Bolivia](#paso-3-garantía-de-elegibilidad-100-remoto-desde-bolivia)
    - [Paso 4: Semáforo de calificación, "Más información con IA" y "Buscar con IA"](#paso-4-semáforo-de-calificación-más-información-con-ia-y-buscar-con-ia)
    - [Paso 5: Escanear y evaluar URLs de plataformas personalizadas](#paso-5-escanear-y-evaluar-urls-de-plataformas-personalizadas)
-   - [Paso 6: Sección interactiva "Guía del Usuario: Bolivia Remote Work"](#paso-6-sección-interactiva-guía-del-usuario-bolivia-remote-work)
+   - [Paso 6: Guías integradas ("Guía del Usuario" y "Guía Legal y Fiscal")](#paso-6-guías-integradas-guía-del-usuario-y-guía-legal-y-fiscal)
 3. [Cómo Funciona la Arquitectura Interna](#cómo-funciona-la-arquitectura-interna)
    - [Diagrama de flujo del sistema](#diagrama-de-flujo-del-sistema)
    - [Motor de calificación y rúbrica dinámica de 100 puntos](#motor-de-calificación-y-rúbrica-dinámica-de-100-puntos)
@@ -56,7 +56,7 @@ Esta herramienta es una **solución pública y gratuita** en **Español (Bolivia
 ### Principales Características y Novedades (v5.8)
 
 - **Interfaz 100% Español (Bolivia) y Diseño Responsivo:** Barra superior fija con efecto translúcido difuminado al hacer scroll, tarjetas de oferta con animación bidireccional suave, adaptación fluida a escritorio, tabletas (`<= 1200px`, `<= 820px`) y celulares (`<= 640px`), respuesta inmediata en pantallas táctiles para filtros y desplegables, botón flotante translúcido **Arriba** acoplado ordenadamente sobre el pie de página en móvil, grillas KPI balanceadas de 3 tarjetas (`POSTULAR`, `EXPLORAR`, `BAJA COINCIDENCIA`) y cierre automático suave al retirar el puntero o desplazar los menús fuera de vista.
-- **Menú Hamburguesa `Información Útil` con Colores Rotativos y Modo Claro/Oscuro:** La barra superior muestra el título **Bolivia Remote Work** a la izquierda y, a la derecha, el selector discreto de modo claro/oscuro junto al botón **Información Útil** con transición continua de colores patrios (**rojo → amarillo → verde**) en modo claro y oscuro tanto en escritorio como en móvil (con cierre automático y repliegue de subsecciones). Incluye: **Guía del Usuario: Bolivia Remote Work**, **Información Financiera y de Pago** (AirTM, Wise, Payoneer, Tipalti y Dólar Bolivia Hoy) y **Sobre el creador** (proyecto comunitario **Minka Lab** dedicado a la educación digital, las competencias en IA y el aprendizaje de idiomas en [minkalab.net](https://minkalab.net) con enlaces de contacto). En el pie de página unificado de todas las vistas se integran las cápsulas interactivas de **Categorías De Plataformas** y **Plataformas Monitoreadas** junto al estado de sincronización.
+- **Menú Hamburguesa `Información Útil` con Colores Rotativos y Modo Claro/Oscuro:** La barra superior muestra el título **Bolivia Remote Work** a la izquierda y, a la derecha, el selector discreto de modo claro/oscuro junto al botón **Información Útil** con transición continua de colores patrios (**rojo → amarillo → verde**) en modo claro y oscuro tanto en escritorio como en móvil (con cierre automático y repliegue de subsecciones). Incluye: **Guía del Usuario: Bolivia Remote Work**, **Guía Legal y Fiscal (EE. UU. y Bolivia)** (página dedicada también accesible en `/guia-legal-fiscal` con normativa verificada para contratistas remotos independientes sobre IRC § 862(a)(3), Formularios W-8BEN/W-8BEN-E, visas B-1/B-2, SIN/NIT/SIAT, RC-IVA Form. 610 bajo Ley N° 1448 / DS N° 4850, Gestora Pública y cláusulas contractuales), **Información Financiera y de Pago** (AirTM, Wise, Payoneer, Tipalti y Dólar Bolivia Hoy) y **Sobre el creador** (proyecto comunitario **Minka Lab** dedicado a la educación digital, las competencias en IA y el aprendizaje de idiomas en [minkalab.net](https://minkalab.net) con enlaces de contacto). En el pie de página unificado de todas las vistas se integran las cápsulas interactivas de **Categorías De Plataformas** y **Plataformas Monitoreadas** junto al estado de sincronización.
 - **Filtro Estricto de Idiomas (`Español` e `Inglés`):** Por defecto inicia con **Español** seleccionado. Soporta tres modos simétricos con refresco inmediato de resultados y tarjetas KPI:
   - **Solo Español:** Muestra y prioriza únicamente vacantes compatibles con español, descartando ofertas exclusivas en inglés.
   - **Solo Inglés:** Muestra y prioriza únicamente vacantes compatibles con inglés, descartando ofertas exclusivas en español.
@@ -99,8 +99,9 @@ Al abrir el portal, la aplicación carga completamente en **Español (Bolivia)**
 - En la esquina superior derecha tienes el botón discreto de **Modo Claro / Modo Oscuro** junto al botón animado **Información Útil** (que rota suavemente en rojo, amarillo y verde tanto en escritorio como en móvil, se cierra automáticamente al retirar el puntero o tocar fuera, y repliega todas sus subsecciones).
 - Dentro de **Información Útil** encontrarás:
   1. **Guía del Usuario: Bolivia Remote Work** (manual interactivo paso a paso dentro de la propia plataforma).
-  2. **Información Financiera y de Pago** (plataformas de cobro internacional: AirTM, Wise, Payoneer, Tipalti y Dólar Bolivia Hoy).
-  3. **Sobre el creador** (descripción del proyecto comunitario **Minka Lab** dedicado a la educación digital, las competencias en IA y el aprendizaje de idiomas en [minkalab.net](https://minkalab.net) y enlaces de contacto).
+  2. **Guía Legal y Fiscal (EE. UU. y Bolivia)** (página dedicada accesible también en `/guia-legal-fiscal` con información legal, tributaria y migratoria verificada para contratistas independientes remotos desde Bolivia que trabajan con clientes en EE. UU.).
+  3. **Información Financiera y de Pago** (plataformas de cobro internacional: AirTM, Wise, Payoneer, Tipalti y Dólar Bolivia Hoy).
+  4. **Sobre el creador** (descripción del proyecto comunitario **Minka Lab** dedicado a la educación digital, las competencias en IA y el aprendizaje de idiomas en [minkalab.net](https://minkalab.net) y enlaces de contacto).
 - En el **pie de página** de todas las vistas encontrarás las cápsulas interactivas **Categorías De Plataformas** (acceso por categoría de fuente) y **Plataformas Monitoreadas** (directorio completo de las 86 fuentes), junto al estado de ejecución y última sincronización.
 
 ---
@@ -178,9 +179,11 @@ Al final de la página encontrarás el panel **"Agregar y Escanear tu Propia URL
 
 ---
 
-### Paso 6: Sección interactiva "Guía del Usuario: Bolivia Remote Work"
+### Paso 6: Guías integradas ("Guía del Usuario" y "Guía Legal y Fiscal")
 
-Desde **Información Útil → Guía del Usuario: Bolivia Remote Work** accedes a la guía de 8 pasos integrada dentro de la propia aplicación (con enlaces directos a **Categorías De Plataformas** y **Plataformas Monitoreadas**), cubriendo configuración de idiomas (`Español` / `Inglés`), experiencia, contratos, áreas profesionales, filtro automático 100% remoto desde Bolivia, interpretación del semáforo, postulación directa y uso de **"Más información con IA"** junto con **"Buscar con IA"** y **"Borrar búsqueda"**.
+Desde el menú **Información Útil** accedes a dos páginas integradas dentro de la propia aplicación:
+- **Guía del Usuario: Bolivia Remote Work:** Guía interactiva de 8 pasos (con enlaces directos a **Categorías De Plataformas** y **Plataformas Monitoreadas**) que cubre configuración de idiomas (`Español` / `Inglés`), experiencia, contratos, áreas profesionales, filtro automático 100% remoto desde Bolivia, interpretación del semáforo, postulación directa y uso de **"Más información con IA"** junto con **"Buscar con IA"** y **"Borrar búsqueda"**.
+- **Guía Legal y Fiscal (EE. UU. y Bolivia)** (`/guia-legal-fiscal` y versión Markdown en [`docs/guia-legal-fiscal-contratistas-bolivia.md`](docs/guia-legal-fiscal-contratistas-bolivia.md)): Referencia verificada y enfocada exclusivamente en **contratistas independientes remotos desde Bolivia** que prestan servicios a clientes estadounidenses desde fuera de EE. UU. (regla de fuente extranjera `26 U.S.C. § 862(a)(3)`, llenado de Formularios `W-8BEN`/`W-8BEN-E`, ausencia de tratado EE. UU.–Bolivia, visas B-1/B-2 ante la Embajada en La Paz, obligaciones locales en el SIN/SIAT —exportación de servicios exenta de IVA y RC-IVA trimestral Form. 610 bajo Ley N° 1448 y DS N° 4850—, aportes voluntarios a la Gestora Pública y cláusulas contractuales clave).
 
 ---
 
@@ -332,7 +335,7 @@ Puedes alojar tu propia instancia en Cloudflare en menos de 5 minutos utilizando
    npm run build-html && npm test
    ```
    *Ejecuta 8 grupos de prueba automáticos que validan:*
-   - Interfaz web en Español (Bolivia), menú **Información Útil**, auto-cierre suave de desplegables, botón **Arriba**, modo oscuro, panel contextual `#ai-position-details` y ejecución real en sandbox VM del cambio en vivo de idiomas (`Solo Español`, `Ambos`, `Solo Inglés`).
+   - Interfaz web en Español (Bolivia), menú **Información Útil**, página dedicada **Guía Legal y Fiscal** (`/guia-legal-fiscal`), auto-cierre suave de desplegables, botón **Arriba**, modo oscuro, panel contextual `#ai-position-details` y ejecución real en sandbox VM del cambio en vivo de vistas e idiomas (`Solo Español`, `Ambos`, `Solo Inglés`).
    - Estado general del servicio con 86 plataformas monitoreadas y garantía de elegibilidad 100% remota desde Bolivia.
    - Evaluación simétrica de idiomas (`['es']`, `['en']`, `['es', 'en']` y respaldo limpio de valores heredados).
    - Cobertura de las 25 categorías profesionales y filtro estricto de área (`strict_position_match`).
@@ -386,6 +389,7 @@ El worker expone endpoints HTTP estándar para integraciones externas:
 | Método | Ruta | Parámetros / Cuerpo | Descripción |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/` | Ninguno | Retorna la aplicación web interactiva completa en Español (Bolivia) (HTML5/CSS3/JS). |
+| `GET` | `/guia-legal-fiscal` (`/legal-fiscal`) | Ninguno | Retorna renderizada desde servidor (SSR) la página dedicada **Guía Legal y Fiscal (EE. UU. y Bolivia)** para contratistas independientes remotos desde Bolivia ([`src/legal_tax_guide.js`](src/legal_tax_guide.js)). |
 | `GET` | `/api/state` | Ninguno | Retorna el listado completo de plataformas registradas y ofertas 100% elegibles para Bolivia en JSON. |
 | `POST` | `/api/evaluate` | JSON `{ filters: { languages, position_types, experience_levels, contract_types, strict_position_match } }` | Evalúa dinámicamente el catálogo frente a los filtros provistos (`languages`: `["es"]`, `["en"]` o `["es","en"]`) y retorna las ofertas ordenadas con sus puntajes. |
 | `POST` | `/api/scan` | JSON opcional `{ track, platform }` | Ejecuta un escaneo de actualización bajo demanda sobre las plataformas monitoreadas. |

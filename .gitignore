@@ -1,0 +1,6 @@
+node_modules/
+.wrangler/
+
+# Internal English draft and audit notes (Spanish guide is tracked and integrated)
+docs/bolivia-remote-contractor-legal-tax-guide.md
+docs/source-audit-and-review.md

@@ -50,15 +50,31 @@ async function runTests() {
   const navListEnd = html.indexOf('</ul>', navListStart);
   const navListHtml = html.slice(navListStart, navListEnd);
   const idxManual = navListHtml.indexOf('id="nav-manual"');
+  const idxLegalTax = navListHtml.indexOf('id="nav-legal-tax"');
   const idxPayments = navListHtml.indexOf('id="nav-hdr-payments-item"');
   const idxCreator = navListHtml.indexOf('id="nav-hdr-creator-item"');
   assert.ok(!navListHtml.includes('id="nav-results"'), 'Must remove Live Results item from Information hamburger menu');
   assert.ok(!navListHtml.includes('id="nav-hdr-tracks-item"'), 'Must move Categorías De Plataformas out of Información Útil menu');
   assert.ok(!navListHtml.includes('id="nav-platforms"'), 'Must move Plataformas Monitoreadas out of Información Útil menu');
   assert.ok(
-    idxManual > -1 && idxManual < idxPayments && idxPayments < idxCreator,
-    'Hamburger menu order must be: 1. Guía del Usuario: Bolivia Remote Work, 2. Información Financiera y de Pago, 3. Sobre el creador'
+    idxManual > -1 && idxLegalTax > idxManual && idxLegalTax < idxPayments && idxPayments < idxCreator,
+    'Hamburger menu order must be: 1. Guía del Usuario, 2. Guía Legal y Fiscal (EE. UU. y Bolivia), 3. Información Financiera y de Pago, 4. Sobre el creador'
   );
+  assert.ok(
+    navListHtml.includes('id="nav-lbl-legal-tax">Guía Legal y Fiscal (EE. UU. y Bolivia)</span>') &&
+    navListHtml.includes('href="/guia-legal-fiscal"'),
+    'Hamburger menu must link to Guía Legal y Fiscal (EE. UU. y Bolivia) at /guia-legal-fiscal'
+  );
+  assert.ok(html.includes('<section id="view-legal-tax"'), 'Must include dedicated #view-legal-tax section');
+  assert.ok(
+    html.includes('26 U.S.C. &sect; 862(a)(3)') &&
+    html.includes('Factura Comercial de Exportación sin Derecho a Crédito Fiscal') &&
+    html.includes('Ley N° 1448') &&
+    html.includes('Embajada de EE. UU. en La Paz') &&
+    html.includes('Gestora Pública'),
+    'Legal & Tax Guide must contain verified U.S. and Bolivia contractor tax, visa, and pension guidance'
+  );
+  assert.ok(!html.includes('Form 1040-NR-EZ') || html.includes('fue eliminado en 2020'), 'Must not recommend discontinued Form 1040-NR-EZ');
   assert.ok(/#navbar a#nav-manual\s*\{[\s\S]*?background:\s*#f1f5f9;/.test(html), 'Manual de Uso must share the same light-mode background color (#f1f5f9) as Aviso');
   assert.ok(/body\.dark-mode #navbar a#nav-manual\s*\{[\s\S]*?background:\s*#131d2e;/.test(html), 'Manual de Uso must share the same dark-mode background color (#131d2e) as Aviso');
   assert.ok(navListHtml.includes('id="nav-hdr-creator">Sobre el creador</span>') && navListHtml.includes('onclick="toggleCreatorMenu()"'), 'Hamburger menu must include collapsible Sobre el creador section');
@@ -455,6 +471,24 @@ async function runTests() {
   assert.ok(domElements['resultsCardsContainer'].innerHTML.includes('class="btn-action btn-ai-info"'), 'Job card AI button must use btn-ai-info styling matching Información Utiles');
   assert.ok(domElements['resultsCardsContainer'].innerHTML.includes('Más información con IA'), 'Job card AI button must say Más información con IA');
   assert.ok(!domElements['resultsCardsContainer'].innerHTML.includes('Redactar Carta IA'), 'Job card AI button must not say Redactar Carta IA');
+  assert.equal(typeof vmSandbox.window.switchMainView, 'function', 'switchMainView must be bound on window');
+  vmSandbox.window.switchMainView('legal-tax');
+  assert.equal(domElements['view-legal-tax'].style.display, '', 'switchMainView("legal-tax") must display #view-legal-tax');
+  assert.equal(domElements['view-results'].style.display, 'none', 'switchMainView("legal-tax") must hide #view-results');
+  assert.equal(domElements['nav-legal-tax'].classList.contains('active-nav'), true, 'switchMainView("legal-tax") must highlight #nav-legal-tax');
+  vmSandbox.window.switchMainView('results');
+  assert.equal(domElements['view-legal-tax'].style.display, 'none', 'switchMainView("results") must hide #view-legal-tax');
+  assert.equal(domElements['view-results'].style.display, '', 'switchMainView("results") must restore #view-results');
+
+  console.log('1b. Testing GET /guia-legal-fiscal dedicated Spanish Legal & Tax Guide route...');
+  const respLegal = await worker.fetch(new Request('https://boliviaremote.work/guia-legal-fiscal'), {}, {});
+  assert.equal(respLegal.status, 200);
+  const legalHtml = await respLegal.text();
+  assert.ok(legalHtml.includes('<title>Guía Legal y Fiscal (EE. UU. y Bolivia) — Bolivia Remote Work</title>'), 'GET /guia-legal-fiscal must set dedicated Spanish page title');
+  assert.ok(legalHtml.includes('<body class="sidebar-collapsed view-manual-active">'), 'GET /guia-legal-fiscal must render dedicated page body class');
+  assert.ok(legalHtml.includes('<section id="view-legal-tax">'), 'GET /guia-legal-fiscal must render #view-legal-tax visible server-side');
+  assert.ok(legalHtml.includes('<section id="view-results" style="display:none;">'), 'GET /guia-legal-fiscal must hide #view-results server-side');
+
   assert.equal(typeof vmSandbox.window.toggleSidebar, 'function', 'Menu button handler toggleSidebar must be bound');
   assert.equal(typeof vmSandbox.window.foldAllNavbarSubsections, 'function', 'foldAllNavbarSubsections must be bound');
   assert.equal(typeof vmSandbox.window.closeNavbarMenu, 'function', 'closeNavbarMenu must be bound');
@@ -1163,6 +1197,7 @@ async function runTests() {
   const sitemapText = await respSitemap.text();
   assert.ok(sitemapText.includes('<urlset'), 'sitemap.xml must include <urlset');
   assert.ok(sitemapText.includes('https://boliviaremote.work/'), 'sitemap.xml must include canonical domain');
+  assert.ok(sitemapText.includes('https://boliviaremote.work/guia-legal-fiscal'), 'sitemap.xml must include /guia-legal-fiscal guide URL');
 
   const respRobots = await worker.fetch(new Request('https://boliviaremote.work/robots.txt'), {}, {});
   assert.equal(respRobots.status, 200);
@@ -1188,6 +1223,7 @@ async function runTests() {
     'src/vector_store.js',
     'src/mcp.js',
     'src/ui.js',
+    'src/legal_tax_guide.js',
     'src/worker.js',
     'src/favicon.js'
   ];
