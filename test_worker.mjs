@@ -1217,6 +1217,7 @@ async function runTests() {
   console.log('8. Testing zero personal references across all repository files...');
   const filesToCheck = [
     'README.md',
+    'README.en.md',
     'sitemap.xml',
     'robots.txt',
     'master_profile.json',
