@@ -1410,6 +1410,12 @@ async function runTests() {
   assert.ok(html.includes('Realidad desde Bolivia: Contrato, Cobro e Historial'), 'UI must include 5th grounded Bolivia Reality card in #ai-position-details');
   assert.ok(html.includes('class="reality-pill') || html.includes('.reality-pill'), 'UI must include card-level Reality pill styles and markup');
   assert.ok(html.includes('.ghost-pill') && html.includes('.fresh-pill'), 'UI must include Ghost-Job and Freshness pill styles');
+  assert.ok(
+    /#ai-target-job-pill\s*\{[\s\S]*?width:\s*fit-content;[\s\S]*?max-width:\s*100%;[\s\S]*?border-radius:\s*8px;/.test(html) &&
+    /@media only screen and \(max-width: 820px\)[\s\S]*?#ai-target-job-pill\s*\{[\s\S]*?width:\s*fit-content;[\s\S]*?border-radius:\s*7px;/.test(html) &&
+    !html.includes('id="ai-target-job-pill" style="display:none;font-size:0.78em;background:#e0f2fe;color:#0369a1;padding:2px 9px;border-radius:999px;'),
+    '#ai-target-job-pill must use a content-fitted rectangular frame with softly rounded edges instead of 999px capsule radius'
+  );
 
   // 9f. Isolated /mcp admin tools (upsert_employer_reality, upsert_bolivia_playbook, inspect_career_brain_status)
   const respMcpUpsertEmp = await worker.fetch(

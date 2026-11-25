@@ -1434,6 +1434,48 @@ export function renderAppHtml(initialState, options = {}) {
       border: 1px solid #cbd5e1;
       display: none;
     }
+    .ai-result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .ai-result-header-main {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 8px;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .ai-result-header-actions {
+      display: flex;
+      align-items: center;
+      flex: 0 0 auto;
+    }
+    #ai-target-job-pill {
+      display: none;
+      align-items: center;
+      width: fit-content;
+      max-width: 100%;
+      box-sizing: border-box;
+      font-size: 0.8em;
+      line-height: 1.38;
+      font-weight: 700;
+      background: #e0f2fe;
+      color: #0369a1;
+      border: 1px solid #bae6fd;
+      padding: 5px 10px;
+      border-radius: 8px;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    #ai-target-job-text {
+      display: inline;
+      min-width: 0;
+    }
     .ai-position-details {
       display: flex;
       flex-direction: column;
@@ -2363,6 +2405,11 @@ export function renderAppHtml(initialState, options = {}) {
       border-color: #334155;
       color: #cbd5e1;
     }
+    body.dark-mode #ai-target-job-pill {
+      background: #082f49;
+      color: #7dd3fc;
+      border-color: #0284c7;
+    }
     body.dark-mode .ai-position-overview,
     body.dark-mode .ai-detail-block {
       background: #1e293b;
@@ -2701,6 +2748,17 @@ export function renderAppHtml(initialState, options = {}) {
       .radar-grid {
         grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
       }
+      .ai-result-header-main {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+      }
+      #ai-target-job-pill {
+        width: fit-content;
+        max-width: 100%;
+        padding: 6px 10px;
+        border-radius: 7px;
+      }
     }
 
     @media only screen and (max-width: 640px) {
@@ -2885,6 +2943,24 @@ export function renderAppHtml(initialState, options = {}) {
       .opp-card .btn-action {
         width: 100%;
         justify-content: center;
+      }
+      .ai-result-box {
+        padding: 12px;
+      }
+      #ai-target-job-pill {
+        width: fit-content;
+        max-width: 100%;
+        padding: 6px 10px;
+        border-radius: 7px;
+        font-size: 0.79em;
+        line-height: 1.38;
+      }
+      .ai-reality-meta .reality-pill,
+      .ai-reality-meta .score-pill,
+      .ai-reality-meta .ghost-pill {
+        width: fit-content;
+        max-width: 100%;
+        border-radius: 7px;
       }
       .radar-grid {
         grid-template-columns: 1fr;
@@ -3088,14 +3164,14 @@ export function renderAppHtml(initialState, options = {}) {
     <section class="panel-card ai-cv-folded" id="ai-cv-panel">
       <div id="ai-cv-error" class="scan-alert"></div>
       <div id="ai-cv-result-box" class="ai-result-box">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <div class="ai-result-header">
+          <div class="ai-result-header-main">
             <strong style="font-size:0.95em;" id="lbl-ai-analysis-hdr">Información sobre la Posición</strong>
-            <span id="ai-target-job-pill" style="display:none;font-size:0.78em;background:#e0f2fe;color:#0369a1;padding:2px 9px;border-radius:999px;font-weight:700;">
+            <span id="ai-target-job-pill">
               <span id="ai-target-job-text"></span>
             </span>
           </div>
-          <div style="display:flex;align-items:center;gap:8px;">
+          <div class="ai-result-header-actions">
             <button type="button" class="scan-alert-close" onclick="closeAiDiagnosticPanel()" aria-label="Cerrar" title="Cerrar">&times;</button>
           </div>
         </div>
