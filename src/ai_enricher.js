@@ -1,6 +1,6 @@
 /**
  * Cloudflare Workers AI Position Enricher, Compensation Extractor & Bolivia UTC-4 Position Analyzer
- * Uses `env.AI` (@cf/meta/llama-3.1-8b-instruct-fast / @cf/meta/llama-3.1-8b-instruct)
+ * Uses `env.AI` (@cf/meta/llama-3.3-70b-instruct-fp8-fast)
  * with deterministic edge fallback when running locally or without an active Workers AI binding.
  */
 
@@ -13,8 +13,7 @@ import {
 } from './evaluator.js';
 import { stripHtml } from './scanner.js';
 
-const DEFAULT_FAST_MODEL = '@cf/meta/llama-3.1-8b-instruct-fast';
-const DEFAULT_FALLBACK_MODEL = '@cf/meta/llama-3.1-8b-instruct';
+export const WORKERS_AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 
 /**
  * Extracts USD hourly, daily, monthly, or annual compensation from raw job text.
@@ -72,6 +71,46 @@ export function buildDeterministicSummaries(item) {
 }
 
 /**
+ * Extracts a parsed JSON object from a Workers AI response (handles both stringified JSON
+ * and pre-parsed JSON object responses returned by @cf/meta/llama-3.3-70b-instruct-fp8-fast).
+ */
+function extractJsonObjectFromAiResponse(resp) {
+  if (!resp) return null;
+
+  let candidate = resp;
+  if (typeof resp === 'object' && !Array.isArray(resp)) {
+    if ('response' in resp) {
+      candidate = resp.response;
+    } else if ('result' in resp) {
+      candidate = resp.result;
+    } else if (
+      Array.isArray(resp.choices) &&
+      resp.choices[0] &&
+      resp.choices[0].message &&
+      'content' in resp.choices[0].message
+    ) {
+      candidate = resp.choices[0].message.content;
+    } else if (Object.keys(resp).length > 0) {
+      return resp;
+    } else {
+      return null;
+    }
+  }
+
+  if (!candidate) return null;
+  if (typeof candidate === 'object' && !Array.isArray(candidate)) {
+    return candidate;
+  }
+
+  const rawText = typeof candidate === 'string' ? candidate : JSON.stringify(candidate);
+  const jsonMatch = String(rawText).match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    return JSON.parse(jsonMatch[0]);
+  }
+  return null;
+}
+
+/**
  * Safely invokes Cloudflare Workers AI (`env.AI.run`) and parses JSON output.
  */
 async function runWorkersAiJson(env, messages, maxTokens = 450) {
@@ -79,26 +118,16 @@ async function runWorkersAiJson(env, messages, maxTokens = 450) {
     return null;
   }
 
-  const models = [DEFAULT_FAST_MODEL, DEFAULT_FALLBACK_MODEL];
-  for (const model of models) {
-    try {
-      const resp = await env.AI.run(model, {
-        messages,
-        max_tokens: maxTokens,
-        temperature: 0.1
-      });
-      const rawText = typeof resp === 'string'
-        ? resp
-        : (resp && (resp.response || resp.result || JSON.stringify(resp))) || '';
-      const jsonMatch = String(rawText).match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
-      }
-    } catch {
-      // Try next model or fallback
-    }
+  try {
+    const resp = await env.AI.run(WORKERS_AI_MODEL, {
+      messages,
+      max_tokens: maxTokens,
+      temperature: 0.1
+    });
+    return extractJsonObjectFromAiResponse(resp);
+  } catch {
+    return null;
   }
-  return null;
 }
 
 /**
@@ -376,7 +405,7 @@ export async function analyzePositionForBolivia(payload, opportunities, env) {
 
   return {
     ok: true,
-    ai_engine: usedWorkersAi ? DEFAULT_FAST_MODEL : 'edge-position-analyzer',
+    ai_engine: usedWorkersAi ? WORKERS_AI_MODEL : 'edge-position-analyzer',
     position: {
       job_hash: job.job_hash,
       title: titleClean,

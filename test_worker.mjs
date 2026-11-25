@@ -786,9 +786,11 @@ async function runTests() {
   assert.ok(Array.isArray(posFallbackData.candidate_advice_es) && posFallbackData.candidate_advice_es.length >= 2, 'Must return helpful candidate advice');
 
   // Test POST /api/ai/analyze-position with mocked Cloudflare Workers AI binding (`env.AI`)
+  const calledAiModels = [];
   const mockAiEnv = {
     AI: {
       async run(model, opts) {
+        calledAiModels.push(model);
         return {
           response: JSON.stringify({
             overview_es: 'Análisis IA desde Cloudflare Workers: rol remoto de arquitectura cloud con alto potencial para Bolivia.',
@@ -815,26 +817,28 @@ async function runTests() {
   assert.equal(respPosAi.status, 200);
   const posAiData = await respPosAi.json();
   assert.equal(posAiData.ok, true);
-  assert.ok(posAiData.ai_engine.includes('llama-3.1'), 'Must use Workers AI Llama model when env.AI is bound');
+  assert.deepEqual(calledAiModels, ['@cf/meta/llama-3.3-70b-instruct-fp8-fast'], 'Must invoke @cf/meta/llama-3.3-70b-instruct-fp8-fast exclusively');
+  assert.equal(posAiData.ai_engine, '@cf/meta/llama-3.3-70b-instruct-fp8-fast', 'Must use Workers AI @cf/meta/llama-3.3-70b-instruct-fp8-fast model when env.AI is bound');
   assert.ok(posAiData.overview_es.includes('Cloudflare Workers'), 'Must return AI-generated Spanish position overview');
   assert.ok(posAiData.requirements_es.length === 3, 'Must return AI-generated requirements list');
   assert.ok(posAiData.skills_experience_es.length === 3, 'Must return AI-generated skills/experience list');
   assert.ok(posAiData.timezone_compatibility_es.includes('UTC-4'), 'Must return AI-generated Bolivia UTC-4 compatibility');
   assert.ok(posAiData.candidate_advice_es.length === 2, 'Must return AI-generated candidate advice list');
 
-  // Test POST /api/ai/enrich with mocked `env.AI` and `env.DB` (Cloudflare D1)
+  // Test POST /api/ai/enrich with mocked `env.AI` (including pre-parsed JSON object response from Llama 3.3 70B) and `env.DB` (Cloudflare D1)
   let d1StatementsExecuted = 0;
   const mockD1Env = {
     AI: {
-      async run() {
+      async run(model) {
+        assert.equal(model, '@cf/meta/llama-3.3-70b-instruct-fp8-fast', 'Enricher must invoke @cf/meta/llama-3.3-70b-instruct-fp8-fast');
         return {
-          response: JSON.stringify({
+          response: {
             bolivia_eligible: true,
             company: 'Acme Global Cloud',
             compensation_usd: '$5,000/mo',
             summary_es: 'Rol 100% remoto verificado con IA para Bolivia.',
             summary_en: '100% remote role verified by AI for Bolivia.'
-          })
+          }
         };
       }
     },

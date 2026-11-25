@@ -63,7 +63,7 @@ Esta herramienta es una **solución pública y gratuita** en **Español (Bolivia
   - **Ambos (`Español` + `Inglés`):** Muestra la unión completa de ofertas en español, inglés y bilingües con puntaje completo de idioma (`20/20`).
 - **25 Categorías Profesionales Enriquecidas:** Desplegable responsivo multi-selección (`Tipo de Posición / Área Profesional`) ampliado para cubrir áreas técnicas, administrativas, comerciales, creativas, de salud, legales, e-commerce, producto, ciberseguridad, IA/ML y traducción.
 - **Filtro 100% Remoto desde Bolivia Obligatorio en Toda la Tubería:** El escáner, el evaluador, el índice vectorial y el analizador IA filtran automáticamente cualquier restricción geográfica (`US Only`, `EU Only`, `W-2`, presencial/híbrido) antes de importar o mostrar vacantes.
-- **Panel Contextual `Más información con IA` (Cloudflare Workers AI):** En cada tarjeta de oferta, el botón destacado en verde **Más información con IA** despliega un panel inmediatamente debajo de la vacante (y se cierra automáticamente al salir de la pantalla al hacer scroll) con análisis estructurado en español mediante Llama 3.1 y respaldo determinístico de borde (`POST /api/ai/analyze-position`):
+- **Panel Contextual `Más información con IA` (Cloudflare Workers AI):** En cada tarjeta de oferta, el botón destacado en verde **Más información con IA** despliega un panel inmediatamente debajo de la vacante (y se cierra automáticamente al salir de la pantalla al hacer scroll) con análisis estructurado en español mediante Llama 3.3 70B (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`) y respaldo determinístico de borde (`POST /api/ai/analyze-position`):
   - Resumen informativo de la posición.
   - **Requisitos de la posición**.
   - **Experiencia y habilidades útiles**.
@@ -203,7 +203,7 @@ flowchart TD
         WorkerEntry["src/worker.js (Router, API & Cron Handler)"]
         ScannerEng["src/scanner.js (Parser JSON/RSS/HTML + Filtro Bolivia)"]
         EvaluatorEng["src/evaluator.js (Algoritmo 4 Ejes & Filtro Estricto ES/EN)"]
-        AiEnricher["src/ai_enricher.js (Workers AI Llama 3.1 + Fallback Borde)"]
+        AiEnricher["src/ai_enricher.js (Workers AI Llama 3.3 70B + Fallback Borde)"]
         VectorStore["src/vector_store.js (Búsqueda Semántica BGE-M3 / Vectorize)"]
         McpServer["src/mcp.js (Servidor MCP Streamable HTTP)"]
         SeedData["src/seed_data.js (86 Plataformas / 120+ Ofertas Bolivia)"]
@@ -391,8 +391,8 @@ El worker expone endpoints HTTP estándar para integraciones externas:
 | `POST` | `/api/scan` | JSON opcional `{ track, platform }` | Ejecuta un escaneo de actualización bajo demanda sobre las plataformas monitoreadas. |
 | `POST` | `/api/platforms/scan-url` | JSON `{ url, name, type, track, filters }` | Escanea cualquier URL ingresada por el usuario, extrae ofertas 100% elegibles para Bolivia y las añade a la base. |
 | `GET` / `POST` | `/api/platforms/sync` | Ninguno | Exporta las plataformas personalizadas (`custom_*`) y sus oportunidades asociadas desde el estado vivo, sincronizándolas con los archivos semilla cuando el sistema de archivos local está disponible. |
-| `POST` | `/api/ai/analyze-position` | JSON `{ target_job_hash, title, company, location, description, tags }` | Analiza la información disponible de una posición con Cloudflare Workers AI (`@cf/meta/llama-3.1-8b-instruct-fast`, con respaldo `edge-position-analyzer`) y devuelve resumen, requisitos, habilidades/experiencia útiles, compatibilidad con Bolivia (`UTC-4`) y consejos para el candidato. |
-| `POST` | `/api/ai/enrich` | JSON `{ job_hash, max_items }` | Enriquece oportunidades bajo demanda con Cloudflare Workers AI (`env.AI`), extrayendo remuneración referencial en USD y resúmenes ejecutivos. |
+| `POST` | `/api/ai/analyze-position` | JSON `{ target_job_hash, title, company, location, description, tags }` | Analiza la información disponible de una posición con Cloudflare Workers AI (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`, con respaldo `edge-position-analyzer`) y devuelve resumen, requisitos, habilidades/experiencia útiles, compatibilidad con Bolivia (`UTC-4`) y consejos para el candidato. |
+| `POST` | `/api/ai/enrich` | JSON `{ job_hash, max_items }` | Enriquece oportunidades bajo demanda con Cloudflare Workers AI (`@cf/meta/llama-3.3-70b-instruct-fp8-fast` vía `env.AI`), extrayendo remuneración referencial en USD y resúmenes ejecutivos. |
 | `GET` / `POST` | `/api/search/semantic` | Query `?q=...` o JSON `{ query, filters, topK }` | Búsqueda semántica multilingüe (`@cf/baai/bge-m3` + Cloudflare Vectorize / puente Qdrant / vectores semánticos de borde) que ordena vacantes por similitud vectorial y puntaje híbrido. |
 | `POST` | `/api/vectors/index` | JSON `{ max_items, deduplicate }` | Indexa vacantes elegibles en Cloudflare Vectorize (`env.VECTORIZE`) o Qdrant (`env.QDRANT_URL`) y ejecuta deduplicación semántica por similitud de coseno. |
 | `GET` / `POST` | `/mcp` (`/.well-known/mcp.json`) | JSON-RPC 2.0 (`initialize`, `tools/list`, `tools/call`, `resources/read`) | Servidor **Model Context Protocol (MCP)** sobre Streamable HTTP (protegido por token Bearer) con 5 herramientas (`search_bolivia_remote_jobs`, `semantic_search_bolivia_jobs`, `scan_career_page_url`, `analyze_position_for_bolivia`, `list_monitored_platforms`) y 2 recursos en vivo. |
