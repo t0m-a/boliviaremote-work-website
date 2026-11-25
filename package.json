@@ -1,9 +1,14 @@
 {
-  "name": "bolivia-remote-scout",
-  "version": "5.0.0",
+  "name": "boliviaremote-work-website",
+  "version": "5.8.0",
   "private": true,
   "type": "module",
   "description": "Public self-contained Cloudflare Worker to filter, scan, and evaluate 100% remote job opportunities from Bolivia (Spanish Bolivia first + English)",
+  "homepage": "https://boliviaremote.work",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/t0m-a/boliviaremote-work-website.git"
+  },
   "main": "src/worker.js",
   "scripts": {
     "dev": "npx wrangler dev",

@@ -323,8 +323,8 @@ Puedes alojar tu propia instancia en Cloudflare en menos de 5 minutos utilizando
 
 1. **Clonar el repositorio:**
    ```bash
-   git clone https://github.com/t0m-a/scout-analyst-pipeline.git
-   cd scout-analyst-pipeline
+   git clone https://github.com/t0m-a/boliviaremote-work-website.git
+   cd boliviaremote-work-website
    ```
 
 2. **Generar el HTML autónomo y verificar la suite de pruebas automatizadas:**
@@ -403,7 +403,7 @@ El worker expone endpoints HTTP estándar para integraciones externas:
 
 #### Ejemplo con `curl`: Escaneo de una URL personalizada
 ```bash
-curl -X POST https://bolivia-remote-scout.workers.dev/api/platforms/scan-url \
+curl -X POST https://boliviaremote.work/api/platforms/scan-url \
   -H "Content-Type: application/json" \
   -d '{
     "url": "https://remotive.com/api/remote-jobs?category=devops&limit=10",

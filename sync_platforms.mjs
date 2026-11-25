@@ -109,7 +109,7 @@ async function runSync() {
 
   // 3. Export custom_* platforms & opportunities into platforms_config.json and src/seed_data.js
   console.log('3. Exporting custom_* platforms into src/seed_data.js and platforms_config.json...');
-  const targetDirs = ['.', 'z:/opt/scout-analyst'];
+  const targetDirs = ['.'];
   const syncResult = await persistCustomPlatformsToDisk(
     {
       platforms: collectedPlatforms,

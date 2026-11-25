@@ -581,7 +581,7 @@ Sitemap: https://boliviaremote.work/sitemap.xml
 
         let seedSyncInfo = null;
         if (body.persist === true && !scanRes.dead_lead) {
-          const syncRes = await persistCustomPlatformsToDisk(state, ['.', 'z:/opt/scout-analyst']);
+          const syncRes = await persistCustomPlatformsToDisk(state, ['.']);
           seedSyncInfo = {
             persisted_to_disk: syncRes.persisted_to_disk,
             custom_platforms_count: syncRes.custom_platforms_count,
@@ -633,7 +633,7 @@ Sitemap: https://boliviaremote.work/sitemap.xml
             }
           }
           await saveState(state, env);
-          const syncRes = await persistCustomPlatformsToDisk(state, ['.', 'z:/opt/scout-analyst']);
+          const syncRes = await persistCustomPlatformsToDisk(state, ['.']);
           return jsonResponse({
             ok: true,
             persisted_to_disk: syncRes.persisted_to_disk,
