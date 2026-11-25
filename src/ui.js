@@ -1781,11 +1781,17 @@ export function renderAppHtml(initialState, options = {}) {
       color: #1e40af;
       margin-top: 8px;
     }
-    .guide-tip a,
-    #man-p-intro a {
+    .guide-tip a {
       color: #0369a1;
       text-decoration: underline;
       font-weight: 700;
+      cursor: pointer;
+    }
+    #man-p-intro a {
+      color: #0369a1;
+      text-decoration: underline;
+      font-weight: 400;
+      font-size: inherit;
       cursor: pointer;
     }
     .guide-tip a:hover,
@@ -3314,7 +3320,7 @@ export function renderAppHtml(initialState, options = {}) {
             </div>
           </div>
           <p id="man-p-intro">
-            <strong>Bolivia Remote Work</strong> es una plataforma pública, gratuita e interactiva diseñada para encontrar, filtrar y evaluar en vivo oportunidades laborales internacionales que admiten trabajo 100% remoto desde Bolivia (UTC-4), eliminando el ruido de ofertas con restricciones territoriales o visados extranjeros. Puedes verificar las fuentes por tipo en <a href="#footer-categories-dropdown" id="man-link-categories" onclick="openFooterCategoriesFromManual(event)">Categorías De Plataformas</a> o consultar el directorio completo en <a href="#view-platforms" id="man-link-platforms" onclick="event.preventDefault(); switchMainView('platforms');">Plataformas Monitoreadas</a>.
+            <strong>Bolivia Remote Work</strong> es una plataforma pública, gratuita e interactiva diseñada para encontrar, filtrar y evaluar en vivo oportunidades laborales internacionales que admiten trabajo 100% remoto desde Bolivia (UTC-4), eliminando el ruido de ofertas con restricciones territoriales o visados extranjeros. <strong><u>Nota: Algunas de estas plataformas requieren que te registres para ver el contenido de la oferta.</u></strong> Puedes verificar las fuentes por tipo en <a href="#footer-categories-dropdown" id="man-link-categories" onclick="openFooterCategoriesFromManual(event)">Categorías De Plataformas</a> o consultar el directorio completo en <a href="#view-platforms" id="man-link-platforms" onclick="event.preventDefault(); switchMainView('platforms');">Plataformas Monitoreadas</a>.
           </p>
           <div class="info-callout" id="man-box-privacy">
             <strong>Privacidad Total y Sin Registros:</strong> No necesitas crear una cuenta ni ingresar datos personales. Tus filtros se guardan solo en tu navegador (localStorage) y cualquier dato privado escrito en una búsqueda se limpia automáticamente en memoria antes de procesarse.

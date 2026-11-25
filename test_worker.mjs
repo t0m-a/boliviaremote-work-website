@@ -106,13 +106,17 @@ async function runTests() {
   const manualIntroEnd = manualHtml.indexOf('</p>', manualIntroStart);
   const manualIntroHtml = manualHtml.slice(manualIntroStart, manualIntroEnd);
   assert.ok(
-    manualIntroHtml.includes('territoriales o visados extranjeros. Puedes verificar las fuentes por tipo en') &&
+    manualIntroHtml.includes('territoriales o visados extranjeros. <strong><u>Nota: Algunas de estas plataformas requieren que te registres para ver el contenido de la oferta.</u></strong> Puedes verificar las fuentes por tipo en') &&
     !manualIntroHtml.includes('También puedes explorar') &&
     manualIntroHtml.includes('id="man-link-categories"') &&
     manualIntroHtml.includes('Categorías De Plataformas</a>') &&
     manualIntroHtml.includes('id="man-link-platforms"') &&
     manualIntroHtml.includes('Plataformas Monitoreadas</a>'),
-    'Guía del Usuario intro paragraph must say Puedes verificar and include links to Categorías De Plataformas and Plataformas Monitoreadas right after territoriales o visados extranjeros.'
+    'Guía del Usuario intro paragraph must include the bold underlined Nota and links to Categorías De Plataformas and Plataformas Monitoreadas'
+  );
+  assert.ok(
+    /#man-p-intro a\s*\{[\s\S]*?font-weight:\s*400;[\s\S]*?font-size:\s*inherit;/.test(html),
+    'Guía del Usuario intro links must not be bold (font-weight: 400) and must match paragraph font size (font-size: inherit)'
   );
   assert.ok(!manualHtml.includes('BLOQUEADAS PAÍS (GEO)'), 'Manual de Uso section 6 must remove BLOQUEADAS PAÍS (GEO)');
   assert.ok(
