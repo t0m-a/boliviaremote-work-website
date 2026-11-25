@@ -1,11 +1,11 @@
 /**
- * Cloudflare Worker Entrypoint — Bolivia 100% Remote Job Scout & Evaluator
- * Self-contained public web application & API with:
- *   - Spanish (Bolivia) first UI + English switcher
- *   - Customizable user filters (Languages, Position Type, Experience, Contract Type)
- *   - Mandatory 100% Remote from Bolivia eligibility filter
- *   - Custom Platform URL live scanner & evaluator
- *   - On-the-fly Results ("Resultados") generation
+ * Cloudflare Worker Entrypoint — Bolivia 100% Remote Job Scout & Evaluator (v6.0.0)
+ * 100% Air-Gapped Cognitive Upgrade inside scout-analyst-pipeline (ADR-06 Zero-PII & ADR-08 Separation):
+ *   - Spanish (Bolivia) first UI + customizable user filters & Employer Reality badges
+ *   - Dedicated D1 (`bolivia-remote-jobs-db`) with FTS5 BM25 & `job_sightings` Ghost-Job tracking
+ *   - Hybrid Search v2 (3-Channel Weighted RRF + `@cf/baai/bge-reranker-base`)
+ *   - Isolated `BoliviaCareerBrainDO` SQLite Durable Object (`<bolivia_context>` compiler)
+ *   - Fail-closed `/mcp` Streamable HTTP server with 3 Career Brain admin tools
  *   - On-demand execution + Scheduled Cron Trigger every 15 minutes
  */
 
@@ -13,7 +13,9 @@ import { INITIAL_PLATFORMS, INITIAL_OPPORTUNITIES } from './seed_data.js';
 import {
   DEFAULT_FILTERS,
   evaluateAllOpportunities,
-  generateResultsMarkdown
+  generateResultsMarkdown,
+  checkBoliviaRemoteEligibility,
+  detectOfferAttributes
 } from './evaluator.js';
 import {
   scanCustomPlatformUrl,
@@ -32,17 +34,30 @@ import {
   analyzePositionForBolivia
 } from './ai_enricher.js';
 import {
-  semanticSearchOpportunities,
   indexOpportunitiesInVectorStore,
   deduplicateSemantically
 } from './vector_store.js';
+import { hybridSearchOpportunities } from './hybrid_search.js';
 import { handleMcpRequest } from './mcp.js';
-import { checkBoliviaRemoteEligibility } from './evaluator.js';
+import {
+  BoliviaCareerBrainDO,
+  getCareerBrainClient
+} from './career_brain_do.js';
+import {
+  sanitizePlatformUrl,
+  normalizeCompanySlug,
+  parseDateToEpochSeconds,
+  computeGhostJobMetrics
+} from './privacy_guard.js';
 
-const CACHE_KEY_URL = 'https://bolivia-remote-scout.internal/state-v5.8';
+export { BoliviaCareerBrainDO };
+
+const CACHE_KEY_URL = 'https://bolivia-remote-scout.internal/state-v6.0';
 const EMOJI_STRIP_RE = /[\uD83C-\uDBFF\uDC00-\uDFFF\u2600-\u27BF]/g;
+const STALE_THRESHOLD_SECONDS = 30 * 86400; // 30 days unseen -> STALE
 
 let MEMORY_STATE = null;
+const MEMORY_SIGHTINGS = new Map();
 
 function cleanOpportunityFields(o) {
   let title = stripHtml(o.title || '').replace(EMOJI_STRIP_RE, '').trim();
@@ -56,25 +71,52 @@ function cleanOpportunityFields(o) {
   }
   company = company.replace(/\s+(?:RSS Feed|Remote Jobs Feed|Curated Remote Feed|Feed|API)$/i, '').trim() || company;
   const description = stripHtml(o.description || '').replace(EMOJI_STRIP_RE, '').trim();
-  const url = String(o.url || '').trim();
+  const url = sanitizePlatformUrl(o.url || '');
   let published_at = String(o.published_at || '').trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(published_at)) {
     const d = new Date(published_at);
     published_at = !isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : String(o.discovered_at || new Date().toISOString()).slice(0, 10);
   }
   const job_hash = computeJobHash(title, company, url);
+  const nowSec = Math.floor(Date.now() / 1000);
+  const publishedEpoch = Number(o.published_epoch) || parseDateToEpochSeconds(published_at, nowSec);
+  const discoveredAt = o.discovered_at || new Date().toISOString();
+  const firstSeenEpoch = Number(o.first_seen_epoch) || parseDateToEpochSeconds(discoveredAt, publishedEpoch);
+  const lastSeenEpoch = Math.max(firstSeenEpoch, Number(o.last_seen_epoch) || nowSec);
+
   const cleaned = {
     ...o,
     job_hash,
     title,
     company,
+    company_slug: o.company_slug || normalizeCompanySlug(company, 'company'),
+    canonical_role_key: o.canonical_role_key || normalizeJobKey(title, company),
     description,
     url,
-    published_at
+    published_at,
+    published_epoch: publishedEpoch,
+    discovered_at: discoveredAt,
+    first_seen_epoch: firstSeenEpoch,
+    last_seen_epoch: lastSeenEpoch,
+    sighting_count: Math.max(1, Number(o.sighting_count) || 1),
+    repost_span_days: Math.max(0, Number(o.repost_span_days) || 0),
+    ghost_risk: o.ghost_risk || 'none',
+    status: o.status || 'ACTIVE'
   };
+
+  const attrs = detectOfferAttributes(cleaned);
+  const langs = attrs.languages || ['en'];
+  const langMask = langs.includes('es') && langs.includes('en')
+    ? 'es_en'
+    : (langs.includes('es') ? 'es' : 'en');
   const det = buildDeterministicSummaries(cleaned);
+
   return {
     ...cleaned,
+    lang_mask: cleaned.lang_mask || langMask,
+    categories_csv: cleaned.categories_csv || (attrs.categories || []).join(','),
+    experience_tier: cleaned.experience_tier || attrs.experience || 'mid',
+    contracts_csv: cleaned.contracts_csv || (attrs.contracts || []).join(','),
     compensation_usd: cleaned.compensation_usd || det.compensation_usd,
     ai_summary_es: cleaned.ai_summary_es || det.ai_summary_es,
     ai_summary_en: cleaned.ai_summary_en || det.ai_summary_en,
@@ -84,28 +126,86 @@ function cleanOpportunityFields(o) {
 
 async function ensureD1Tables(db) {
   if (!db || typeof db.prepare !== 'function') return;
+
   await db.prepare(`
     CREATE TABLE IF NOT EXISTS opportunities (
       job_hash TEXT PRIMARY KEY,
       title TEXT NOT NULL,
       company TEXT,
+      company_slug TEXT DEFAULT '',
+      canonical_role_key TEXT DEFAULT '',
       platform_id TEXT,
       platform_name TEXT,
+      category TEXT DEFAULT '',
       track TEXT,
       url TEXT,
       location TEXT,
       contract_caveat TEXT,
       tags TEXT,
       description TEXT,
+      lang_mask TEXT DEFAULT 'en',
+      categories_csv TEXT DEFAULT '',
+      experience_tier TEXT DEFAULT 'mid',
+      contracts_csv TEXT DEFAULT '',
       published_at TEXT,
+      published_epoch INTEGER DEFAULT 0,
       discovered_at TEXT,
+      first_seen_epoch INTEGER DEFAULT 0,
+      last_seen_epoch INTEGER DEFAULT 0,
+      sighting_count INTEGER DEFAULT 1,
+      repost_span_days INTEGER DEFAULT 0,
+      ghost_risk TEXT DEFAULT 'none',
       bolivia_eligible INTEGER DEFAULT 1,
       compensation_usd TEXT DEFAULT '',
       ai_summary_es TEXT DEFAULT '',
       ai_summary_en TEXT DEFAULT '',
-      ai_verified INTEGER DEFAULT 0
+      ai_verified INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'ACTIVE'
     )
   `).run();
+
+  // Best-effort idempotent upgrades if migrating an existing v5.8 opportunities table
+  const alterCols = [
+    "ALTER TABLE opportunities ADD COLUMN company_slug TEXT DEFAULT ''",
+    "ALTER TABLE opportunities ADD COLUMN canonical_role_key TEXT DEFAULT ''",
+    "ALTER TABLE opportunities ADD COLUMN lang_mask TEXT DEFAULT 'en'",
+    "ALTER TABLE opportunities ADD COLUMN categories_csv TEXT DEFAULT ''",
+    "ALTER TABLE opportunities ADD COLUMN experience_tier TEXT DEFAULT 'mid'",
+    "ALTER TABLE opportunities ADD COLUMN contracts_csv TEXT DEFAULT ''",
+    'ALTER TABLE opportunities ADD COLUMN published_epoch INTEGER DEFAULT 0',
+    'ALTER TABLE opportunities ADD COLUMN first_seen_epoch INTEGER DEFAULT 0',
+    'ALTER TABLE opportunities ADD COLUMN last_seen_epoch INTEGER DEFAULT 0',
+    'ALTER TABLE opportunities ADD COLUMN sighting_count INTEGER DEFAULT 1',
+    'ALTER TABLE opportunities ADD COLUMN repost_span_days INTEGER DEFAULT 0',
+    "ALTER TABLE opportunities ADD COLUMN ghost_risk TEXT DEFAULT 'none'",
+    "ALTER TABLE opportunities ADD COLUMN status TEXT DEFAULT 'ACTIVE'"
+  ];
+  for (const sql of alterCols) {
+    try {
+      await db.prepare(sql).run();
+    } catch {
+      // Column already exists
+    }
+  }
+
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS job_sightings (
+      canonical_role_key TEXT PRIMARY KEY,
+      company_slug TEXT DEFAULT '',
+      title TEXT NOT NULL,
+      company TEXT DEFAULT '',
+      first_seen_epoch INTEGER NOT NULL,
+      last_seen_epoch INTEGER NOT NULL,
+      scan_hits INTEGER DEFAULT 1,
+      distinct_job_hashes_json TEXT DEFAULT '[]',
+      distinct_urls_json TEXT DEFAULT '[]',
+      platforms_json TEXT DEFAULT '[]',
+      repost_span_days INTEGER DEFAULT 0,
+      ghost_risk TEXT DEFAULT 'none',
+      updated_at TEXT NOT NULL
+    )
+  `).run();
+
   await db.prepare(`
     CREATE TABLE IF NOT EXISTS custom_platforms (
       id TEXT PRIMARY KEY,
@@ -119,6 +219,228 @@ async function ensureD1Tables(db) {
       created_at TEXT
     )
   `).run();
+
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS career_brain_fallback (
+      doc_id TEXT PRIMARY KEY,
+      doc_type TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `).run();
+
+  // Synchronized FTS5 virtual table + triggers (ignored silently if mock SQLite lacks FTS5)
+  try {
+    await db.prepare(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS opportunities_fts USING fts5(
+        job_hash UNINDEXED,
+        title,
+        company,
+        tags,
+        ai_summary_es,
+        ai_summary_en,
+        description,
+        tokenize = 'unicode61 remove_diacritics 2'
+      )
+    `).run();
+    await db.prepare(`
+      CREATE TRIGGER IF NOT EXISTS trg_opportunities_fts_insert
+      AFTER INSERT ON opportunities
+      WHEN NEW.status = 'ACTIVE' AND NEW.bolivia_eligible = 1
+      BEGIN
+        DELETE FROM opportunities_fts WHERE job_hash = NEW.job_hash;
+        INSERT INTO opportunities_fts(job_hash, title, company, tags, ai_summary_es, ai_summary_en, description)
+        VALUES (NEW.job_hash, COALESCE(NEW.title, ''), COALESCE(NEW.company, ''), COALESCE(NEW.tags, ''), COALESCE(NEW.ai_summary_es, ''), COALESCE(NEW.ai_summary_en, ''), COALESCE(NEW.description, ''));
+      END
+    `).run();
+    await db.prepare(`
+      CREATE TRIGGER IF NOT EXISTS trg_opportunities_fts_update
+      AFTER UPDATE ON opportunities
+      BEGIN
+        DELETE FROM opportunities_fts WHERE job_hash = OLD.job_hash;
+        DELETE FROM opportunities_fts WHERE job_hash = NEW.job_hash;
+        INSERT INTO opportunities_fts(job_hash, title, company, tags, ai_summary_es, ai_summary_en, description)
+        SELECT NEW.job_hash, COALESCE(NEW.title, ''), COALESCE(NEW.company, ''), COALESCE(NEW.tags, ''), COALESCE(NEW.ai_summary_es, ''), COALESCE(NEW.ai_summary_en, ''), COALESCE(NEW.description, '')
+        WHERE NEW.status = 'ACTIVE' AND NEW.bolivia_eligible = 1;
+      END
+    `).run();
+    await db.prepare(`
+      CREATE TRIGGER IF NOT EXISTS trg_opportunities_fts_delete
+      AFTER DELETE ON opportunities
+      BEGIN
+        DELETE FROM opportunities_fts WHERE job_hash = OLD.job_hash;
+      END
+    `).run();
+  } catch {
+    // Ignore FTS5 creation errors on minimal test mocks
+  }
+}
+
+/**
+ * Records cross-board sightings for newly scanned opportunities and updates ghost-job telemetry.
+ */
+export async function recordJobSightings(items, env, nowEpochSec = Math.floor(Date.now() / 1000)) {
+  if (!Array.isArray(items) || items.length === 0) return [];
+  const nowIso = new Date(nowEpochSec * 1000).toISOString();
+  const updated = [];
+
+  for (const rawItem of items) {
+    if (!rawItem || !rawItem.title) continue;
+    const item = cleanOpportunityFields(rawItem);
+    const key = item.canonical_role_key || normalizeJobKey(item.title, item.company);
+
+    let existing = MEMORY_SIGHTINGS.get(key) || null;
+    if (!existing && env && env.DB && typeof env.DB.prepare === 'function') {
+      try {
+        const bound = env.DB.prepare('SELECT * FROM job_sightings WHERE canonical_role_key = ? LIMIT 1').bind(key);
+        if (bound && typeof bound.all === 'function') {
+          const res = await bound.all();
+          if (res && Array.isArray(res.results) && res.results.length > 0) {
+            existing = res.results[0];
+          }
+        }
+      } catch {
+        // ignore read error
+      }
+    }
+
+    const hashes = new Set();
+    const urls = new Set();
+    const platforms = new Set();
+    if (existing) {
+      try { JSON.parse(existing.distinct_job_hashes_json || '[]').forEach(x => hashes.add(x)); } catch {}
+      try { JSON.parse(existing.distinct_urls_json || '[]').forEach(x => urls.add(x)); } catch {}
+      try { JSON.parse(existing.platforms_json || '[]').forEach(x => platforms.add(x)); } catch {}
+    }
+    if (item.job_hash) hashes.add(item.job_hash);
+    if (item.url) urls.add(item.url);
+    if (item.platform_name) platforms.add(item.platform_name);
+
+    const firstSeen = existing ? Math.min(Number(existing.first_seen_epoch) || nowEpochSec, nowEpochSec) : Math.min(item.first_seen_epoch || nowEpochSec, nowEpochSec);
+    const lastSeen = Math.max(firstSeen, nowEpochSec);
+    const scanHits = (existing ? Number(existing.scan_hits || 1) : 0) + 1;
+
+    const record = {
+      canonical_role_key: key,
+      company_slug: item.company_slug,
+      title: item.title,
+      company: item.company,
+      first_seen_epoch: firstSeen,
+      last_seen_epoch: lastSeen,
+      scan_hits: scanHits,
+      distinct_job_hashes_json: JSON.stringify(Array.from(hashes).slice(-25)),
+      distinct_urls_json: JSON.stringify(Array.from(urls).slice(-25)),
+      platforms_json: JSON.stringify(Array.from(platforms).slice(-15)),
+      updated_at: nowIso
+    };
+    const metrics = computeGhostJobMetrics(record, nowEpochSec);
+    record.repost_span_days = metrics.repost_span_days;
+    record.ghost_risk = metrics.ghost_risk;
+
+    MEMORY_SIGHTINGS.set(key, record);
+
+    if (env && env.DB && typeof env.DB.prepare === 'function') {
+      try {
+        await env.DB.prepare(
+          `INSERT OR REPLACE INTO job_sightings (
+            canonical_role_key, company_slug, title, company, first_seen_epoch, last_seen_epoch,
+            scan_hits, distinct_job_hashes_json, distinct_urls_json, platforms_json,
+            repost_span_days, ghost_risk, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(
+          record.canonical_role_key,
+          record.company_slug,
+          record.title,
+          record.company,
+          record.first_seen_epoch,
+          record.last_seen_epoch,
+          record.scan_hits,
+          record.distinct_job_hashes_json,
+          record.distinct_urls_json,
+          record.platforms_json,
+          record.repost_span_days,
+          record.ghost_risk,
+          record.updated_at
+        ).run();
+      } catch {
+        // Ignore D1 sightings write error
+      }
+    }
+
+    updated.push({
+      ...item,
+      first_seen_epoch: metrics.first_seen_epoch,
+      last_seen_epoch: metrics.last_seen_epoch,
+      sighting_count: metrics.sighting_count,
+      repost_span_days: metrics.repost_span_days,
+      ghost_risk: metrics.ghost_risk
+    });
+  }
+
+  return updated;
+}
+
+/**
+ * Transitions unseen listings older than 30 days to `STALE` in D1 and deletes them from Vectorize.
+ */
+async function expireStaleOpportunities(env, nowEpochSec = Math.floor(Date.now() / 1000)) {
+  if (!env || !env.DB || typeof env.DB.prepare !== 'function') return { expired_count: 0 };
+  const cutoff = nowEpochSec - STALE_THRESHOLD_SECONDS;
+  try {
+    let staleIds = [];
+    const selBound = env.DB.prepare(
+      "SELECT job_hash FROM opportunities WHERE status = 'ACTIVE' AND last_seen_epoch > 0 AND last_seen_epoch < ? LIMIT 200"
+    ).bind(cutoff);
+    if (selBound && typeof selBound.all === 'function') {
+      const res = await selBound.all();
+      staleIds = (res && Array.isArray(res.results)) ? res.results.map(r => r.job_hash).filter(Boolean) : [];
+    }
+    if (staleIds.length > 0) {
+      await env.DB.prepare(
+        "UPDATE opportunities SET status = 'STALE' WHERE status = 'ACTIVE' AND last_seen_epoch > 0 AND last_seen_epoch < ?"
+      ).bind(cutoff).run();
+
+      if (env.VECTORIZE && typeof env.VECTORIZE.deleteByIds === 'function') {
+        await env.VECTORIZE.deleteByIds(staleIds).catch(() => {});
+      }
+    }
+    return { expired_count: staleIds.length };
+  } catch {
+    return { expired_count: 0 };
+  }
+}
+
+/**
+ * Batch-attaches compact Employer Reality badges from BoliviaCareerBrainDO to opportunities.
+ */
+async function attachEmployerReality(opportunities, env) {
+  if (!Array.isArray(opportunities) || opportunities.length === 0) return opportunities;
+  try {
+    const brain = getCareerBrainClient(env);
+    const realityMap = await brain.lookupEmployerRealityBatch(opportunities);
+    return opportunities.map(o => {
+      const r = realityMap[o.job_hash];
+      if (!r || !r.matched) return o;
+      return {
+        ...o,
+        employer_reality: {
+          entity_id: r.entity_id,
+          bolivia_tier: r.bolivia_tier,
+          confidence: r.confidence,
+          payout_rails: r.payout_rails,
+          eor_options: r.eor_options,
+          reality_badge_es: r.reality_badge_es,
+          reality_badge_en: r.reality_badge_en,
+          caution_note_es: r.caution_note_es,
+          caution_note_en: r.caution_note_en,
+          typical_comp: r.typical_comp,
+          employer_multiplier: r.employer_multiplier
+        }
+      };
+    });
+  } catch {
+    return opportunities;
+  }
 }
 
 function normalizeAndMergeState(rawState) {
@@ -139,6 +461,7 @@ function normalizeAndMergeState(rawState) {
   const allCandidates = [...(rawState.opportunities || []), ...INITIAL_OPPORTUNITIES];
   for (const rawOpp of allCandidates) {
     if (!rawOpp) continue;
+    if (rawOpp.status === 'STALE' || rawOpp.status === 'EXPIRED') continue;
     const opp = cleanOpportunityFields(rawOpp);
     if (!opp.title) continue;
     if (!checkBoliviaRemoteEligibility(opp).eligible) continue;
@@ -169,12 +492,14 @@ async function loadState(env) {
     return MEMORY_STATE;
   }
 
-  // 0. Try Cloudflare D1 SQL Database if bound (`env.DB`)
+  // 0. Try Cloudflare D1 SQL Database if bound (`env.DB`) — lifted cap up to 2,000 active jobs
   if (env && env.DB && typeof env.DB.prepare === 'function') {
     try {
       await ensureD1Tables(env.DB);
-      const oppsRes = await env.DB.prepare('SELECT * FROM opportunities ORDER BY published_at DESC LIMIT 500').all();
-      const platsRes = await env.DB.prepare('SELECT * FROM custom_platforms ORDER BY created_at DESC LIMIT 200').all();
+      const oppsRes = await env.DB.prepare(
+        "SELECT * FROM opportunities WHERE status = 'ACTIVE' OR status IS NULL ORDER BY published_epoch DESC, published_at DESC LIMIT 2000"
+      ).all();
+      const platsRes = await env.DB.prepare('SELECT * FROM custom_platforms ORDER BY created_at DESC LIMIT 300').all();
       const dbOpps = Array.isArray(oppsRes && oppsRes.results) ? oppsRes.results : [];
       const dbPlats = Array.isArray(platsRes && platsRes.results) ? platsRes.results : [];
       if (dbOpps.length > 0 || dbPlats.length > 0) {
@@ -194,7 +519,7 @@ async function loadState(env) {
   // 1. Try Cloudflare KV if bound
   if (env && env.STORE && typeof env.STORE.get === 'function') {
     try {
-      const kvRaw = await env.STORE.get('bolivia_remote_state_v5', 'json');
+      const kvRaw = await env.STORE.get('bolivia_remote_state_v6', 'json');
       if (kvRaw && Array.isArray(kvRaw.opportunities)) {
         MEMORY_STATE = normalizeAndMergeState(kvRaw);
         return MEMORY_STATE;
@@ -204,7 +529,7 @@ async function loadState(env) {
     }
   }
 
-  // 2. Try Cloudflare Edge Cache API (available on all Workers with zero config)
+  // 2. Try Cloudflare Edge Cache API
   if (typeof caches !== 'undefined' && caches.default) {
     try {
       const cachedResp = await caches.default.match(CACHE_KEY_URL);
@@ -220,7 +545,7 @@ async function loadState(env) {
     }
   }
 
-  // 3. Initialize from bundled seed data (137 public opportunities + 85 platforms)
+  // 3. Initialize from bundled seed data
   MEMORY_STATE = normalizeAndMergeState({
     opportunities: [...INITIAL_OPPORTUNITIES],
     platforms: [...INITIAL_PLATFORMS],
@@ -238,39 +563,69 @@ async function saveState(state, env) {
   state.opportunities = MEMORY_STATE.opportunities;
   state.platforms = MEMORY_STATE.platforms;
 
-  // Save to Cloudflare D1 if bound (`env.DB`)
+  // Save to Cloudflare D1 if bound (`env.DB`) — lifted 200-job cap up to 1,000 persisted per sync
   if (env && env.DB && typeof env.DB.prepare === 'function') {
     try {
       await ensureD1Tables(env.DB);
-      const oppsToSave = MEMORY_STATE.opportunities.slice(0, 200);
-      for (const o of oppsToSave) {
+      const oppsToSave = MEMORY_STATE.opportunities.slice(0, 1000);
+      const oppInsertSql =
+        `INSERT OR REPLACE INTO opportunities (
+          job_hash, title, company, company_slug, canonical_role_key,
+          platform_id, platform_name, category, track, url,
+          location, contract_caveat, tags, description,
+          lang_mask, categories_csv, experience_tier, contracts_csv,
+          published_at, published_epoch, discovered_at,
+          first_seen_epoch, last_seen_epoch, sighting_count, repost_span_days, ghost_risk,
+          bolivia_eligible, compensation_usd, ai_summary_es, ai_summary_en, ai_verified, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+      const bindOpp = (o) => {
         const bol = checkBoliviaRemoteEligibility(o);
-        await env.DB.prepare(
-          `INSERT OR REPLACE INTO opportunities (
-            job_hash, title, company, platform_id, platform_name, track, url,
-            location, contract_caveat, tags, description, published_at, discovered_at,
-            bolivia_eligible, compensation_usd, ai_summary_es, ai_summary_en, ai_verified
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        ).bind(
+        return env.DB.prepare(oppInsertSql).bind(
           o.job_hash,
           o.title,
           o.company,
+          o.company_slug || '',
+          o.canonical_role_key || '',
           o.platform_id || 'custom',
           o.platform_name || o.company,
+          o.category || '',
           o.track || 'Custom',
           o.url,
           o.location || 'Remote',
           o.contract_caveat || 'fractional_or_fulltime',
           o.tags || '',
           o.description || '',
+          o.lang_mask || 'en',
+          o.categories_csv || '',
+          o.experience_tier || 'mid',
+          o.contracts_csv || '',
           o.published_at || '',
+          Number(o.published_epoch || 0),
           o.discovered_at || new Date().toISOString(),
+          Number(o.first_seen_epoch || 0),
+          Number(o.last_seen_epoch || 0),
+          Number(o.sighting_count || 1),
+          Number(o.repost_span_days || 0),
+          o.ghost_risk || 'none',
           bol.eligible ? 1 : 0,
           o.compensation_usd || '',
           o.ai_summary_es || '',
           o.ai_summary_en || '',
-          Number(o.ai_verified || 0)
-        ).run();
+          Number(o.ai_verified || 0),
+          o.status || 'ACTIVE'
+        );
+      };
+
+      if (typeof env.DB.batch === 'function') {
+        for (let i = 0; i < oppsToSave.length; i += 80) {
+          const chunk = oppsToSave.slice(i, i + 80).map(bindOpp);
+          await env.DB.batch(chunk);
+        }
+      } else {
+        for (const o of oppsToSave) {
+          await bindOpp(o).run();
+        }
       }
 
       const seedIds = new Set(INITIAL_PLATFORMS.map(p => p.id));
@@ -284,8 +639,8 @@ async function saveState(state, env) {
             p.id,
             p.name || p.id,
             p.track || 'Custom',
-            p.url || '',
-            p.rss_url || '',
+            sanitizePlatformUrl(p.url || ''),
+            sanitizePlatformUrl(p.rss_url || ''),
             p.contract_caveat || 'fractional_or_fulltime',
             p.bolivia_avenue || '',
             p.notes || '',
@@ -302,7 +657,7 @@ async function saveState(state, env) {
   // Save to KV if bound
   if (env && env.STORE && typeof env.STORE.put === 'function') {
     try {
-      await env.STORE.put('bolivia_remote_state_v5', JSON.stringify(MEMORY_STATE));
+      await env.STORE.put('bolivia_remote_state_v6', JSON.stringify(MEMORY_STATE));
     } catch {
       // Ignore KV write error
     }
@@ -347,9 +702,10 @@ export default {
 
     const state = await loadState(env);
 
-    // 1. Main Web Interface (Spanish Bolivia first, switchable to English)
+    // 1. Main Web Interface (Spanish Bolivia first, with Employer Reality & Ghost-Job badges)
     if (request.method === 'GET' && (path === '/' || path === '/index.html')) {
-      const html = renderAppHtml(state);
+      const enrichedOpps = await attachEmployerReality(state.opportunities, env);
+      const html = renderAppHtml({ ...state, opportunities: enrichedOpps });
       return new Response(html, {
         status: 200,
         headers: {
@@ -428,20 +784,23 @@ Sitemap: https://boliviaremote.work/sitemap.xml
 
     // 2. Get Current State API
     if (request.method === 'GET' && path === '/api/state') {
+      const enrichedOpps = await attachEmployerReality(state.opportunities, env);
       return jsonResponse({
-        version: '5.8.0',
+        version: '6.0.0',
         schedule: '*/15 * * * *',
         ai_enabled: Boolean(env && env.AI),
         d1_enabled: Boolean(env && env.DB),
         vectorize_enabled: Boolean(env && env.VECTORIZE),
+        intel_vectorize_enabled: Boolean(env && env.INTEL_VECTORIZE),
+        career_brain_enabled: Boolean(env && env.CAREER_BRAIN),
         qdrant_enabled: Boolean(env && env.QDRANT_URL),
         mcp_endpoint: '/mcp',
         mcp_auth_enabled: !(env && String(env.MCP_PUBLIC_ACCESS).toLowerCase() === 'true'),
         lastScanAt: state.lastScanAt,
         platforms_count: state.platforms.length,
-        opportunities_count: state.opportunities.length,
+        opportunities_count: enrichedOpps.length,
         platforms: state.platforms,
-        opportunities: state.opportunities
+        opportunities: enrichedOpps
       });
     }
 
@@ -526,8 +885,9 @@ Sitemap: https://boliviaremote.work/sitemap.xml
 
       if (scanRes.new_opportunities.length > 0) {
         const enrichedNew = await enrichBatchWithAI(scanRes.new_opportunities, env, 5);
-        await indexOpportunitiesInVectorStore(enrichedNew, env, 10);
-        state.opportunities = [...enrichedNew, ...state.opportunities];
+        const withSightings = await recordJobSightings(enrichedNew, env);
+        await indexOpportunitiesInVectorStore(withSightings, env, 15);
+        state.opportunities = [...withSightings, ...state.opportunities];
       }
       state.lastScanAt = scanRes.timestamp;
       if (ctx && typeof ctx.waitUntil === 'function') {
@@ -536,25 +896,31 @@ Sitemap: https://boliviaremote.work/sitemap.xml
         await saveState(state, env);
       }
 
+      const enrichedOpps = await attachEmployerReality(state.opportunities, env);
       return jsonResponse({
         ok: true,
         scanned_platforms: scanRes.scanned_platforms,
         new_count: scanRes.new_count,
         lastScanAt: state.lastScanAt,
         platforms: state.platforms,
-        opportunities: state.opportunities
+        opportunities: enrichedOpps
       });
     }
 
-    // 6. Custom Platform URL Live Scanner & Evaluator API
+    // 6. Custom Platform URL Live Scanner & Evaluator API (Zero-PII URL Sanitization)
     if (request.method === 'POST' && path === '/api/platforms/scan-url') {
       try {
         const body = await request.json();
-        const scanRes = await scanCustomPlatformUrl(body, body.filters || DEFAULT_FILTERS);
+        const cleanBody = {
+          ...body,
+          url: sanitizePlatformUrl(body.url || '')
+        };
+        const scanRes = await scanCustomPlatformUrl(cleanBody, cleanBody.filters || DEFAULT_FILTERS);
+        scanRes.platform.url = sanitizePlatformUrl(scanRes.platform.url || '');
         scanRes.opportunities = await enrichBatchWithAI(scanRes.opportunities, env, 4);
+        scanRes.opportunities = await recordJobSightings(scanRes.opportunities, env);
         await indexOpportunitiesInVectorStore(scanRes.opportunities, env, 10);
 
-        // Save or update platform in registry
         const existingIdx = state.platforms.findIndex(p => p.id === scanRes.platform.id);
         if (existingIdx >= 0) {
           state.platforms[existingIdx] = scanRes.platform;
@@ -562,7 +928,6 @@ Sitemap: https://boliviaremote.work/sitemap.xml
           state.platforms.unshift(scanRes.platform);
         }
 
-        // Prepend newly discovered 100% remote Bolivia-eligible opportunities (deduplicated by job_hash)
         const existingHashes = new Set(state.opportunities.map(o => o.job_hash));
         for (const item of scanRes.opportunities) {
           if (!checkBoliviaRemoteEligibility(item).eligible) continue;
@@ -618,7 +983,7 @@ Sitemap: https://boliviaremote.work/sitemap.xml
             for (const p of body.platforms) {
               if (p && p.id && !existingIds.has(p.id)) {
                 existingIds.add(p.id);
-                state.platforms.unshift(p);
+                state.platforms.unshift({ ...p, url: sanitizePlatformUrl(p.url || '') });
               }
             }
           }
@@ -628,7 +993,7 @@ Sitemap: https://boliviaremote.work/sitemap.xml
               if (!o || !checkBoliviaRemoteEligibility(o).eligible) continue;
               if (o.job_hash && !existingHashes.has(o.job_hash)) {
                 existingHashes.add(o.job_hash);
-                state.opportunities.unshift(o);
+                state.opportunities.unshift(cleanOpportunityFields(o));
               }
             }
           }
@@ -664,7 +1029,7 @@ Sitemap: https://boliviaremote.work/sitemap.xml
       }
     }
 
-    // 8. Cloudflare Workers AI — Position Insights & Bolivia (UTC-4) Compatibility Analyzer
+    // 8. Grounded Context-Compiled Position Insights ("Más información con IA" v2)
     if (request.method === 'POST' && path === '/api/ai/analyze-position') {
       try {
         const body = await request.json().catch(() => ({}));
@@ -712,7 +1077,7 @@ Sitemap: https://boliviaremote.work/sitemap.xml
       }
     }
 
-    // 10. Vectorial Database — Multilingual Semantic Search API (Cloudflare Vectorize / Qdrant / Edge Vectors)
+    // 10. Hybrid Search v2 — 3-Channel Weighted RRF + Cross-Encoder Reranker (Zero-PII)
     if ((request.method === 'GET' || request.method === 'POST') && path === '/api/search/semantic') {
       try {
         let query = url.searchParams.get('q') || url.searchParams.get('query') || '';
@@ -730,7 +1095,7 @@ Sitemap: https://boliviaremote.work/sitemap.xml
           }
         }
 
-        const semRes = await semanticSearchOpportunities(query, state.opportunities, filters, env, { topK });
+        const semRes = await hybridSearchOpportunities(query, state.opportunities, filters, env, { topK });
         return jsonResponse(semRes);
       } catch (err) {
         return jsonResponse({ ok: false, error: err.message || 'Semantic search failed' }, 400);
@@ -756,6 +1121,9 @@ Sitemap: https://boliviaremote.work/sitemap.xml
         return jsonResponse({
           ok: true,
           indexed_count: idxRes.indexed_count,
+          embedding_dimensions: idxRes.embedding_dimensions,
+          mutation_id: idxRes.mutation_id || null,
+          vectorize_error: idxRes.vectorize_error || null,
           backends: idxRes.backends,
           duplicates_removed: dedupRemoved,
           total_opportunities: state.opportunities.length
@@ -765,7 +1133,7 @@ Sitemap: https://boliviaremote.work/sitemap.xml
       }
     }
 
-    // 12. Model Context Protocol (MCP) Server over Streamable HTTP (`/mcp`, `/api/mcp`, `/.well-known/mcp.json`)
+    // 12. Isolated Fail-Closed MCP Server (`/mcp`, `/api/mcp`, `/.well-known/mcp.json`)
     if (path === '/mcp' || path === '/api/mcp' || path === '/.well-known/mcp.json') {
       return handleMcpRequest(request, state, env, ctx, () => saveState(state, env));
     }
@@ -786,9 +1154,11 @@ Sitemap: https://boliviaremote.work/sitemap.xml
       });
       if (scanRes.new_opportunities.length > 0) {
         const enrichedNew = await enrichBatchWithAI(scanRes.new_opportunities, env, 5);
-        await indexOpportunitiesInVectorStore(enrichedNew, env, 10);
-        state.opportunities = [...enrichedNew, ...state.opportunities];
+        const withSightings = await recordJobSightings(enrichedNew, env);
+        await indexOpportunitiesInVectorStore(withSightings, env, 15);
+        state.opportunities = [...withSightings, ...state.opportunities];
       }
+      await expireStaleOpportunities(env);
       state.lastScanAt = scanRes.timestamp;
       await saveState(state, env);
     })();

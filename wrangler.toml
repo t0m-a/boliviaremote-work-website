@@ -7,30 +7,39 @@ workers_dev = true
 [triggers]
 crons = ["*/15 * * * *"]
 
-# Cloudflare Workers AI binding (used for ingestion enrichment, geo-verification, and CV/cover-letter matching)
+# Cloudflare Workers AI binding (bge-m3 embeddings, bge-reranker-base, Llama 3.3 70B & Llama 3.1 8B)
 [ai]
 binding = "AI"
 
-# Optional Cloudflare D1 SQL Database binding (uncomment and set database_id after `npx wrangler d1 create bolivia_remote_db`)
-# [[d1_databases]]
-# binding = "DB"
-# database_name = "bolivia_remote_db"
-# database_id = "00000000-0000-0000-0000-000000000000"
+# Isolated SQLite Durable Object: Employer & Platform Reality KG + Bolivia Playbooks + Context Compiler
+# (100% air-gapped inside scout-analyst-pipeline; zero cross-worker bindings)
+[durable_objects]
+bindings = [
+  { name = "CAREER_BRAIN", class_name = "BoliviaCareerBrainDO" }
+]
 
-# Optional Cloudflare Vectorize Index binding (uncomment after `npx wrangler vectorize create bolivia-remote-jobs --dimensions=1024 --metric=cosine`)
-# [[vectorize]]
-# binding = "VECTORIZE"
-# index_name = "bolivia-remote-jobs"
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["BoliviaCareerBrainDO"]
 
-# Optional Raspberry Pi 5 Qdrant Edge Bridge (e.g. edge-rag-hub Qdrant v1.12)
-# [vars]
-# QDRANT_URL = "http://localhost:6333"
-# QDRANT_COLLECTION = "bolivia_remote_jobs"
+# Dedicated Cloudflare D1 SQL Database (`bolivia-remote-jobs-db`, region ENAM)
+[[d1_databases]]
+binding = "DB"
+database_name = "bolivia-remote-jobs-db"
+database_id = "78d17a8f-22ac-4b24-bd4b-bb2d359adfea"
+
+# Dedicated 1024-dim Cloudflare Vectorize Indexes (`@cf/baai/bge-m3`, cosine)
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "bolivia-remote-jobs-m3"
+
+[[vectorize]]
+binding = "INTEL_VECTORIZE"
+index_name = "bolivia-remote-intel-m3"
 
 # Private MCP Server Authentication (Fail-Closed by default):
 # Set your private Bearer token in Cloudflare Secret Storage via:
 #   npx wrangler secret put MCP_API_KEY
-# Or in Cloudflare Dashboard -> Workers & Pages -> scout-analyst-pipeline -> Settings -> Variables and Secrets.
 # All requests to /mcp, /api/mcp, and /.well-known/mcp.json require `Authorization: Bearer <MCP_API_KEY>`
 # (or `X-MCP-API-Key: <MCP_API_KEY>` or `?key=<MCP_API_KEY>`).
 [vars]

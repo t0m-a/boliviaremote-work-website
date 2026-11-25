@@ -1,9 +1,11 @@
 /**
- * Model Context Protocol (MCP) Server over Streamable HTTP (Phase 4)
+ * Model Context Protocol (MCP) Server over Streamable HTTP (v6.0.0)
  * Endpoint: `/mcp` (and discovery manifest at `/.well-known/mcp.json`)
+ * Protected by fail-closed `MCP_API_KEY`; 100% isolated inside scout-analyst-pipeline (ADR-08).
+ *
  * Implements JSON-RPC 2.0 methods:
  *   - initialize / notifications/initialized / ping
- *   - tools/list & tools/call
+ *   - tools/list & tools/call (5 public job tools + 3 isolated BoliviaCareerBrainDO governance tools)
  *   - resources/list & resources/read
  *   - prompts/list & prompts/get
  */
@@ -15,15 +17,15 @@ import {
 } from './evaluator.js';
 import { scanCustomPlatformUrl } from './scanner.js';
 import { enrichBatchWithAI, analyzePositionForBolivia } from './ai_enricher.js';
-import {
-  semanticSearchOpportunities,
-  indexOpportunitiesInVectorStore
-} from './vector_store.js';
+import { indexOpportunitiesInVectorStore } from './vector_store.js';
+import { hybridSearchOpportunities } from './hybrid_search.js';
+import { getCareerBrainClient } from './career_brain_do.js';
+import { sanitizePlatformUrl } from './privacy_guard.js';
 
 export const MCP_SERVER_INFO = {
   name: 'bolivia-remote-mcp-server',
-  version: '5.8.0',
-  description: 'Public Model Context Protocol (MCP) server for finding, evaluating, and applying to 100% remote jobs from Bolivia (UTC-4).'
+  version: '6.0.0',
+  description: 'Isolated Model Context Protocol (MCP) server for finding, evaluating, and governing 100% remote job intelligence for Bolivia (UTC-4).'
 };
 
 export const MCP_TOOLS = [
@@ -42,7 +44,7 @@ export const MCP_TOOLS = [
         position_types: {
           type: 'array',
           items: { type: 'string' },
-          description: 'Target category IDs (e.g. ["software_eng", "cloud_devops", "data_bi", "virtual_assistant", "customer_support", "finance_accounting", "languages_translation"]).'
+          description: 'Target category IDs (e.g. ["software", "cloud_sys", "data", "virtual_assistant", "customer_support", "finance_accounting", "languages_translation"]).'
         },
         custom_keywords: {
           type: 'string',
@@ -63,7 +65,7 @@ export const MCP_TOOLS = [
   {
     name: 'semantic_search_bolivia_jobs',
     description:
-      'Performs multilingual vector semantic search (ES/EN/PT) over Bolivia-eligible remote jobs using Cloudflare Vectorize / Qdrant / Edge Multilingual Vectors.',
+      'Performs Zero-PII Hybrid Search v2 (3-Channel Weighted RRF over D1 FTS5 + 1024d Vectorize + Edge 128d + Cross-Encoder bge-reranker-base) over Bolivia-eligible remote jobs.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -87,7 +89,7 @@ export const MCP_TOOLS = [
   {
     name: 'scan_career_page_url',
     description:
-      'Live-scans a custom job board, company career page, RSS/Atom feed, or JSON API URL, extracts job postings, and evaluates 100% remote eligibility from Bolivia.',
+      'Live-scans a custom job board, company career page, RSS/Atom feed, or JSON API URL (with automatic tracking-parameter stripping), extracts job postings, and evaluates 100% remote eligibility from Bolivia.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -111,7 +113,7 @@ export const MCP_TOOLS = [
   {
     name: 'analyze_position_for_bolivia',
     description:
-      'Analyzes a specific remote position using Cloudflare Workers AI (with deterministic edge fallback) and returns detailed Spanish insights: position overview, requirements, useful skills/experience, Bolivia (UTC-4) timezone compatibility, and candidate advice.',
+      'Analyzes a specific remote position using context-compiled BoliviaCareerBrainDO intelligence and Workers AI (with deterministic edge fallback), returning overview, requirements, skills, UTC-4 compatibility, advice, and grounded Bolivia reality signals.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -146,6 +148,121 @@ export const MCP_TOOLS = [
           description: 'Optional keyword filter by platform name or domain.'
         }
       }
+    }
+  },
+  {
+    name: 'upsert_employer_reality',
+    description:
+      'Operator governance tool: add or update an employer/platform node, Bolivia eligibility tier, confidence score, EOR options, and payout rail edges inside BoliviaCareerBrainDO.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        entity_id: {
+          type: 'string',
+          description: 'Optional canonical entity ID (e.g. "company:acme" or "platform:outlier_ai").'
+        },
+        canonical_name: {
+          type: 'string',
+          description: 'Display name of the employer or platform.'
+        },
+        entity_type: {
+          type: 'string',
+          enum: ['company', 'platform', 'eor', 'payout_rail', 'skill_bridge'],
+          description: 'Entity type (default: "company").'
+        },
+        domain: {
+          type: 'string',
+          description: 'Primary web domain (e.g. "deel.com").'
+        },
+        bolivia_tier: {
+          type: 'string',
+          enum: ['verified_friendly', 'open_global', 'caution_friction', 'geo_blocked'],
+          description: 'Bolivia contracting and payout compatibility tier.'
+        },
+        confidence: {
+          type: 'number',
+          description: 'Confidence score in [0.0, 1.0].'
+        },
+        payout_rails: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Known payout rails (e.g. ["airtm_usdc", "payoneer", "deel_withdrawal"]).'
+        },
+        eor_options: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Known EOR / contract paths (e.g. ["deel", "ontop", "direct_w8ben"]).'
+        },
+        typical_comp: {
+          type: 'string',
+          description: 'Observed USD compensation band.'
+        },
+        note_es: {
+          type: 'string',
+          description: 'Spanish Bolivia contractor reality note.'
+        },
+        note_en: {
+          type: 'string',
+          description: 'English Bolivia contractor reality note.'
+        },
+        caution_es: {
+          type: 'string',
+          description: 'Optional Spanish caution note if bolivia_tier is caution_friction.'
+        }
+      },
+      required: ['canonical_name']
+    }
+  },
+  {
+    name: 'upsert_bolivia_playbook',
+    description:
+      'Operator governance tool: add or update a curated bilingual Bolivia contractor playbook in BoliviaCareerBrainDO SQLite FTS5 and bolivia-remote-intel-m3 Vectorize.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        playbook_id: {
+          type: 'string',
+          description: 'Stable playbook identifier (e.g. "pb_custom_invoicing").'
+        },
+        category: {
+          type: 'string',
+          description: 'Playbook category (e.g. "payout_rails", "tax_contracts", "timezone_strategy", "category_strategy", "upskilling").'
+        },
+        title_es: {
+          type: 'string',
+          description: 'Playbook title in Spanish (es-BO).'
+        },
+        title_en: {
+          type: 'string',
+          description: 'Playbook title in English.'
+        },
+        summary_es: {
+          type: 'string',
+          description: 'Short Spanish summary.'
+        },
+        content_es: {
+          type: 'string',
+          description: 'Detailed actionable guidance in Spanish.'
+        },
+        content_en: {
+          type: 'string',
+          description: 'Detailed actionable guidance in English.'
+        },
+        tags: {
+          type: 'string',
+          description: 'Comma-separated keywords for FTS5 retrieval.'
+        }
+      },
+      required: ['title_es', 'content_es']
+    }
+  },
+  {
+    name: 'inspect_career_brain_status',
+    description:
+      'Operator governance tool: inspect D1/in-memory job counts, ghost-job flags, BoliviaCareerBrainDO KG entity/edge/playbook counts, and open policy conflicts.',
+    inputSchema: {
+      type: 'object',
+      properties: {}
     }
   }
 ];
@@ -233,7 +350,6 @@ async function executeMcpRpcObject(rpc, state, env, saveStateFn) {
 
   const { id, method, params = {} } = rpc;
 
-  // Notifications without an id
   if (method === 'notifications/initialized' || method === 'notifications/cancelled') {
     return null;
   }
@@ -313,7 +429,7 @@ async function executeMcpRpcObject(rpc, state, env, saveStateFn) {
               `Using the bolivia-remote-mcp-server tools, find the best 100% remote jobs from Bolivia (UTC-4) for this candidate profile:\n\n` +
               `"${profile}"\n\n` +
               `1. Run semantic_search_bolivia_jobs and search_bolivia_remote_jobs.\n` +
-              `2. Call analyze_position_for_bolivia for the top opportunity to retrieve requirements, useful skills, UTC-4 timezone compatibility, and candidate advice.`
+              `2. Call analyze_position_for_bolivia for the top opportunity to retrieve requirements, useful skills, UTC-4 timezone compatibility, grounded Bolivia payout/contract reality, and candidate advice.`
           }
         }
       ]
@@ -360,6 +476,7 @@ async function executeMcpRpcObject(rpc, state, env, saveStateFn) {
             location: r.location,
             bolivia_badge: r.bolivia_badge_en,
             compensation_usd: r.compensation_usd || '',
+            ghost_risk: r.ghost_risk || 'none',
             matched_skills: r.matched_skills,
             url: r.url
           }))
@@ -375,7 +492,7 @@ async function executeMcpRpcObject(rpc, state, env, saveStateFn) {
           ...DEFAULT_FILTERS,
           ...(Array.isArray(args.languages) && args.languages.length > 0 ? { languages: args.languages } : {})
         };
-        const semRes = await semanticSearchOpportunities(
+        const semRes = await hybridSearchOpportunities(
           args.query,
           state.opportunities,
           filters,
@@ -389,8 +506,9 @@ async function executeMcpRpcObject(rpc, state, env, saveStateFn) {
       }
 
       if (toolName === 'scan_career_page_url') {
+        const cleanUrl = sanitizePlatformUrl(args.url || '');
         const scanRes = await scanCustomPlatformUrl(
-          { url: args.url, name: args.name, type: args.type || 'auto' },
+          { url: cleanUrl, name: args.name, type: args.type || 'auto' },
           DEFAULT_FILTERS
         );
         scanRes.opportunities = await enrichBatchWithAI(scanRes.opportunities, env, 3);
@@ -466,6 +584,68 @@ async function executeMcpRpcObject(rpc, state, env, saveStateFn) {
         });
       }
 
+      // Isolated Governance Tool 1: upsert_employer_reality
+      if (toolName === 'upsert_employer_reality') {
+        const brain = getCareerBrainClient(env);
+        const res = await brain.upsertEmployerReality(args);
+        return jsonRpcSuccess(id, {
+          content: [{ type: 'text', text: JSON.stringify(res, null, 2) }],
+          isError: false
+        });
+      }
+
+      // Isolated Governance Tool 2: upsert_bolivia_playbook
+      if (toolName === 'upsert_bolivia_playbook') {
+        const brain = getCareerBrainClient(env);
+        const res = await brain.upsertBoliviaPlaybook(args);
+        return jsonRpcSuccess(id, {
+          content: [{ type: 'text', text: JSON.stringify(res, null, 2) }],
+          isError: false
+        });
+      }
+
+      // Isolated Governance Tool 3: inspect_career_brain_status
+      if (toolName === 'inspect_career_brain_status') {
+        const brain = getCareerBrainClient(env);
+        const brainStatus = await brain.inspectStatus();
+        const ghostHighCount = (state.opportunities || []).filter(o => o.ghost_risk === 'high').length;
+        const ghostWatchCount = (state.opportunities || []).filter(o => o.ghost_risk === 'watch').length;
+
+        let d1Stats = { bound: Boolean(env && env.DB), active_jobs: null, sightings_tracked: null };
+        if (env && env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const r1 = await env.DB.prepare("SELECT COUNT(*) AS c FROM opportunities WHERE status = 'ACTIVE' OR status IS NULL").all();
+            const r2 = await env.DB.prepare('SELECT COUNT(*) AS c FROM job_sightings').all();
+            if (r1 && Array.isArray(r1.results) && r1.results[0]) d1Stats.active_jobs = Number(r1.results[0].c);
+            if (r2 && Array.isArray(r2.results) && r2.results[0]) d1Stats.sightings_tracked = Number(r2.results[0].c);
+          } catch {
+            // ignore D1 count errors on minimal mocks
+          }
+        }
+
+        const payload = {
+          ok: true,
+          version: '6.0.0',
+          air_gapped_isolation: true,
+          state_opportunities_count: (state.opportunities || []).length,
+          platforms_count: (state.platforms || []).length,
+          ghost_job_flags: {
+            high: ghostHighCount,
+            watch: ghostWatchCount
+          },
+          d1: d1Stats,
+          vectorize: {
+            jobs_index_bound: Boolean(env && env.VECTORIZE),
+            intel_index_bound: Boolean(env && env.INTEL_VECTORIZE)
+          },
+          career_brain: brainStatus
+        };
+        return jsonRpcSuccess(id, {
+          content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }],
+          isError: false
+        });
+      }
+
       return jsonRpcError(id, -32601, `Unknown MCP tool: ${toolName}`);
     } catch (err) {
       return jsonRpcSuccess(id, {
@@ -494,12 +674,6 @@ function timingSafeEqualStr(a, b) {
 
 /**
  * Verifies Bearer Token / API Key for private `/mcp` access (Fail-Closed by default).
- * Unless `env.MCP_PUBLIC_ACCESS === 'true'`, authentication is strictly required:
- *   - If `env.MCP_API_KEY` is not set in Cloudflare Worker secrets, all requests are rejected (401).
- *   - When `env.MCP_API_KEY` is set, requests must supply a matching key via:
- *       1. `Authorization: Bearer <MCP_API_KEY>`
- *       2. `X-MCP-API-Key: <MCP_API_KEY>`
- *       3. `?key=<MCP_API_KEY>` or `?api_key=<MCP_API_KEY>` query parameter
  */
 export function verifyMcpAuth(request, env, urlObj) {
   const allowPublic = Boolean(env && String(env.MCP_PUBLIC_ACCESS).toLowerCase() === 'true');

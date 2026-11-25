@@ -10,9 +10,11 @@
 import {
   DEFAULT_FILTERS,
   evaluateAllOpportunities,
-  checkBoliviaRemoteEligibility
+  checkBoliviaRemoteEligibility,
+  detectOfferAttributes
 } from './evaluator.js';
 import { stripHtml, computeJobHash } from './scanner.js';
+import { normalizeCompanySlug, parseDateToEpochSeconds } from './privacy_guard.js';
 
 export const EMBEDDING_MODEL = '@cf/baai/bge-m3';
 const LOCAL_DIM = 128;
@@ -50,7 +52,7 @@ const SHORT_DOMAIN_ACRONYMS = new Set([
  * Cross-lingual ES <-> EN synonym expansion map (all keys and values accent-stripped).
  * Broadens semantic search so Spanish, English, colloquial, and adjacent role terms connect naturally.
  */
-const CROSS_LINGUAL_SYNONYMS = {
+export const CROSS_LINGUAL_SYNONYMS = {
   asistente: ['assistant', 'virtual', 'admin', 'administrative', 'executive', 'backoffice', 'secretary'],
   secretaria: ['assistant', 'administrative', 'executive', 'office', 'scheduling'],
   secretario: ['assistant', 'administrative', 'executive', 'office', 'scheduling'],
@@ -245,7 +247,7 @@ const CLUSTER_DIM_COUNT = SEMANTIC_CONCEPT_CLUSTERS.length;
 /**
  * Extracts normalized tokens suitable for forgiving lexical/fuzzy search.
  */
-function extractQueryTokens(normalizedText) {
+export function extractQueryTokens(normalizedText) {
   const rawTokens = normalizedText
     .replace(/[^a-z0-9+#.\s-]/g, ' ')
     .split(/\s+/)
@@ -260,7 +262,7 @@ function extractQueryTokens(normalizedText) {
 /**
  * Expands a normalized query with cross-lingual ES <-> EN synonyms for broader recall.
  */
-function expandQueryTerms(tokens) {
+export function expandQueryTerms(tokens) {
   const expanded = new Set();
   for (const tok of tokens) {
     if (CROSS_LINGUAL_SYNONYMS[tok]) {
@@ -321,7 +323,7 @@ function boundedLevenshtein(a, b, maxDist) {
  * Forgiving single-term match score in [0, 1] against a normalized opportunity text blob & token list.
  * Supports exact substring, stem prefix, and minor typo tolerance (Levenshtein 1-2).
  */
-function scoreForgivingTermMatch(term, normalizedBlob, blobTokens) {
+export function scoreForgivingTermMatch(term, normalizedBlob, blobTokens) {
   if (!term) return 0;
   if (normalizedBlob.includes(term)) return 1.0;
 
@@ -517,6 +519,52 @@ export function buildOpportunityEmbeddingText(item) {
 }
 
 /**
+ * Generates embeddings for a batch of texts in a single `@cf/baai/bge-m3` call per chunk (max 25),
+ * falling back cleanly to 128d local vectors when `env.AI` is unavailable.
+ */
+async function generateEmbeddingsBatch(texts, env) {
+  const cleanTexts = texts.map(t => stripHtml(t || '').slice(0, 1200));
+  if (env && env.AI && typeof env.AI.run === 'function' && cleanTexts.length > 0) {
+    const out = [];
+    let allNeural = true;
+    for (let i = 0; i < cleanTexts.length; i += 25) {
+      const chunk = cleanTexts.slice(i, i + 25);
+      try {
+        const resp = await env.AI.run(EMBEDDING_MODEL, { text: chunk });
+        const rows = resp && Array.isArray(resp.data) ? resp.data : null;
+        if (rows && rows.length === chunk.length && Array.isArray(rows[0]) && rows[0].length >= 64) {
+          for (const vec of rows) {
+            out.push({
+              vector: normalizeVector([...vec]),
+              model: EMBEDDING_MODEL,
+              dimensions: vec.length
+            });
+          }
+          continue;
+        }
+      } catch {
+        // Fallback per item below
+      }
+      allNeural = false;
+      for (const itemText of chunk) {
+        out.push(await generateEmbedding(itemText, env));
+      }
+    }
+    if (out.length === cleanTexts.length && (allNeural || out.every(e => e.dimensions >= 64))) {
+      return out;
+    }
+  }
+  return cleanTexts.map(t => {
+    const localVec = buildLocalSemanticVector(t);
+    return {
+      vector: localVec,
+      model: 'edge-multilingual-128d',
+      dimensions: localVec.length
+    };
+  });
+}
+
+/**
  * Indexes a batch of opportunities into Cloudflare Vectorize (`env.VECTORIZE`)
  * and/or the Raspberry Pi 5 Qdrant Edge Bridge (`env.QDRANT_URL`).
  */
@@ -530,32 +578,60 @@ export async function indexOpportunitiesInVectorStore(opportunities, env, maxIte
   const backends = [];
   const vectorRecords = [];
 
-  for (const opp of slice) {
-    const text = buildOpportunityEmbeddingText(opp);
-    const emb = await generateEmbedding(text, env);
+  const texts = slice.map(opp => buildOpportunityEmbeddingText(opp));
+  const embeddings = await generateEmbeddingsBatch(texts, env);
+
+  for (let i = 0; i < slice.length; i++) {
+    const opp = slice[i];
+    const emb = embeddings[i];
     const id = opp.job_hash || computeJobHash(opp.title, opp.company, opp.url);
+    const attrs = detectOfferAttributes(opp);
+    const langs = attrs.languages || ['en'];
+    const langMask = langs.includes('es') && langs.includes('en')
+      ? 'es_en'
+      : (langs.includes('es') ? 'es' : 'en');
+    const companySlug = opp.company_slug || normalizeCompanySlug(opp.company || opp.platform_name, 'company');
+    const publishedEpoch = Number(opp.published_epoch) || parseDateToEpochSeconds(opp.published_at || opp.discovered_at);
+
     vectorRecords.push({
       id,
       values: emb.vector,
+      dimensions: emb.dimensions,
       metadata: {
         job_hash: id,
         title: String(opp.title || '').slice(0, 140),
         company: String(opp.company || '').slice(0, 80),
+        company_slug: companySlug.slice(0, 80),
         platform_name: String(opp.platform_name || '').slice(0, 80),
         track: String(opp.track || '').slice(0, 80),
+        status: String(opp.status || 'ACTIVE'),
+        lang_mask: langMask,
+        published_epoch: publishedEpoch,
         bolivia_eligible: 1,
         published_at: String(opp.published_at || '').slice(0, 10)
       }
     });
   }
 
-  // 1. Cloudflare Vectorize (`env.VECTORIZE`)
+  // 1. Cloudflare Vectorize (`env.VECTORIZE`) — guard against dimension mismatch & chunk upserts
+  let vectorizeMutationId = null;
+  let vectorizeError = null;
   if (env && env.VECTORIZE && typeof env.VECTORIZE.upsert === 'function') {
     try {
-      await env.VECTORIZE.upsert(vectorRecords);
-      backends.push('cloudflare-vectorize');
-    } catch {
-      // Ignore Vectorize upsert error
+      const targetDim = vectorRecords[0] ? vectorRecords[0].dimensions : 1024;
+      const cleanPayload = vectorRecords
+        .filter(r => Array.isArray(r.values) && r.values.length === targetDim)
+        .map(({ id, values, metadata }) => ({ id, values, metadata }));
+
+      if (cleanPayload.length > 0) {
+        for (let i = 0; i < cleanPayload.length; i += 100) {
+          const res = await env.VECTORIZE.upsert(cleanPayload.slice(i, i + 100));
+          if (res && res.mutationId) vectorizeMutationId = res.mutationId;
+        }
+        backends.push('cloudflare-vectorize');
+      }
+    } catch (err) {
+      vectorizeError = err && err.message ? err.message : String(err);
     }
   }
 
@@ -592,6 +668,9 @@ export async function indexOpportunitiesInVectorStore(opportunities, env, maxIte
 
   return {
     indexed_count: vectorRecords.length,
+    embedding_dimensions: vectorRecords[0] ? vectorRecords[0].dimensions : 0,
+    mutation_id: vectorizeMutationId,
+    vectorize_error: vectorizeError,
     backends
   };
 }

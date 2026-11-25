@@ -4,7 +4,7 @@
 
 **Plataforma pública, autónoma y auto-contenida para Cloudflare Workers diseñada para encontrar, filtrar y evaluar ofertas laborales internacionales 100% remotas elegibles para trabajar desde Bolivia (UTC-4).**
 
-[![Versión](https://img.shields.io/badge/Versi%C3%B3n-v5.8.0%20Producci%C3%B3n-0284c7?style=for-the-badge&logo=cloudflare&logoColor=white)](src/worker.js)
+[![Versión](https://img.shields.io/badge/Versi%C3%B3n-v6.0.0%20Producci%C3%B3n-0284c7?style=for-the-badge&logo=cloudflare&logoColor=white)](src/worker.js)
 [![Plataforma](https://img.shields.io/badge/Runtime-Cloudflare%20Workers-f38020?style=for-the-badge&logo=cloudflareworkers&logoColor=white)](wrangler.toml)
 [![Automatización](https://img.shields.io/badge/Frecuencia-Cada%2015%20min%20%2B%20Bajo%20Demanda-10b981?style=for-the-badge&logo=clockify&logoColor=white)](wrangler.toml)
 [![Idioma UI](https://img.shields.io/badge/Interfaz-Espa%C3%B1ol%20Bolivia-f59e0b?style=for-the-badge&logo=googletranslate&logoColor=white)](src/ui.js)
@@ -53,25 +53,26 @@ Buscar trabajo remoto internacional desde Bolivia suele ser frustrante: la mayor
 
 Esta herramienta es una **solución pública y gratuita** en **Español (Bolivia)** que centraliza **86 plataformas globales y regionales** (incluyendo Torre.ai, GetOnBoard, Virtual Latinos, Workana, SoyFreelancer, NoDesk, DailyRemote, Jobspresso, Dynamite Jobs, LatinHire, HireLatam, SheWorks, Himalayas, We Work Remotely, Remotive, RemoteYeah, etc.), garantizando desde la ingesta que todas las ofertas importadas y evaluadas sean **100% remotas elegibles desde Bolivia**, y calificándolas en vivo frente a tus preferencias de **idiomas (`Español` / `Inglés`), área profesional (25 categorías), nivel de experiencia y modalidad de contrato**.
 
-### Principales Características y Novedades (v5.8)
+### Principales Características y Novedades (v6.0)
 
-- **Interfaz 100% Español (Bolivia) y Diseño Responsivo:** Barra superior fija con efecto translúcido difuminado al hacer scroll, tarjetas de oferta con animación bidireccional suave, adaptación fluida a escritorio, tabletas (`<= 1200px`, `<= 820px`) y celulares (`<= 640px`), respuesta inmediata en pantallas táctiles para filtros y desplegables, botón flotante translúcido **Arriba** acoplado ordenadamente sobre el pie de página en móvil, grillas KPI balanceadas de 3 tarjetas (`POSTULAR`, `EXPLORAR`, `BAJA COINCIDENCIA`) y cierre automático suave al retirar el puntero o desplazar los menús fuera de vista.
-- **Menú Hamburguesa `Información Útil` con Colores Rotativos y Modo Claro/Oscuro:** La barra superior muestra el título **Bolivia Remote Work** a la izquierda y, a la derecha, el selector discreto de modo claro/oscuro junto al botón **Información Útil** con transición continua de colores patrios (**rojo → amarillo → verde**) en modo claro y oscuro tanto en escritorio como en móvil (con cierre automático y repliegue de subsecciones). Incluye: **Guía del Usuario: Bolivia Remote Work**, **Información Financiera y de Pago** (AirTM, Wise, Payoneer, Tipalti y Dólar Bolivia Hoy) y **Sobre el creador** (proyecto comunitario **Minka Lab** dedicado a la educación digital, las competencias en IA y el aprendizaje de idiomas en [minkalab.net](https://minkalab.net) con enlaces de contacto). En el pie de página unificado de todas las vistas se integran las cápsulas interactivas de **Categorías De Plataformas** y **Plataformas Monitoreadas** junto al estado de sincronización.
-- **Filtro Estricto de Idiomas (`Español` e `Inglés`):** Por defecto inicia con **Español** seleccionado. Soporta tres modos simétricos con refresco inmediato de resultados y tarjetas KPI:
-  - **Solo Español:** Muestra y prioriza únicamente vacantes compatibles con español, descartando ofertas exclusivas en inglés.
-  - **Solo Inglés:** Muestra y prioriza únicamente vacantes compatibles con inglés, descartando ofertas exclusivas en español.
-  - **Ambos (`Español` + `Inglés`):** Muestra la unión completa de ofertas en español, inglés y bilingües con puntaje completo de idioma (`20/20`).
-- **25 Categorías Profesionales Enriquecidas:** Desplegable responsivo multi-selección (`Tipo de Posición / Área Profesional`) ampliado para cubrir áreas técnicas, administrativas, comerciales, creativas, de salud, legales, e-commerce, producto, ciberseguridad, IA/ML y traducción.
-- **Filtro 100% Remoto desde Bolivia Obligatorio en Toda la Tubería:** El escáner, el evaluador, el índice vectorial y el analizador IA filtran automáticamente cualquier restricción geográfica (`US Only`, `EU Only`, `W-2`, presencial/híbrido) antes de importar o mostrar vacantes.
-- **Panel Contextual `Más información con IA` (Cloudflare Workers AI):** En cada tarjeta de oferta, el botón destacado en verde **Más información con IA** despliega un panel inmediatamente debajo de la vacante (y se cierra automáticamente al salir de la pantalla al hacer scroll) con análisis estructurado en español mediante Llama 3.1 y respaldo determinístico de borde (`POST /api/ai/analyze-position`):
+- **Persistencia Relacional D1, Búsqueda BM25 FTS5 y Detector de Vacantes Fantasma (`job_sightings`):** Base dedicada **Cloudflare D1** (`bolivia-remote-jobs-db`, [`schema.sql`](schema.sql)) que elimina el tope anterior de 200 ofertas en caché, mantiene índice sincronizado `opportunities_fts` insensible a tildes (`unicode61 remove_diacritics 2`), registra re-publicaciones recurrentes entre portales (`ghost_risk: watch / high`) y expira automáticamente a estado `STALE` las vacantes no vistas por más de 30 días.
+- **Búsqueda Híbrida v2 (`Buscar con IA` — RRF de 3 Canales + Cross-Encoder):** Motor [`src/hybrid_search.js`](src/hybrid_search.js) que fusiona en paralelo tres canales mediante *Weighted Reciprocal Rank Fusion*:
+  1. `d1_fts` (peso `1.15`): BM25 sobre `opportunities_fts` con expansión de sinónimos español/inglés.
+  2. `vec_m3` (peso `1.20`): Índice vectorial dedicado `bolivia-remote-jobs-m3` de 1024 dimensiones (`@cf/baai/bge-m3`) con filtros de metadatos (`status`, `lang_mask`, `company_slug`, `published_epoch`).
+  3. `edge_128d` (peso `0.85`): Vectores semánticos locales de 128 dimensiones tolerantes a tildes faltantes y errores de tipeo.
+  - Aplica decaimiento de frescura (vida media de 21 días), penalización de vacantes fantasma, multiplicador de realidad del empleador y **re-ordenamiento neuronal en Etapa 2 (`@cf/baai/bge-reranker-base`)** sobre los 16 mejores candidatos.
+- **Grafo de Realidad del Empleador (`BoliviaCareerBrainDO` SQLite Durable Object):** Objeto Durable aislado en [`src/career_brain_do.js`](src/career_brain_do.js) y [`src/career_intel_seed.js`](src/career_intel_seed.js) con respaldo automático en memoria/D1 (`career_brain_fallback`) para despliegues sin Durable Objects. Mapea las **86 plataformas monitoreadas**, empleadores remotos globales, vías de cobro verificadas en Bolivia (`AirTM`, `Payoneer`, `Deel`, `Tipalti`, `USDC`, notas de precaución de `Wise` y `SWIFT USD`), EORs (`Deel`, `Ontop`, `Remote.com`, `Plane`, `W-8BEN Directo`) y **12 guías bilingües curadas** indexadas en FTS5 y `bolivia-remote-intel-m3`.
+- **Tarjetas con Cápsulas de Realidad y Panel Contextual `Más información con IA` v2:** Cada tarjeta muestra cápsulas verificadas de **canal de cobro / precaución en Bolivia**, indicador de frescura (**Nueva hoy**) o alerta de **re-publicación recurrente**. Al pulsar **Más información con IA**, el Worker compila un bloque `<bolivia_context>` (~1200 tokens) desde `BoliviaCareerBrainDO` + `job_sightings` para alimentar `@cf/meta/llama-3.3-70b-instruct-fp8-fast` (con respaldo Llama 3.1 8B y modo offline) y despliega 5 bloques estructurados:
   - Resumen informativo de la posición.
   - **Requisitos de la posición**.
   - **Experiencia y habilidades útiles**.
   - **Compatibilidad horaria con Bolivia (UTC-4)**.
   - **Consejos para el candidato**.
-- **Búsqueda Semántica Tolerante (`Buscar con IA`) y Barra de Herramientas Unificada:** Incluye botón verde translúcido **Escanear Ofertas Ahora**, filtro **Todas las Elegibles**, botón integrado **Borrar búsqueda** dentro del campo de texto y búsqueda vectorial bilingüe tolerante a tildes faltantes, errores de tipeo y sinónimos español/inglés (`@cf/baai/bge-m3` + Cloudflare Vectorize / Qdrant / vectores locales).
+  - **Realidad desde Bolivia: Contrato, Cobro e Historial** (5to bloque fundamentado en el grafo de conocimiento y el historial de publicaciones).
+- **Guardia Zero-PII en RAM (`src/privacy_guard.js`):** Limpia en memoria correos electrónicos, teléfonos, URLs, `@usuarios` e identificadores numéricos largos antes de generar embeddings o consultas FTS5 (sin registrar ni almacenar consultas de usuarios), y elimina parámetros de rastreo (`utm_*`, `fbclid`, `gclid`, `ref`, `gh_src`, credenciales) en URLs escaneadas.
+- **Interfaz 100% Español (Bolivia) y Diseño Responsivo:** Barra superior fija con efecto translúcido difuminado al hacer scroll, tarjetas con animación bidireccional suave, modo claro/oscuro, botón **Información Útil** con transición continua de colores patrios (**rojo → amarillo → verde**), filtro estricto simétrico de idiomas (`Español` / `Inglés`), **25 categorías profesionales**, pie de página unificado y favicon vectorial patrio (`/favicon.svg`, `/favicon.ico`, `/favicon.png`).
+- **Servidor MCP Aislado (Fail-Closed, 8 Herramientas):** Expone 5 herramientas de búsqueda/escaneo/análisis más 3 herramientas administrativas sobre `BoliviaCareerBrainDO` (`upsert_employer_reality`, `upsert_bolivia_playbook`, `inspect_career_brain_status`), protegidas estrictamente mediante `MCP_API_KEY`.
 - **Sincronización Automática de Nuevas Plataformas (`custom_*`):** Motor [`src/seed_sync.js`](src/seed_sync.js), script CLI [`sync_platforms.mjs`](sync_platforms.mjs) (`npm run sync-platforms`) y endpoint `/api/platforms/sync` para persistir plataformas personalizadas hacia [`platforms_config.json`](platforms_config.json) y [`src/seed_data.js`](src/seed_data.js).
-- **Identidad y Favicon Patrio:** Favicon vectorial del planeta Tierra con los colores de la bandera de Bolivia (`#EF4444`, `#FDE047`, `#10B981`) disponible en `/favicon.svg`, `/favicon.ico` y `/favicon.png`.
 
 > [!NOTE]
 > Todo el procesamiento ocurre en tiempo real en los servidores perimetrales de **Cloudflare Workers** o localmente en tu navegador. Cero datos privados, cero cookies de rastreo y cero cuentas obligatorias.
@@ -162,6 +163,7 @@ Al hacer clic en **"Más información con IA"** sobre cualquier tarjeta, se desp
 - **Experiencia y habilidades útiles**.
 - **Compatibilidad horaria con Bolivia (UTC-4)**.
 - **Consejos para el candidato**.
+- **Realidad desde Bolivia: Contrato, Cobro e Historial** (vías de cobro verificadas, modalidad W-8BEN/EOR, advertencias locales y señales de re-publicación).
 
 El panel se cierra automáticamente al hacer clic en `×` o al desplazarte fuera de su área visible.
 
@@ -186,29 +188,35 @@ Desde **Información Útil → Guía del Usuario: Bolivia Remote Work** accedes 
 
 ## Cómo Funciona la Arquitectura Interna
 
-La solución está construida sobre una arquitectura **Serverless Zero-Dependency** en **Cloudflare Workers**, consumiendo únicamente estándares de la Web (Fetch API, Web Streams, Web Crypto, URL API, Cache API) junto con enlaces opcionales de **Cloudflare Workers AI**, **Vectorize** y **D1**.
+La solución está construida sobre una arquitectura **Serverless Zero-Dependency** y **100% auto-contenida** en **Cloudflare Workers**, combinando estándares Web (Fetch API, Web Crypto, URL API, Cache API) con recursos dedicados de **Cloudflare D1** (`bolivia-remote-jobs-db`), **Durable Objects SQLite** (`BoliviaCareerBrainDO`), **Cloudflare Vectorize** (`bolivia-remote-jobs-m3` y `bolivia-remote-intel-m3`, 1024d) y **Workers AI** (`bge-m3`, `bge-reranker-base`, `Llama 3.3 70B` / `Llama 3.1 8B`), manteniendo respaldo automático local cuando se ejecuta sin enlaces de nube.
 
 ### Diagrama de flujo del sistema
 
 ```mermaid
 flowchart TD
-    subgraph Cliente ["Navegador del Usuario"]
-        UI["Interfaz Web Español (Bolivia)"]
+    subgraph Cliente ["Navegador del Usuario (Zero-PII)"]
+        UI["Interfaz Web Español (Bolivia) + Cápsulas de Realidad"]
         Filters["Filtros en LocalStorage (ES/EN, 25 Roles, Exp, Contrato)"]
-        AiPanel["Panel Contextual Más información con IA"]
+        AiPanel["Panel Contextual Más información con IA (5 Bloques)"]
         URLScan["Formulario de Escaneo de URLs"]
     end
 
-    subgraph CFWorker ["Cloudflare Worker (Edge Serverless)"]
-        WorkerEntry["src/worker.js (Router, API & Cron Handler)"]
+    subgraph CFWorker ["Cloudflare Worker (scout-analyst-pipeline v6.0.0)"]
+        WorkerEntry["src/worker.js (Router, Sightings, Cron 15m)"]
+        PrivacyGuard["src/privacy_guard.js (Limpieza PII RAM + URL Sanitizer)"]
         ScannerEng["src/scanner.js (Parser JSON/RSS/HTML + Filtro Bolivia)"]
         EvaluatorEng["src/evaluator.js (Algoritmo 4 Ejes & Filtro Estricto ES/EN)"]
-        AiEnricher["src/ai_enricher.js (Workers AI Llama 3.1 + Fallback Borde)"]
-        VectorStore["src/vector_store.js (Búsqueda Semántica BGE-M3 / Vectorize)"]
-        McpServer["src/mcp.js (Servidor MCP Streamable HTTP)"]
-        SeedData["src/seed_data.js (86 Plataformas / 120+ Ofertas Bolivia)"]
-        SeedSync["src/seed_sync.js (Exportador de Plataformas custom_*)"]
-        EdgeCache["Cloudflare Cache API (caches.default)"]
+        HybridSearch["src/hybrid_search.js (RRF 3 Canales + bge-reranker-base)"]
+        AiEnricher["src/ai_enricher.js (Llama 3.3 70B + <bolivia_context>)"]
+        CareerBrain["src/career_brain_do.js (BoliviaCareerBrainDO SQLite KG + 12 Playbooks)"]
+        McpServer["src/mcp.js (Servidor MCP Fail-Closed, 8 Herramientas)"]
+    end
+
+    subgraph StorageCF ["Recursos Dedicados Cloudflare"]
+        D1DB[("D1: bolivia-remote-jobs-db<br/>opportunities + opportunities_fts + job_sightings")]
+        VecJobs[("Vectorize: bolivia-remote-jobs-m3 (1024d bge-m3)")]
+        VecIntel[("Vectorize: bolivia-remote-intel-m3 (1024d bge-m3)")]
+        WorkersAI["Workers AI (bge-m3 + bge-reranker-base + Llama 3.3/3.1)"]
     end
 
     subgraph Fuentes ["86 Fuentes Globales de Empleo"]
@@ -220,16 +228,23 @@ flowchart TD
     UI <-->|JSON / HTML| WorkerEntry
     AiPanel -->|POST /api/ai/analyze-position| WorkerEntry
     URLScan -->|POST /api/platforms/scan-url| WorkerEntry
+    WorkerEntry --> PrivacyGuard
     WorkerEntry --> ScannerEng
     ScannerEng -->|Fetch con Timeout| Fuentes
     ScannerEng --> EvaluatorEng
+    WorkerEntry --> HybridSearch
     WorkerEntry --> AiEnricher
-    WorkerEntry --> VectorStore
     WorkerEntry --> McpServer
-    EvaluatorEng --> WorkerEntry
-    WorkerEntry <--> EdgeCache
-    WorkerEntry --> SeedSync
-    SeedData -.->|Fallback / Arranque en frío| WorkerEntry
+    HybridSearch <--> D1DB
+    HybridSearch <--> VecJobs
+    HybridSearch <--> WorkersAI
+    HybridSearch <--> CareerBrain
+    AiEnricher <--> CareerBrain
+    AiEnricher <--> D1DB
+    AiEnricher <--> WorkersAI
+    CareerBrain <--> VecIntel
+    McpServer <--> CareerBrain
+    McpServer <--> D1DB
 ```
 
 ---
@@ -331,15 +346,16 @@ Puedes alojar tu propia instancia en Cloudflare en menos de 5 minutos utilizando
    ```bash
    npm run build-html && npm test
    ```
-   *Ejecuta 8 grupos de prueba automáticos que validan:*
-   - Interfaz web en Español (Bolivia), menú **Información Útil**, auto-cierre suave de desplegables, botón **Arriba**, modo oscuro, panel contextual `#ai-position-details` y ejecución real en sandbox VM del cambio en vivo de idiomas (`Solo Español`, `Ambos`, `Solo Inglés`).
+   *Ejecuta 9 grupos de prueba automáticos que validan:*
+   - Interfaz web en Español (Bolivia), menú **Información Útil**, auto-cierre suave de desplegables, botón **Arriba**, modo oscuro, cápsulas de realidad/frescura/vacante fantasma, panel contextual `#ai-position-details` (5 bloques) y ejecución real en sandbox VM del cambio en vivo de idiomas (`Solo Español`, `Ambos`, `Solo Inglés`).
    - Estado general del servicio con 86 plataformas monitoreadas y garantía de elegibilidad 100% remota desde Bolivia.
    - Evaluación simétrica de idiomas (`['es']`, `['en']`, `['es', 'en']` y respaldo limpio de valores heredados).
    - Cobertura de las 25 categorías profesionales y filtro estricto de área (`strict_position_match`).
    - Generación instantánea del reporte de resultados en Markdown (`/api/results.md`).
-   - Escaneo de URLs externas (`/api/platforms/scan-url`), exportación `custom_*` (`/api/platforms/sync`), enriquecimiento de posiciones con Workers AI (`/api/ai/analyze-position` y `/api/ai/enrich`), búsqueda vectorial (`/api/search/semantic`) y servidor MCP (`/mcp`).
+   - Escaneo de URLs externas (`/api/platforms/scan-url`), exportación `custom_*` (`/api/platforms/sync`), enriquecimiento de posiciones con Workers AI (`/api/ai/analyze-position` y `/api/ai/enrich`), búsqueda híbrida vectorial (`/api/search/semantic`) y servidor MCP fail-closed (`/mcp`).
    - Disponibilidad del favicon vectorial (`/favicon.svg`, `/favicon.ico`), `sitemap.xml` y `robots.txt`.
    - Auditoría estricta de integridad: cero datos privados no autorizados ni emojis en los archivos del repositorio.
+   - Suite cognitiva `v6.0.0`: limpieza Zero-PII en RAM, sanitización de parámetros de rastreo en URLs, clasificación determinística de vacantes fantasma (`job_sightings`), fusión RRF de 3 canales + cross-encoder `bge-reranker-base`, grafo y compilador `<bolivia_context>` en `BoliviaCareerBrainDO`, y las 3 herramientas administrativas MCP.
 
 3. **Iniciar el servidor local de desarrollo con Wrangler:**
    ```bash
@@ -356,7 +372,23 @@ Puedes alojar tu propia instancia en Cloudflare en menos de 5 minutos utilizando
    npx wrangler login
    ```
 
-2. **Publicar el Worker a nivel mundial:**
+2. **Aprovisionar los recursos dedicados (D1 + índices Vectorize 1024d) y aplicar el esquema:**
+   ```bash
+   npx wrangler d1 create bolivia-remote-jobs-db
+   # Actualiza `database_id` en wrangler.toml con el UUID devuelto y ejecuta:
+   npx wrangler d1 execute bolivia-remote-jobs-db --remote --file=schema.sql --yes
+
+   npx wrangler vectorize create bolivia-remote-jobs-m3 --dimensions=1024 --metric=cosine
+   npx wrangler vectorize create-metadata-index bolivia-remote-jobs-m3 --property-name=status --type=string
+   npx wrangler vectorize create-metadata-index bolivia-remote-jobs-m3 --property-name=lang_mask --type=string
+   npx wrangler vectorize create-metadata-index bolivia-remote-jobs-m3 --property-name=company_slug --type=string
+   npx wrangler vectorize create-metadata-index bolivia-remote-jobs-m3 --property-name=published_epoch --type=number
+
+   npx wrangler vectorize create bolivia-remote-intel-m3 --dimensions=1024 --metric=cosine
+   npx wrangler vectorize create-metadata-index bolivia-remote-intel-m3 --property-name=doc_type --type=string
+   ```
+
+3. **Publicar el Worker y la migración SQLite de `BoliviaCareerBrainDO` a nivel mundial:**
    ```bash
    npm run deploy
    ```
@@ -386,16 +418,16 @@ El worker expone endpoints HTTP estándar para integraciones externas:
 | Método | Ruta | Parámetros / Cuerpo | Descripción |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/` | Ninguno | Retorna la aplicación web interactiva completa en Español (Bolivia) (HTML5/CSS3/JS). |
-| `GET` | `/api/state` | Ninguno | Retorna el listado completo de plataformas registradas y ofertas 100% elegibles para Bolivia en JSON. |
+| `GET` | `/api/state` | Ninguno | Retorna el estado v6.0.0, enlaces activos (`ai`, `d1`, `vectorize`, `intel_vectorize`, `career_brain`), 86 plataformas y ofertas elegibles enriquecidas con cápsulas `employer_reality`. |
 | `POST` | `/api/evaluate` | JSON `{ filters: { languages, position_types, experience_levels, contract_types, strict_position_match } }` | Evalúa dinámicamente el catálogo frente a los filtros provistos (`languages`: `["es"]`, `["en"]` o `["es","en"]`) y retorna las ofertas ordenadas con sus puntajes. |
-| `POST` | `/api/scan` | JSON opcional `{ track, platform }` | Ejecuta un escaneo de actualización bajo demanda sobre las plataformas monitoreadas. |
-| `POST` | `/api/platforms/scan-url` | JSON `{ url, name, type, track, filters }` | Escanea cualquier URL ingresada por el usuario, extrae ofertas 100% elegibles para Bolivia y las añade a la base. |
+| `POST` | `/api/scan` | JSON opcional `{ track, platform }` | Ejecuta un escaneo de actualización bajo demanda, registra avistamientos (`job_sightings`) e indexa nuevas vacantes elegibles. |
+| `POST` | `/api/platforms/scan-url` | JSON `{ url, name, type, track, filters }` | Sanitiza la URL (elimina `utm_*`, `fbclid`, `gclid`, `ref`, `gh_src`), extrae ofertas 100% elegibles para Bolivia, registra `job_sightings` y las añade a la base. |
 | `GET` / `POST` | `/api/platforms/sync` | Ninguno | Exporta las plataformas personalizadas (`custom_*`) y sus oportunidades asociadas desde el estado vivo, sincronizándolas con los archivos semilla cuando el sistema de archivos local está disponible. |
-| `POST` | `/api/ai/analyze-position` | JSON `{ target_job_hash, title, company, location, description, tags }` | Analiza la información disponible de una posición con Cloudflare Workers AI (`@cf/meta/llama-3.1-8b-instruct-fast`, con respaldo `edge-position-analyzer`) y devuelve resumen, requisitos, habilidades/experiencia útiles, compatibilidad con Bolivia (`UTC-4`) y consejos para el candidato. |
+| `POST` | `/api/ai/analyze-position` | JSON `{ target_job_hash, title, company, platform_id, location, description, tags }` | Compila `<bolivia_context>` (~1200 tokens) desde `BoliviaCareerBrainDO` + `job_sightings`, analiza con `@cf/meta/llama-3.3-70b-instruct-fp8-fast` (respaldo Llama 3.1 8B / `edge-position-analyzer`) y devuelve resumen, requisitos, habilidades, compatibilidad `UTC-4`, consejos y bloque `bolivia_reality`. |
 | `POST` | `/api/ai/enrich` | JSON `{ job_hash, max_items }` | Enriquece oportunidades bajo demanda con Cloudflare Workers AI (`env.AI`), extrayendo remuneración referencial en USD y resúmenes ejecutivos. |
-| `GET` / `POST` | `/api/search/semantic` | Query `?q=...` o JSON `{ query, filters, topK }` | Búsqueda semántica multilingüe (`@cf/baai/bge-m3` + Cloudflare Vectorize / puente Qdrant / vectores semánticos de borde) que ordena vacantes por similitud vectorial y puntaje híbrido. |
-| `POST` | `/api/vectors/index` | JSON `{ max_items, deduplicate }` | Indexa vacantes elegibles en Cloudflare Vectorize (`env.VECTORIZE`) o Qdrant (`env.QDRANT_URL`) y ejecuta deduplicación semántica por similitud de coseno. |
-| `GET` / `POST` | `/mcp` (`/.well-known/mcp.json`) | JSON-RPC 2.0 (`initialize`, `tools/list`, `tools/call`, `resources/read`) | Servidor **Model Context Protocol (MCP)** sobre Streamable HTTP (protegido por token Bearer) con 5 herramientas (`search_bolivia_remote_jobs`, `semantic_search_bolivia_jobs`, `scan_career_page_url`, `analyze_position_for_bolivia`, `list_monitored_platforms`) y 2 recursos en vivo. |
+| `GET` / `POST` | `/api/search/semantic` | Query `?q=...` o JSON `{ query, filters, topK }` | Búsqueda Híbrida v2 Zero-PII: limpieza PII en RAM + RRF de 3 canales (`d1_fts`, `vec_m3`, `edge_128d`) + frescura/ghost/empleador + Cross-Encoder `@cf/baai/bge-reranker-base`. |
+| `POST` | `/api/vectors/index` | JSON `{ max_items, deduplicate }` | Genera embeddings `@cf/baai/bge-m3` en lotes de 25 (1024d), indexa en `bolivia-remote-jobs-m3` (`env.VECTORIZE`) y persiste el estado en D1. |
+| `GET` / `POST` | `/mcp` (`/.well-known/mcp.json`) | JSON-RPC 2.0 (`initialize`, `tools/list`, `tools/call`, `resources/read`) | Servidor **Model Context Protocol (MCP)** fail-closed sobre Streamable HTTP (protegido por `MCP_API_KEY`) con **8 herramientas** (5 de búsqueda/escaneo/análisis + 3 de gobierno sobre `BoliviaCareerBrainDO`: `upsert_employer_reality`, `upsert_bolivia_playbook`, `inspect_career_brain_status`) y 2 recursos en vivo. |
 | `GET` | `/api/results.md` | Query: `?lang=es` o `?lang=en` | Genera y descarga el reporte de Resultados al instante en formato Markdown puro. |
 | `GET` | `/favicon.svg` | Ninguno | Retorna el favicon vectorial en SVG del planeta Tierra con los colores de la bandera de Bolivia (`#EF4444`, `#FDE047`, `#10B981`). |
 | `GET` | `/favicon.ico` | Ninguno | Favicon en formato ICO para compatibilidad universal con navegadores antiguos. |

@@ -1333,6 +1333,65 @@ export function renderAppHtml(initialState) {
       font-weight: 700;
       max-width: 100%;
     }
+    .reality-pill {
+      display: inline-block;
+      background: #f0fdfa;
+      color: #115e59;
+      border: 1px solid #5eead4;
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 0.79em;
+      font-weight: 700;
+      max-width: 100%;
+      white-space: normal;
+      line-height: 1.35;
+    }
+    .reality-pill.caution {
+      background: #fffbeb;
+      color: #92400e;
+      border-color: #fcd34d;
+    }
+    .ghost-pill {
+      display: inline-block;
+      background: #fffbeb;
+      color: #92400e;
+      border: 1px solid #f59e0b;
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 0.79em;
+      font-weight: 700;
+      max-width: 100%;
+    }
+    .ghost-pill.high {
+      background: #fef2f2;
+      color: #991b1b;
+      border-color: #fca5a5;
+    }
+    .fresh-pill {
+      display: inline-block;
+      background: #e0f2fe;
+      color: #0369a1;
+      border: 1px solid #7dd3fc;
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 0.79em;
+      font-weight: 700;
+      max-width: 100%;
+    }
+    .ai-detail-block.ai-detail-reality {
+      grid-column: 1 / -1;
+      border-left: 4px solid #0d9488;
+      background: #f0fdfa;
+    }
+    .ai-detail-block.ai-detail-reality h4 {
+      color: #0f766e;
+    }
+    .ai-reality-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
     #ai-cv-panel.ai-cv-folded {
       display: none;
     }
@@ -2187,6 +2246,39 @@ export function renderAppHtml(initialState) {
       background: #2e1065;
       color: #ddd6fe;
       border-color: #7c3aed;
+    }
+    body.dark-mode .reality-pill {
+      background: #042f2e;
+      color: #99f6e4;
+      border-color: #14b8a6;
+    }
+    body.dark-mode .reality-pill.caution {
+      background: #451a03;
+      color: #fde68a;
+      border-color: #d97706;
+    }
+    body.dark-mode .ghost-pill {
+      background: #451a03;
+      color: #fde68a;
+      border-color: #d97706;
+    }
+    body.dark-mode .ghost-pill.high {
+      background: #450a0a;
+      color: #fecaca;
+      border-color: #ef4444;
+    }
+    body.dark-mode .fresh-pill {
+      background: #082f49;
+      color: #7dd3fc;
+      border-color: #0ea5e9;
+    }
+    body.dark-mode .ai-detail-block.ai-detail-reality {
+      background: #0f292a;
+      border-color: #115e59;
+      border-left-color: #14b8a6;
+    }
+    body.dark-mode .ai-detail-block.ai-detail-reality h4 {
+      color: #5eead4;
     }
     body.dark-mode .ai-result-box {
       background: #0f172a;
@@ -4217,6 +4309,8 @@ export function renderAppHtml(initialState) {
         de: 'Alemán'
       };
 
+      const todayIso = new Date().toISOString().slice(0, 10);
+
       container.innerHTML = filtered.map((r, idx) => {
         const vKey = r.bolivia_eligible ? r.verdict : 'GEO';
         const vLabel = t.verdictLabels[vKey] || vKey;
@@ -4231,6 +4325,23 @@ export function renderAppHtml(initialState) {
           '<span class="lang-tag">' + escapeHtml(langFlagMap[lid] || lid.toUpperCase()) + '</span>'
         ).join('');
 
+        const empReal = r.employer_reality || null;
+        const realityText = empReal ? (isEs ? empReal.reality_badge_es : empReal.reality_badge_en) : '';
+        const realityPillHtml = realityText
+          ? '<span class="reality-pill' + (empReal.bolivia_tier === 'caution_friction' ? ' caution' : '') + '"' +
+            (empReal.caution_note_es ? ' title="' + escapeHtml(empReal.caution_note_es) + '"' : '') +
+            '>' + escapeHtml(realityText) + '</span>'
+          : '';
+
+        let freshnessOrGhostHtml = '';
+        if (r.ghost_risk === 'high' || r.ghost_risk === 'watch') {
+          const hits = Number(r.sighting_count) || 2;
+          const spanDays = Number(r.repost_span_days) || 30;
+          freshnessOrGhostHtml = '<span class="ghost-pill ' + escapeHtml(r.ghost_risk) + '">Re-publicada ' + hits + 'x (' + spanDays + ' días)</span>';
+        } else if (String(r.published_at || '').slice(0, 10) === todayIso) {
+          freshnessOrGhostHtml = '<span class="fresh-pill">Nueva hoy</span>';
+        }
+
         return '<article class="opp-card verdict-' + vKey + '" data-job-hash="' + escapeHtml(r.job_hash) + '">' +
           '<div class="opp-header">' +
             '<h3 class="opp-title">#' + (idx + 1) + '. [' + r.total_score + '/100] ' + escapeHtml(r.title) +
@@ -4239,6 +4350,8 @@ export function renderAppHtml(initialState) {
           '</div>' +
           '<div class="meta-line">' +
             '<span class="bolivia-pill ' + (r.bolivia_eligible ? '' : 'restricted') + '">' + escapeHtml(bolBadge) + '</span>' +
+            realityPillHtml +
+            freshnessOrGhostHtml +
             (typeof r.semantic_score === 'number' ? '<span class="semantic-pill">' + escapeHtml(t.semanticBadge || 'Afinidad Vectorial:') + ' ' + r.semantic_score + '%</span>' : '') +
             (r.compensation_usd ? '<span class="comp-pill">USD: ' + escapeHtml(r.compensation_usd) + '</span>' : '') +
             '<span><strong>Plataforma:</strong> ' + escapeHtml(r.platform_name) + '</span>' +
@@ -5023,11 +5136,32 @@ export function renderAppHtml(initialState) {
       const adviceList = Array.isArray(data.candidate_advice_es) ? data.candidate_advice_es.filter(Boolean) : [];
       const overview = String(data.overview_es || '').trim();
       const tzCompat = String(data.timezone_compatibility_es || '').trim();
+      const realityObj = data.bolivia_reality || null;
+      const realityItems = Array.isArray(data.bolivia_reality_es)
+        ? data.bolivia_reality_es.filter(Boolean)
+        : (realityObj && Array.isArray(realityObj.bolivia_reality_es) ? realityObj.bolivia_reality_es.filter(Boolean) : []);
 
       const renderList = items =>
         items.length > 0
           ? '<ul>' + items.map(item => '<li>' + escapeHtml(String(item)) + '</li>').join('') + '</ul>'
           : '<p>Información detallada disponible en la oferta original.</p>';
+
+      let realityBadgesHtml = '';
+      if (realityObj) {
+        const badges = [];
+        if (Array.isArray(realityObj.payout_rails) && realityObj.payout_rails.length > 0) {
+          badges.push('<span class="reality-pill' + (realityObj.bolivia_tier === 'caution_friction' ? ' caution' : '') + '">Cobro: ' + escapeHtml(realityObj.payout_rails.join(' / ')) + '</span>');
+        }
+        if (Array.isArray(realityObj.eor_options) && realityObj.eor_options.length > 0) {
+          badges.push('<span class="score-pill">Contrato: ' + escapeHtml(realityObj.eor_options.join(' / ')) + '</span>');
+        }
+        if (realityObj.ghost_risk === 'high' || realityObj.ghost_risk === 'watch') {
+          badges.push('<span class="ghost-pill ' + escapeHtml(realityObj.ghost_risk) + '">Re-publicada ' + (Number(realityObj.sighting_count) || 2) + 'x (' + (Number(realityObj.repost_span_days) || 30) + ' días)</span>');
+        }
+        if (badges.length > 0) {
+          realityBadgesHtml = '<div class="ai-reality-meta">' + badges.join('') + '</div>';
+        }
+      }
 
       let html = '';
       if (overview) {
@@ -5040,6 +5174,14 @@ export function renderAppHtml(initialState) {
         escapeHtml(tzCompat || 'Compatible con el huso horario de Bolivia (UTC-4) bajo modalidad remota internacional.') +
         '</p></div>';
       html += '<div class="ai-detail-block"><h4>Consejos para el candidato</h4>' + renderList(adviceList) + '</div>';
+      html += '<div class="ai-detail-block ai-detail-reality"><h4>Realidad desde Bolivia: Contrato, Cobro e Historial</h4>' +
+        realityBadgesHtml +
+        (realityObj && realityObj.ai_synthesis_es ? '<p style="margin-bottom:8px;">' + escapeHtml(realityObj.ai_synthesis_es) + '</p>' : '') +
+        renderList(realityItems.length > 0 ? realityItems : [
+          'Modalidad habitual desde Bolivia: contratista independiente internacional mediante formulario W-8BEN (0% retención en EE. UU.).',
+          'Canales de cobro recomendados en Bolivia: Deel, Payoneer o AirTM/USDC hacia QR bancario local.'
+        ]) +
+        '</div>';
       html += '</div>';
 
       container.innerHTML = html;
@@ -5088,6 +5230,25 @@ export function renderAppHtml(initialState) {
       }
 
       const sk = attrs.matchedKeywords && attrs.matchedKeywords.length ? attrs.matchedKeywords.slice(0, 8) : [];
+      const empReal = j.employer_reality || null;
+      const offlineRealityItems = [];
+      if (empReal && Array.isArray(empReal.eor_options) && empReal.eor_options.length > 0) {
+        offlineRealityItems.push('Modalidad contractual habitual: ' + empReal.eor_options.join(', ') + ' (contratista internacional W-8BEN con 0% retención en EE. UU.).');
+      } else {
+        offlineRealityItems.push('Modalidad contractual habitual: contratista independiente internacional mediante W-8BEN (0% retención en EE. UU. desde Bolivia).');
+      }
+      if (empReal && Array.isArray(empReal.payout_rails) && empReal.payout_rails.length > 0) {
+        offlineRealityItems.push('Canales de cobro conocidos en Bolivia: ' + empReal.payout_rails.join(', ') + '.');
+      } else {
+        offlineRealityItems.push('Canales de cobro sugeridos en Bolivia: Deel, Payoneer o AirTM/USDC hacia QR bancario local.');
+      }
+      if (empReal && empReal.caution_note_es) {
+        offlineRealityItems.push('Atención Bolivia: ' + empReal.caution_note_es);
+      }
+      if (j.ghost_risk === 'high' || j.ghost_risk === 'watch') {
+        offlineRealityItems.push('Historial de publicación: re-publicada ' + (Number(j.sighting_count) || 2) + 'x en ' + (Number(j.repost_span_days) || 30) + ' días.');
+      }
+
       return {
         ok: true,
         ai_engine: 'edge-position-analyzer',
@@ -5120,7 +5281,17 @@ export function renderAppHtml(initialState) {
           langLabels.includes('Inglés') && !langLabels.includes('Español')
             ? 'La oferta está orientada a inglés: prepara tu CV y respuestas de entrevista en inglés claro y conciso.'
             : 'Revisa los detalles completos en el portal original antes de postular y prepara ejemplos prácticos relevantes para el rol.'
-        ]
+        ],
+        bolivia_reality: {
+          bolivia_tier: (empReal && empReal.bolivia_tier) || 'open_global',
+          payout_rails: (empReal && empReal.payout_rails) || [],
+          eor_options: (empReal && empReal.eor_options) || [],
+          ghost_risk: j.ghost_risk || 'none',
+          sighting_count: Number(j.sighting_count) || 1,
+          repost_span_days: Number(j.repost_span_days) || 0,
+          bolivia_reality_es: offlineRealityItems
+        },
+        bolivia_reality_es: offlineRealityItems
       };
     }
 
@@ -5150,6 +5321,7 @@ export function renderAppHtml(initialState) {
             target_job_hash: currentAiTargetJobHash || (job ? job.job_hash : ''),
             title: job ? job.title : '',
             company: job ? job.company : '',
+            platform_id: job ? job.platform_id : '',
             platform_name: job ? job.platform_name : '',
             location: job ? job.location : '',
             description: job ? job.description : '',

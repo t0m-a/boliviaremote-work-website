@@ -2,11 +2,13 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
-import worker from './src/worker.js';
+import worker, { BoliviaCareerBrainDO, recordJobSightings } from './src/worker.js';
 import { stripHtml, computeJobHash } from './src/scanner.js';
 import { checkBoliviaRemoteEligibility, evaluateAllOpportunities } from './src/evaluator.js';
 import { extractCompensationUsd } from './src/ai_enricher.js';
 import { buildLocalSemanticVector, cosineSimilarity, deduplicateSemantically } from './src/vector_store.js';
+import { scrubEphemeralPii, sanitizePlatformUrl, computeGhostJobMetrics } from './src/privacy_guard.js';
+import { hybridSearchOpportunities } from './src/hybrid_search.js';
 
 const EMOJI_REGEX = /(?:[\u2700-\u27bf]|(?:\ud83c[\udde6-\uddff]){2}|[\ud800-\udbff][\udc00-\udfff]|[\u0023-\u0039]\ufe0f?\u20e3|\u3299|\u3297|\u303d|\u3030|\u24c2|\ud83c[\udd70-\udd71]|\ud83c[\udd7e-\udd7f]|\ud83c\udd8e|\ud83c[\udd91-\udd9a]|\ud83c[\udde6-\uddff]|[\ud83d\ud83e][\ud000-\udfff]|[\u200d\u20e3\ufe0f]|[\u2600-\u26ff])/g;
 
@@ -815,7 +817,12 @@ async function runTests() {
   assert.equal(respPosAi.status, 200);
   const posAiData = await respPosAi.json();
   assert.equal(posAiData.ok, true);
-  assert.ok(posAiData.ai_engine.includes('llama-3.1'), 'Must use Workers AI Llama model when env.AI is bound');
+  assert.ok(
+    posAiData.ai_engine.includes('llama-3.3') || posAiData.ai_engine.includes('llama-3.1'),
+    'Must use Workers AI Llama 3.3/3.1 model when env.AI is bound'
+  );
+  assert.equal(posAiData.context_compiled, true, 'Must compile <bolivia_context> for position analysis');
+  assert.ok(posAiData.bolivia_reality && Array.isArray(posAiData.bolivia_reality_es), 'Must return structured bolivia_reality block');
   assert.ok(posAiData.overview_es.includes('Cloudflare Workers'), 'Must return AI-generated Spanish position overview');
   assert.ok(posAiData.requirements_es.length === 3, 'Must return AI-generated requirements list');
   assert.ok(posAiData.skills_experience_es.length === 3, 'Must return AI-generated skills/experience list');
@@ -1023,7 +1030,7 @@ async function runTests() {
   const mcpManifest = await respMcpManifest.json();
   assert.equal(mcpManifest.ok, true);
   assert.equal(mcpManifest.transport, 'streamable-http');
-  assert.equal(mcpManifest.tools.length, 5);
+  assert.equal(mcpManifest.tools.length, 8);
 
   // JSON-RPC initialize
   const respMcpInit = await worker.fetch(
@@ -1052,7 +1059,7 @@ async function runTests() {
     {}
   );
   const mcpToolsData = await respMcpTools.json();
-  assert.equal(mcpToolsData.result.tools.length, 5);
+  assert.equal(mcpToolsData.result.tools.length, 8);
 
   // JSON-RPC tools/call (search_bolivia_remote_jobs)
   const respMcpCallSearch = await worker.fetch(
@@ -1182,6 +1189,10 @@ async function runTests() {
     'src/scanner.js',
     'src/ai_enricher.js',
     'src/vector_store.js',
+    'src/hybrid_search.js',
+    'src/privacy_guard.js',
+    'src/career_intel_seed.js',
+    'src/career_brain_do.js',
     'src/mcp.js',
     'src/ui.js',
     'src/worker.js',
@@ -1221,6 +1232,233 @@ async function runTests() {
       assert.ok(!content.includes(term), `Forbidden personal term "${term}" found in ${relPath}`);
     }
   }
+
+  console.log('9. Testing v6.0.0 Isolated Cognitive Upgrade (Zero-PII Guard, Ghost-Job Sightings, Hybrid RRF + Reranker, BoliviaCareerBrainDO & MCP Admin Tools)...');
+
+  // 9a. Zero-PII ephemeral query scrubber & URL tracking-param stripper
+  const piiRes = scrubEphemeralPii('Busco empleo DevOps contactar juan.perez@gmail.com +591 7123-4567 @juanbo https://linkedin.com/in/juan CI 12345678');
+  assert.ok(piiRes.redactedCount >= 4, `Must redact email, phone, handle, URL, and numeric ID (got ${piiRes.redactedCount})`);
+  assert.ok(!piiRes.cleanText.includes('gmail.com') && !piiRes.cleanText.includes('7123') && !piiRes.cleanText.includes('@juanbo') && !piiRes.cleanText.includes('12345678'), 'Scrubbed query must retain zero PII');
+  assert.ok(piiRes.cleanText.toLowerCase().includes('devops'), 'Scrubbed query must preserve job search intent');
+
+  const cleanTrackedUrl = sanitizePlatformUrl('https://user:pass@jobs.example.com/roles?team=cloud&utm_source=x&utm_medium=social&fbclid=abc&gclid=xyz&ref=home&gh_src=123#apply');
+  assert.equal(cleanTrackedUrl, 'https://jobs.example.com/roles?team=cloud', 'Must strip credentials, fragment, and tracking params while keeping functional params');
+
+  // 9b. Ghost-job deterministic classifier & sightings recorder
+  const nowSec = Math.floor(Date.now() / 1000);
+  const ghostNone = computeGhostJobMetrics({ first_seen_epoch: nowSec - 5 * 86400, last_seen_epoch: nowSec, scan_hits: 2, distinct_urls: ['https://a.com/1'] }, nowSec);
+  assert.equal(ghostNone.ghost_risk, 'none');
+  const ghostWatch = computeGhostJobMetrics({ first_seen_epoch: nowSec - 35 * 86400, last_seen_epoch: nowSec, scan_hits: 4, distinct_urls: ['https://a.com/1', 'https://a.com/2'] }, nowSec);
+  assert.equal(ghostWatch.ghost_risk, 'watch');
+  const ghostHigh = computeGhostJobMetrics({ first_seen_epoch: nowSec - 65 * 86400, last_seen_epoch: nowSec, scan_hits: 6, distinct_urls: ['https://a.com/1', 'https://a.com/2'] }, nowSec);
+  assert.equal(ghostHigh.ghost_risk, 'high');
+
+  const sighted = await recordJobSightings([{
+    title: 'Senior Cloud Engineer',
+    company: 'Deel',
+    platform_name: 'We Work Remotely',
+    url: 'https://example.com/jobs/1?utm_source=feed',
+    location: 'Remote Worldwide',
+    published_at: new Date().toISOString().slice(0, 10)
+  }], {}, nowSec);
+  assert.equal(sighted.length, 1);
+  assert.equal(sighted[0].url, 'https://example.com/jobs/1', 'Sighting recorder must store sanitized URL');
+
+  // 9c. Hybrid Search v2 (3-Channel Weighted RRF + Cross-Encoder bge-reranker-base + Zero-PII)
+  const samplePool = [
+    {
+      job_hash: 'h_ghost',
+      title: 'Senior DevOps Engineer AWS',
+      company: 'Acme Ghost',
+      platform_name: 'Remote Board',
+      location: 'Remote Worldwide',
+      description: 'AWS Terraform Kubernetes DevOps remote global contractor',
+      published_at: new Date(Date.now() - 40 * 86400000).toISOString().slice(0, 10),
+      ghost_risk: 'high',
+      sighting_count: 6,
+      repost_span_days: 65,
+      url: 'https://example.com/ghost'
+    },
+    {
+      job_hash: 'h_fresh',
+      title: 'Senior DevOps & Cloud Engineer AWS',
+      company: 'Deel',
+      platform_name: 'Deel Careers',
+      location: 'Remote LATAM / Bolivia',
+      description: 'AWS Terraform Kubernetes Cloudflare Workers remote LATAM contractor',
+      published_at: new Date().toISOString().slice(0, 10),
+      ghost_risk: 'none',
+      sighting_count: 1,
+      repost_span_days: 0,
+      url: 'https://example.com/fresh'
+    }
+  ];
+  const mockHybridEnv = {
+    DB: {
+      prepare() {
+        return {
+          bind() {
+            return {
+              async all() {
+                return { results: [{ job_hash: 'h_fresh', rank_score: -5.2 }, { job_hash: 'h_ghost', rank_score: -4.8 }] };
+              }
+            };
+          }
+        };
+      }
+    },
+    VECTORIZE: {
+      async query() {
+        return {
+          matches: [
+            { id: 'h_fresh', score: 0.93, metadata: { job_hash: 'h_fresh' } },
+            { id: 'h_ghost', score: 0.91, metadata: { job_hash: 'h_ghost' } }
+          ]
+        };
+      }
+    },
+    AI: {
+      async run(model, input) {
+        if (model === '@cf/baai/bge-reranker-base') {
+          return {
+            response: input.contexts.map((_, idx) => ({ id: idx, score: idx === 0 ? 0.96 : 0.42 }))
+          };
+        }
+        return { data: [new Array(128).fill(0.08)] };
+      }
+    }
+  };
+  const hybridRes = await hybridSearchOpportunities(
+    'Senior DevOps AWS contactar test@example.com +591 70001122',
+    samplePool,
+    { languages: ['es', 'en'] },
+    mockHybridEnv,
+    { topK: 5 }
+  );
+  assert.equal(hybridRes.ok, true);
+  assert.equal(hybridRes.rrf_enabled, true);
+  assert.equal(hybridRes.reranker_used, true, 'Must activate Stage-2 bge-reranker-base when env.AI supports it');
+  assert.ok(hybridRes.pii_redacted_count >= 2, 'Hybrid search must scrub PII from queries in RAM');
+  assert.ok(!hybridRes.query.includes('test@example.com'), 'Returned query must not leak PII');
+  assert.ok(hybridRes.hybrid_channels.includes('d1_fts') && hybridRes.hybrid_channels.includes('vec_m3') && hybridRes.hybrid_channels.includes('edge_128d'), 'Must fuse all 3 channels');
+  assert.equal(hybridRes.results[0].job_hash, 'h_fresh', 'Fresh verified Deel role must outrank stale high-ghost-risk role');
+
+  // 9d. BoliviaCareerBrainDO seed, batch reality badges, and token-budgeted <bolivia_context> compiler
+  const brainDo = new BoliviaCareerBrainDO(null, {});
+  const brainStatus = brainDo.inspectStatus();
+  assert.ok(brainStatus.entities_count >= 100, `Expected >= 100 seeded KG entities (86 platforms + infra + employers), got ${brainStatus.entities_count}`);
+  assert.equal(brainStatus.playbooks_count, 12, 'Must seed all 12 curated bilingual Bolivia contractor playbooks');
+  assert.ok(brainStatus.edges_count >= 200, `Expected >= 200 seeded KG edges, got ${brainStatus.edges_count}`);
+
+  const outlierReality = brainDo.lookupEmployerReality({ platform_id: 'outlier_ai', company: 'Outlier AI' });
+  assert.equal(outlierReality.matched, true);
+  assert.equal(outlierReality.bolivia_tier, 'verified_friendly');
+  assert.ok(outlierReality.payout_rails.includes('AirTM') && outlierReality.payout_rails.includes('Payoneer'), 'Outlier AI must report AirTM & Payoneer rails');
+
+  const daReality = brainDo.lookupEmployerReality({ platform_id: 'dataannotation', company: 'DataAnnotation.tech' });
+  assert.equal(daReality.bolivia_tier, 'caution_friction');
+  assert.ok(daReality.caution_note_es.length > 10, 'Caution-tier platforms must include Bolivia caution notes');
+
+  const compiledCtx = await brainDo.compileBoliviaContext(
+    { title: 'AI Coding Evaluator', company: 'Outlier AI', platform_id: 'outlier_ai', platform_name: 'Outlier AI', location: 'Remote Worldwide', tags: 'python, rlhf, w-8ben' },
+    { tokenBudget: 1200 }
+  );
+  assert.equal(compiledCtx.ok, true);
+  assert.ok(compiledCtx.xml.includes('<bolivia_context') && compiledCtx.xml.includes('</bolivia_context>'), 'Must compile valid <bolivia_context> XML');
+  assert.ok(compiledCtx.context_tokens_est <= 1220, `Context must stay within ~1200 token budget (got ${compiledCtx.context_tokens_est})`);
+  assert.ok(compiledCtx.playbooks_used.length >= 1, 'Must attach relevant Bolivia contractor playbooks');
+
+  // 9e. UI 5th card & Reality/Ghost pills in rendered HTML
+  assert.ok(html.includes('Realidad desde Bolivia: Contrato, Cobro e Historial'), 'UI must include 5th grounded Bolivia Reality card in #ai-position-details');
+  assert.ok(html.includes('class="reality-pill') || html.includes('.reality-pill'), 'UI must include card-level Reality pill styles and markup');
+  assert.ok(html.includes('.ghost-pill') && html.includes('.fresh-pill'), 'UI must include Ghost-Job and Freshness pill styles');
+
+  // 9f. Isolated /mcp admin tools (upsert_employer_reality, upsert_bolivia_playbook, inspect_career_brain_status)
+  const respMcpUpsertEmp = await worker.fetch(
+    new Request('https://bolivia-remote-scout.workers.dev/mcp', {
+      method: 'POST',
+      headers: mcpAuthHeaders,
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 20,
+        method: 'tools/call',
+        params: {
+          name: 'upsert_employer_reality',
+          arguments: {
+            canonical_name: 'Andes Remote Labs',
+            domain: 'andesremotelabs.example',
+            bolivia_tier: 'verified_friendly',
+            confidence: 0.95,
+            payout_rails: ['airtm_usdc', 'deel_withdrawal'],
+            eor_options: ['deel'],
+            note_es: 'Empresa verificada con contratistas activos en La Paz y Cochabamba.'
+          }
+        }
+      })
+    }),
+    lockedMcpEnv,
+    {}
+  );
+  const mcpEmpData = await respMcpUpsertEmp.json();
+  assert.equal(mcpEmpData.result.isError, false);
+  const empOut = JSON.parse(mcpEmpData.result.content[0].text);
+  assert.equal(empOut.ok, true);
+  assert.equal(empOut.entity_id, 'company:andes_remote');
+
+  const respMcpUpsertPb = await worker.fetch(
+    new Request('https://bolivia-remote-scout.workers.dev/mcp', {
+      method: 'POST',
+      headers: mcpAuthHeaders,
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 21,
+        method: 'tools/call',
+        params: {
+          name: 'upsert_bolivia_playbook',
+          arguments: {
+            playbook_id: 'pb_test_invoicing',
+            category: 'tax_contracts',
+            title_es: 'Guía rápida de recibos internacionales USD',
+            content_es: 'Emite comprobantes claros con nombre legal, dirección en Bolivia, detalle del servicio y cuenta receptora USD.',
+            tags: 'invoice, recibo, usd, bolivia'
+          }
+        }
+      })
+    }),
+    lockedMcpEnv,
+    {}
+  );
+  const mcpPbData = await respMcpUpsertPb.json();
+  assert.equal(mcpPbData.result.isError, false);
+  const pbOut = JSON.parse(mcpPbData.result.content[0].text);
+  assert.equal(pbOut.ok, true);
+  assert.equal(pbOut.playbook_id, 'pb_test_invoicing');
+
+  const respMcpStatus = await worker.fetch(
+    new Request('https://bolivia-remote-scout.workers.dev/mcp', {
+      method: 'POST',
+      headers: mcpAuthHeaders,
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 22,
+        method: 'tools/call',
+        params: {
+          name: 'inspect_career_brain_status',
+          arguments: {}
+        }
+      })
+    }),
+    lockedMcpEnv,
+    {}
+  );
+  const mcpStatusData = await respMcpStatus.json();
+  assert.equal(mcpStatusData.result.isError, false);
+  const statusOut = JSON.parse(mcpStatusData.result.content[0].text);
+  assert.equal(statusOut.ok, true);
+  assert.equal(statusOut.version, '6.0.0');
+  assert.equal(statusOut.air_gapped_isolation, true);
+  assert.ok(statusOut.career_brain.entities_count >= 100);
+  assert.ok(statusOut.career_brain.playbooks_count >= 13, 'Must reflect newly upserted playbook');
 
   console.log('ALL TESTS PASSED SUCCESSFULLY!');
 }
