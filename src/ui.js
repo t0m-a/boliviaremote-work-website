@@ -17,13 +17,22 @@ import {
   generateResultsMarkdown
 } from './evaluator.js';
 import { FAVICON_DATA_URI } from './favicon.js';
+import { LEGAL_TAX_GUIDE_HTML } from './legal_tax_guide.js';
 
-export function renderAppHtml(initialState) {
+export function renderAppHtml(initialState, options = {}) {
   const {
     opportunities = [],
     platforms = [],
     lastScanAt = new Date().toISOString()
   } = initialState;
+  const initialView = options && options.initialView === 'legal-tax' ? 'legal-tax' : 'results';
+  const isInitialLegalTax = initialView === 'legal-tax';
+  const pageTitle = isInitialLegalTax
+    ? 'Guía Legal y Fiscal (EE. UU. y Bolivia) — Bolivia Remote Work'
+    : 'Empleos Remotos desde Bolivia — Buscador y Evaluador en Vivo';
+  const pageDescription = isInitialLegalTax
+    ? 'Guía legal y fiscal actualizada para contratistas independientes y trabajadores remotos en Bolivia que prestan servicios a empresas de Estados Unidos (W-8BEN, IRC 862, SIN/SIAT, RC-IVA y visa B-1).'
+    : 'Herramienta pública para filtrar, escanear y evaluar ofertas de trabajo remotas elegibles desde Bolivia según tus idiomas, área profesional, experiencia y tipo de contrato.';
 
   const eligibleOpportunities = (opportunities || []).filter(o => checkBoliviaRemoteEligibility(o).eligible);
 
@@ -31,6 +40,7 @@ export function renderAppHtml(initialState) {
     opportunities: eligibleOpportunities,
     platforms,
     lastScanAt,
+    initialView,
     POSITION_CATEGORIES,
     LANGUAGE_OPTIONS,
     EXPERIENCE_OPTIONS,
@@ -43,12 +53,12 @@ export function renderAppHtml(initialState) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Empleos Remotos desde Bolivia — Buscador y Evaluador en Vivo</title>
+  <title>${pageTitle}</title>
   <link rel="icon" type="image/svg+xml" href="${FAVICON_DATA_URI}">
   <link rel="alternate icon" type="image/x-icon" href="/favicon.ico">
   <link rel="alternate icon" type="image/png" href="/favicon.png">
   <link rel="apple-touch-icon" href="/favicon.png">
-  <meta name="description" content="Herramienta pública para filtrar, escanear y evaluar ofertas de trabajo remotas elegibles desde Bolivia según tus idiomas, área profesional, experiencia y tipo de contrato.">
+  <meta name="description" content="${pageDescription}">
   <script>
     (function() {
       try {
@@ -362,6 +372,21 @@ export function renderAppHtml(initialState) {
       color: #0f172a;
       border-left: 3px solid var(--accent-primary);
     }
+    #navbar a#nav-legal-tax {
+      background: #f1f5f9;
+      color: #475569;
+      font-weight: 700;
+    }
+    #navbar a#nav-legal-tax:hover {
+      background: #e2e8f0;
+      color: #0f172a;
+      border-left: none;
+    }
+    #navbar a#nav-legal-tax.active-nav {
+      background: #e2e8f0;
+      color: #0f172a;
+      border-left: 3px solid var(--accent-primary);
+    }
     #main-doc,
     body.sidebar-collapsed #main-doc {
       margin-left: 0;
@@ -377,6 +402,7 @@ export function renderAppHtml(initialState) {
     body.sidebar-collapsed .toolbar,
     body.sidebar-collapsed #view-results,
     body.sidebar-collapsed #view-manual,
+    body.sidebar-collapsed #view-legal-tax,
     body.sidebar-collapsed #view-report,
     body.sidebar-collapsed #view-platforms,
     body.sidebar-collapsed .manual-container,
@@ -1649,10 +1675,48 @@ export function renderAppHtml(initialState) {
       color: #0f172a;
       margin: 0;
     }
-    #man-p-intro {
+    #man-p-intro,
+    #legal-p-intro {
       font-size: 0.92em;
       color: #334155;
       line-height: 1.6;
+    }
+    .legal-table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      margin: 10px 0;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+    }
+    .legal-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92em;
+      text-align: left;
+    }
+    .legal-table th,
+    .legal-table td {
+      padding: 9px 12px;
+      border-bottom: 1px solid #e2e8f0;
+      vertical-align: top;
+      line-height: 1.5;
+    }
+    .legal-table th {
+      background: #f1f5f9;
+      color: #0f172a;
+      font-weight: 700;
+    }
+    .legal-table tr:last-child td {
+      border-bottom: none;
+    }
+    .legal-sources-list a {
+      color: #0369a1;
+      text-decoration: underline;
+      font-weight: 600;
+    }
+    .legal-sources-list a:hover {
+      color: #0c4a6e;
     }
     .guide-step-body {
       font-size: 0.88em;
@@ -1977,6 +2041,20 @@ export function renderAppHtml(initialState) {
       border-left: none;
     }
     body.dark-mode #navbar a#nav-manual.active-nav {
+      background: #1e293b;
+      color: #f8fafc;
+      border-left-color: #38bdf8;
+    }
+    body.dark-mode #navbar a#nav-legal-tax {
+      background: #131d2e;
+      color: #94a3b8;
+    }
+    body.dark-mode #navbar a#nav-legal-tax:hover {
+      background: #1e293b;
+      color: #f8fafc;
+      border-left: none;
+    }
+    body.dark-mode #navbar a#nav-legal-tax.active-nav {
       background: #1e293b;
       color: #f8fafc;
       border-left-color: #38bdf8;
@@ -2374,6 +2452,33 @@ export function renderAppHtml(initialState) {
     body.dark-mode #man-p-intro,
     body.dark-mode .guide-step-body {
       color: #cbd5e1;
+    }
+    body.dark-mode #legal-p-intro {
+      color: #cbd5e1;
+    }
+    body.dark-mode .legal-table-wrap {
+      background: #111827;
+      border-color: #334155;
+    }
+    body.dark-mode .legal-table th {
+      background: #1e293b;
+      color: #f8fafc;
+      border-bottom-color: #334155;
+    }
+    body.dark-mode .legal-table td {
+      color: #cbd5e1;
+      border-bottom-color: #1e293b;
+    }
+    body.dark-mode .legal-sources-list a {
+      color: #38bdf8;
+    }
+    body.dark-mode .legal-sources-list a:hover {
+      color: #7dd3fc;
+    }
+    body.dark-mode .info-callout.warning {
+      background: #422006;
+      color: #fde68a;
+      border-left-color: #f59e0b;
     }
     body.dark-mode .guide-tip {
       background: #0c2340;
@@ -2811,7 +2916,7 @@ export function renderAppHtml(initialState) {
     }
   </style>
 </head>
-<body class="sidebar-collapsed">
+<body class="${isInitialLegalTax ? 'sidebar-collapsed view-manual-active' : 'sidebar-collapsed'}">
   <div class="bolivia-stripe"></div>
 
   <nav id="navbar">
@@ -2834,6 +2939,7 @@ export function renderAppHtml(initialState) {
     </div>
     <ul id="navbar-menu-list">
       <li><a id="nav-manual" onclick="switchMainView('manual'); closeNavbarMenu();"><span id="nav-lbl-manual">Guía del Usuario: Bolivia Remote Work</span></a></li>
+      <li><a id="nav-legal-tax"${isInitialLegalTax ? ' class="active-nav"' : ''} href="/guia-legal-fiscal" onclick="event.preventDefault(); switchMainView('legal-tax'); closeNavbarMenu();"><span id="nav-lbl-legal-tax">Guía Legal y Fiscal (EE. UU. y Bolivia)</span></a></li>
 
       <li class="nav-group-header nav-collapsible-header" id="nav-hdr-payments-item" onclick="togglePaymentsMenu()" role="button" tabindex="0" aria-expanded="false">
         <span id="nav-hdr-payments">Información Financiera y de Pago</span>
@@ -3041,7 +3147,7 @@ export function renderAppHtml(initialState) {
     </section>
 
     <!-- VIEW 1: LIVE RESULTS -->
-    <section id="view-results">
+    <section id="view-results"${isInitialLegalTax ? ' style="display:none;"' : ''}>
       <div id="semantic-status-bar" class="scan-alert success" style="display:none;margin-top:0;margin-bottom:14px;"></div>
       <div id="resultsCardsContainer"></div>
     </section>
@@ -3200,6 +3306,11 @@ export function renderAppHtml(initialState) {
           </div>
         </article>
       </div>
+    </section>
+
+    <!-- VIEW 2b: LEGAL & TAX GUIDE (BOLIVIA REMOTE INDEPENDENT CONTRACTORS) -->
+    <section id="view-legal-tax"${isInitialLegalTax ? '' : ' style="display:none;"'}>
+${LEGAL_TAX_GUIDE_HTML}
     </section>
 
     <!-- VIEW 3: ON-THE-FLY RESULTS REPORT (MARKDOWN & CSV) -->
@@ -4501,19 +4612,21 @@ export function renderAppHtml(initialState) {
       renderResultsCards();
     }
 
-    function switchMainView(viewName) {
+    function switchMainView(viewName, opts) {
       closeCategoriesMenu();
       const vResults = document.getElementById('view-results');
       const vManual = document.getElementById('view-manual');
+      const vLegalTax = document.getElementById('view-legal-tax');
       const vReport = document.getElementById('view-report');
       const vPlatforms = document.getElementById('view-platforms');
 
       if (vResults) vResults.style.display = viewName === 'results' ? '' : 'none';
       if (vManual) vManual.style.display = viewName === 'manual' ? '' : 'none';
+      if (vLegalTax) vLegalTax.style.display = viewName === 'legal-tax' ? '' : 'none';
       if (vReport) vReport.style.display = viewName === 'report' ? '' : 'none';
       if (vPlatforms) vPlatforms.style.display = viewName === 'platforms' ? '' : 'none';
 
-      const isDedicatedPage = viewName === 'manual' || viewName === 'platforms';
+      const isDedicatedPage = viewName === 'manual' || viewName === 'legal-tax' || viewName === 'platforms';
       document.body.classList.toggle('view-manual-active', isDedicatedPage);
 
       const banner = document.querySelector('.top-banner');
@@ -4532,11 +4645,32 @@ export function renderAppHtml(initialState) {
       if (toolbar) toolbar.style.display = isDedicatedPage ? 'none' : '';
       if (footer) footer.style.display = '';
 
-      if (isDedicatedPage) {
+      const t = I18N[userFilters.ui_lang] || I18N.es;
+      if (viewName === 'legal-tax') {
+        document.title = 'Guía Legal y Fiscal (EE. UU. y Bolivia) — Bolivia Remote Work';
+      } else {
+        document.title = t.pageTitle;
+      }
+
+      if (typeof window !== 'undefined' && window.history && typeof window.history.replaceState === 'function' && window.location && /^https?:$/i.test(window.location.protocol || '')) {
+        try {
+          const curPath = String(window.location.pathname || '').toLowerCase();
+          const isLegalPath = curPath === '/guia-legal-fiscal' || curPath === '/guia-legal-fiscal/' || curPath === '/legal-fiscal' || curPath === '/legal-fiscal/';
+          if (viewName === 'legal-tax' && curPath !== '/guia-legal-fiscal') {
+            window.history.replaceState({ view: 'legal-tax' }, '', '/guia-legal-fiscal');
+          } else if (viewName === 'results' && isLegalPath) {
+            window.history.replaceState({ view: 'results' }, '', '/');
+          }
+        } catch (e) {}
+      }
+
+      if (isDedicatedPage && !(opts && opts.skipScroll)) {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
       if (viewName === 'manual' && vManual) {
         initCardScrollReveal(vManual);
+      } else if (viewName === 'legal-tax' && vLegalTax) {
+        initCardScrollReveal(vLegalTax);
       } else if (viewName === 'platforms' && vPlatforms) {
         initCardScrollReveal(vPlatforms);
       } else if (viewName === 'report') {
@@ -4556,12 +4690,15 @@ export function renderAppHtml(initialState) {
 
       const navResults = document.getElementById('nav-results');
       const navManual = document.getElementById('nav-manual');
+      const navLegalTax = document.getElementById('nav-legal-tax');
       const navPlatforms = document.getElementById('nav-platforms');
 
       if (navResults) navResults.classList.toggle('active-nav', viewName === 'results');
       if (navManual) navManual.classList.toggle('active-nav', viewName === 'manual');
+      if (navLegalTax) navLegalTax.classList.toggle('active-nav', viewName === 'legal-tax');
       if (navPlatforms) navPlatforms.classList.toggle('active-nav', viewName === 'platforms');
     }
+    window.switchMainView = switchMainView;
 
     if (typeof document.addEventListener === 'function') {
       document.addEventListener('keydown', function (e) {
@@ -5401,6 +5538,16 @@ export function renderAppHtml(initialState) {
     applyTheme(currentTheme);
     setUiLanguage(userFilters.ui_lang || 'es');
     syncSearchClearButton();
+    const initPath = (typeof window !== 'undefined' && window.location) ? String(window.location.pathname || '').toLowerCase() : '';
+    if (
+      PAYLOAD.initialView === 'legal-tax' ||
+      initPath === '/guia-legal-fiscal' ||
+      initPath === '/guia-legal-fiscal/' ||
+      initPath === '/legal-fiscal' ||
+      initPath === '/legal-fiscal/'
+    ) {
+      switchMainView('legal-tax', { skipScroll: true });
+    }
     updateBackToTopPosition();
     updateNavbarStickyState();
 

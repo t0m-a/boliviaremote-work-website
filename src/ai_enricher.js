@@ -1,9 +1,7 @@
 /**
  * Cloudflare Workers AI Position Enricher, Compensation Extractor & Grounded Bolivia Position Analyzer (v6.0.0)
- * Uses `env.AI`:
- *   - `@cf/meta/llama-3.3-70b-instruct-fp8-fast` (Primary context-compiled position analysis)
- *   - `@cf/meta/llama-3.1-8b-instruct-fast` / `@cf/meta/llama-3.1-8b-instruct` (Fast ingestion enrichment & fallback)
- * Grounded via isolated `BoliviaCareerBrainDO` `<bolivia_context>` (~1200 tokens) + D1 `job_sightings` stats,
+ * Uses `env.AI` (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`)
+ * grounded via isolated `BoliviaCareerBrainDO` `<bolivia_context>` (~1200 tokens) + D1 `job_sightings` stats,
  * with full deterministic edge fallback when running offline or without Workers AI.
  */
 
@@ -18,9 +16,8 @@ import { stripHtml, normalizeJobKey } from './scanner.js';
 import { getCareerBrainClient } from './career_brain_do.js';
 import { computeGhostJobMetrics } from './privacy_guard.js';
 
-export const PRIMARY_ANALYSIS_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
-const DEFAULT_FAST_MODEL = '@cf/meta/llama-3.1-8b-instruct-fast';
-const DEFAULT_FALLBACK_MODEL = '@cf/meta/llama-3.1-8b-instruct';
+export const WORKERS_AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+export const PRIMARY_ANALYSIS_MODEL = WORKERS_AI_MODEL;
 
 /**
  * Extracts USD hourly, daily, monthly, or annual compensation from raw job text.
@@ -78,32 +75,63 @@ export function buildDeterministicSummaries(item) {
 }
 
 /**
- * Safely invokes Cloudflare Workers AI (`env.AI.run`) across an ordered model list and parses JSON output.
+ * Extracts a parsed JSON object from a Workers AI response (handles both stringified JSON
+ * and pre-parsed JSON object responses returned by @cf/meta/llama-3.3-70b-instruct-fp8-fast).
  */
-async function runWorkersAiJsonWithModel(env, messages, maxTokens = 450, models = [DEFAULT_FAST_MODEL, DEFAULT_FALLBACK_MODEL]) {
-  if (!env || !env.AI || typeof env.AI.run !== 'function') {
-    return { data: null, model: null };
-  }
+function extractJsonObjectFromAiResponse(resp) {
+  if (!resp) return null;
 
-  for (const model of models) {
-    try {
-      const resp = await env.AI.run(model, {
-        messages,
-        max_tokens: maxTokens,
-        temperature: 0.1
-      });
-      const rawText = typeof resp === 'string'
-        ? resp
-        : (resp && (resp.response || resp.result || JSON.stringify(resp))) || '';
-      const jsonMatch = String(rawText).match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return { data: JSON.parse(jsonMatch[0]), model };
-      }
-    } catch {
-      // Try next model or fallback
+  let candidate = resp;
+  if (typeof resp === 'object' && !Array.isArray(resp)) {
+    if ('response' in resp) {
+      candidate = resp.response;
+    } else if ('result' in resp) {
+      candidate = resp.result;
+    } else if (
+      Array.isArray(resp.choices) &&
+      resp.choices[0] &&
+      resp.choices[0].message &&
+      'content' in resp.choices[0].message
+    ) {
+      candidate = resp.choices[0].message.content;
+    } else if (Object.keys(resp).length > 0) {
+      return resp;
+    } else {
+      return null;
     }
   }
-  return { data: null, model: null };
+
+  if (!candidate) return null;
+  if (typeof candidate === 'object' && !Array.isArray(candidate)) {
+    return candidate;
+  }
+
+  const rawText = typeof candidate === 'string' ? candidate : JSON.stringify(candidate);
+  const jsonMatch = String(rawText).match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    return JSON.parse(jsonMatch[0]);
+  }
+  return null;
+}
+
+/**
+ * Safely invokes Cloudflare Workers AI (`env.AI.run`) with `@cf/meta/llama-3.3-70b-instruct-fp8-fast`.
+ */
+async function runWorkersAiJson(env, messages, maxTokens = 450) {
+  if (!env || !env.AI || typeof env.AI.run !== 'function') {
+    return null;
+  }
+
+  try {
+    const resp = await env.AI.run(WORKERS_AI_MODEL, {
+      messages,
+      max_tokens: maxTokens,
+      temperature: 0.1
+    });
+    return extractJsonObjectFromAiResponse(resp);
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -139,14 +167,13 @@ export async function enrichOpportunityWithAI(item, env) {
     `Location: ${stripHtml(item.location)}\n` +
     `Description: ${stripHtml(item.description).slice(0, 900)}`;
 
-  const { data: aiJson } = await runWorkersAiJsonWithModel(
+  const aiJson = await runWorkersAiJson(
     env,
     [
       { role: 'system', content: sysPrompt },
       { role: 'user', content: userPrompt }
     ],
-    350,
-    [DEFAULT_FAST_MODEL, DEFAULT_FALLBACK_MODEL]
+    350
   );
 
   if (aiJson && typeof aiJson === 'object') {
@@ -270,7 +297,6 @@ async function gatherSightingsAndCompStats(job, opportunities, attrs, env) {
         ghost_risk: job.ghost_risk || 'none'
       };
 
-  // Compute observed category USD compensation examples from active pool
   const primaryCat = (attrs && Array.isArray(attrs.categories) && attrs.categories[0]) || '';
   const sampleRates = [];
   for (const opp of (Array.isArray(opportunities) ? opportunities : [])) {
@@ -382,7 +408,7 @@ function buildBoliviaRealityBlock(compiledContext, sightingStats, job, comp) {
 /**
  * Grounded Position Analyzer v2 ("Más información con IA"):
  *   - Compiles ~1200-token `<bolivia_context>` from `BoliviaCareerBrainDO` in parallel with `job_sightings` stats
- *   - Runs `@cf/meta/llama-3.3-70b-instruct-fp8-fast` -> `@cf/meta/llama-3.1-8b-instruct-fast` -> edge fallback
+ *   - Runs `@cf/meta/llama-3.3-70b-instruct-fp8-fast` with deterministic edge fallback
  *   - Returns overview, requirements, skills, UTC-4 compatibility, advice, and structured `bolivia_reality`.
  */
 export async function analyzePositionForBolivia(payload, opportunities, env) {
@@ -420,7 +446,6 @@ export async function analyzePositionForBolivia(payload, opportunities, env) {
   const attrs = detectOfferAttributes(job);
   const comp = extractCompensationUsd(job);
 
-  // Parallel context gathering: BoliviaCareerBrainDO + D1 job_sightings/comp stats
   const careerBrain = getCareerBrainClient(env);
   const [compiledContext, sightingStats] = await Promise.all([
     careerBrain.compileBoliviaContext(job, { tokenBudget: 1200 }).catch(() => ({
@@ -492,7 +517,7 @@ export async function analyzePositionForBolivia(payload, opportunities, env) {
       : 'Revisa los detalles completos en el portal original antes de postular y prepara ejemplos prácticos relevantes para el rol.'
   ];
 
-  let activeModel = null;
+  let usedWorkersAi = false;
 
   if (env && env.AI && typeof env.AI.run === 'function') {
     const sysPrompt =
@@ -526,14 +551,13 @@ export async function analyzePositionForBolivia(payload, opportunities, env) {
       `Descripción disponible:\n${stripHtml(job.description || '').slice(0, 1400)}\n` +
       `</job_posting>`;
 
-    const { data: aiOut, model } = await runWorkersAiJsonWithModel(
+    const aiOut = await runWorkersAiJson(
       env,
       [
         { role: 'system', content: sysPrompt },
         { role: 'user', content: userPrompt }
       ],
-      850,
-      [PRIMARY_ANALYSIS_MODEL, DEFAULT_FAST_MODEL, DEFAULT_FALLBACK_MODEL]
+      850
     );
 
     if (aiOut && typeof aiOut === 'object') {
@@ -555,13 +579,13 @@ export async function analyzePositionForBolivia(payload, opportunities, env) {
       if (typeof aiOut.bolivia_reality_summary_es === 'string' && aiOut.bolivia_reality_summary_es.trim()) {
         boliviaReality.ai_synthesis_es = stripHtml(aiOut.bolivia_reality_summary_es.trim());
       }
-      activeModel = model || PRIMARY_ANALYSIS_MODEL;
+      usedWorkersAi = true;
     }
   }
 
   return {
     ok: true,
-    ai_engine: activeModel || 'edge-position-analyzer',
+    ai_engine: usedWorkersAi ? WORKERS_AI_MODEL : 'edge-position-analyzer',
     context_compiled: true,
     context_tokens_est: boliviaReality.context_tokens_est,
     position: {

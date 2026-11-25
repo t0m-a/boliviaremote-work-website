@@ -30,7 +30,7 @@
    - [Paso 3: Garantía de elegibilidad 100% Remoto desde Bolivia](#paso-3-garantía-de-elegibilidad-100-remoto-desde-bolivia)
    - [Paso 4: Semáforo de calificación, "Más información con IA" y "Buscar con IA"](#paso-4-semáforo-de-calificación-más-información-con-ia-y-buscar-con-ia)
    - [Paso 5: Escanear y evaluar URLs de plataformas personalizadas](#paso-5-escanear-y-evaluar-urls-de-plataformas-personalizadas)
-   - [Paso 6: Sección interactiva "Guía del Usuario: Bolivia Remote Work"](#paso-6-sección-interactiva-guía-del-usuario-bolivia-remote-work)
+   - [Paso 6: Guías integradas ("Guía del Usuario" y "Guía Legal y Fiscal")](#paso-6-guías-integradas-guía-del-usuario-y-guía-legal-y-fiscal)
 3. [Cómo Funciona la Arquitectura Interna](#cómo-funciona-la-arquitectura-interna)
    - [Diagrama de flujo del sistema](#diagrama-de-flujo-del-sistema)
    - [Motor de calificación y rúbrica dinámica de 100 puntos](#motor-de-calificación-y-rúbrica-dinámica-de-100-puntos)
@@ -62,7 +62,8 @@ Esta herramienta es una **solución pública y gratuita** en **Español (Bolivia
   3. `edge_128d` (peso `0.85`): Vectores semánticos locales de 128 dimensiones tolerantes a tildes faltantes y errores de tipeo.
   - Aplica decaimiento de frescura (vida media de 21 días), penalización de vacantes fantasma, multiplicador de realidad del empleador y **re-ordenamiento neuronal en Etapa 2 (`@cf/baai/bge-reranker-base`)** sobre los 16 mejores candidatos.
 - **Grafo de Realidad del Empleador (`BoliviaCareerBrainDO` SQLite Durable Object):** Objeto Durable aislado en [`src/career_brain_do.js`](src/career_brain_do.js) y [`src/career_intel_seed.js`](src/career_intel_seed.js) con respaldo automático en memoria/D1 (`career_brain_fallback`) para despliegues sin Durable Objects. Mapea las **86 plataformas monitoreadas**, empleadores remotos globales, vías de cobro verificadas en Bolivia (`AirTM`, `Payoneer`, `Deel`, `Tipalti`, `USDC`, notas de precaución de `Wise` y `SWIFT USD`), EORs (`Deel`, `Ontop`, `Remote.com`, `Plane`, `W-8BEN Directo`) y **12 guías bilingües curadas** indexadas en FTS5 y `bolivia-remote-intel-m3`.
-- **Tarjetas con Cápsulas de Realidad y Panel Contextual `Más información con IA` v2:** Cada tarjeta muestra cápsulas verificadas de **canal de cobro / precaución en Bolivia**, indicador de frescura (**Nueva hoy**) o alerta de **re-publicación recurrente**. Al pulsar **Más información con IA**, el Worker compila un bloque `<bolivia_context>` (~1200 tokens) desde `BoliviaCareerBrainDO` + `job_sightings` para alimentar `@cf/meta/llama-3.3-70b-instruct-fp8-fast` (con respaldo Llama 3.1 8B y modo offline) y despliega 5 bloques estructurados:
+- **Guía Legal y Fiscal (EE. UU. y Bolivia) (`/guia-legal-fiscal`):** Página dedicada renderizada en servidor ([`src/legal_tax_guide.js`](src/legal_tax_guide.js)) y enlazada desde **Información Útil** con normativa verificada para contratistas remotos independientes desde Bolivia (IRC § 862(a)(3), Formularios W-8BEN/W-8BEN-E, visas B-1/B-2, SIN/NIT/SIAT, RC-IVA Form. 610 bajo Ley N° 1448 / DS N° 4850, Gestora Pública y cláusulas contractuales).
+- **Tarjetas con Cápsulas de Realidad y Panel Contextual `Más información con IA` v2:** Cada tarjeta muestra cápsulas verificadas de **canal de cobro / precaución en Bolivia**, indicador de frescura (**Nueva hoy**) o alerta de **re-publicación recurrente**. Al pulsar **Más información con IA**, el Worker compila un bloque `<bolivia_context>` (~1200 tokens) desde `BoliviaCareerBrainDO` + `job_sightings` para alimentar `@cf/meta/llama-3.3-70b-instruct-fp8-fast` (con respaldo determinístico de borde y modo offline) y despliega 5 bloques estructurados:
   - Resumen informativo de la posición.
   - **Requisitos de la posición**.
   - **Experiencia y habilidades útiles**.
@@ -100,8 +101,9 @@ Al abrir el portal, la aplicación carga completamente en **Español (Bolivia)**
 - En la esquina superior derecha tienes el botón discreto de **Modo Claro / Modo Oscuro** junto al botón animado **Información Útil** (que rota suavemente en rojo, amarillo y verde tanto en escritorio como en móvil, se cierra automáticamente al retirar el puntero o tocar fuera, y repliega todas sus subsecciones).
 - Dentro de **Información Útil** encontrarás:
   1. **Guía del Usuario: Bolivia Remote Work** (manual interactivo paso a paso dentro de la propia plataforma).
-  2. **Información Financiera y de Pago** (plataformas de cobro internacional: AirTM, Wise, Payoneer, Tipalti y Dólar Bolivia Hoy).
-  3. **Sobre el creador** (descripción del proyecto comunitario **Minka Lab** dedicado a la educación digital, las competencias en IA y el aprendizaje de idiomas en [minkalab.net](https://minkalab.net) y enlaces de contacto).
+  2. **Guía Legal y Fiscal (EE. UU. y Bolivia)** (página dedicada accesible también en `/guia-legal-fiscal` con información legal, tributaria y migratoria verificada para contratistas independientes remotos desde Bolivia que trabajan con clientes en EE. UU.).
+  3. **Información Financiera y de Pago** (plataformas de cobro internacional: AirTM, Wise, Payoneer, Tipalti y Dólar Bolivia Hoy).
+  4. **Sobre el creador** (descripción del proyecto comunitario **Minka Lab** dedicado a la educación digital, las competencias en IA y el aprendizaje de idiomas en [minkalab.net](https://minkalab.net) y enlaces de contacto).
 - En el **pie de página** de todas las vistas encontrarás las cápsulas interactivas **Categorías De Plataformas** (acceso por categoría de fuente) y **Plataformas Monitoreadas** (directorio completo de las 86 fuentes), junto al estado de ejecución y última sincronización.
 
 ---
@@ -180,9 +182,11 @@ Al final de la página encontrarás el panel **"Agregar y Escanear tu Propia URL
 
 ---
 
-### Paso 6: Sección interactiva "Guía del Usuario: Bolivia Remote Work"
+### Paso 6: Guías integradas ("Guía del Usuario" y "Guía Legal y Fiscal")
 
-Desde **Información Útil → Guía del Usuario: Bolivia Remote Work** accedes a la guía de 8 pasos integrada dentro de la propia aplicación (con enlaces directos a **Categorías De Plataformas** y **Plataformas Monitoreadas**), cubriendo configuración de idiomas (`Español` / `Inglés`), experiencia, contratos, áreas profesionales, filtro automático 100% remoto desde Bolivia, interpretación del semáforo, postulación directa y uso de **"Más información con IA"** junto con **"Buscar con IA"** y **"Borrar búsqueda"**.
+Desde el menú **Información Útil** accedes a dos páginas integradas dentro de la propia aplicación:
+- **Guía del Usuario: Bolivia Remote Work:** Guía interactiva de 8 pasos (con enlaces directos a **Categorías De Plataformas** y **Plataformas Monitoreadas**) que cubre configuración de idiomas (`Español` / `Inglés`), experiencia, contratos, áreas profesionales, filtro automático 100% remoto desde Bolivia, interpretación del semáforo, postulación directa y uso de **"Más información con IA"** junto con **"Buscar con IA"** y **"Borrar búsqueda"**.
+- **Guía Legal y Fiscal (EE. UU. y Bolivia)** (`/guia-legal-fiscal` y versión Markdown en [`docs/guia-legal-fiscal-contratistas-bolivia.md`](docs/guia-legal-fiscal-contratistas-bolivia.md)): Referencia verificada y enfocada exclusivamente en **contratistas independientes remotos desde Bolivia** que prestan servicios a clientes estadounidenses desde fuera de EE. UU. (regla de fuente extranjera `26 U.S.C. § 862(a)(3)`, llenado de Formularios `W-8BEN`/`W-8BEN-E`, ausencia de tratado EE. UU.–Bolivia, visas B-1/B-2 ante la Embajada en La Paz, obligaciones locales en el SIN/SIAT —exportación de servicios exenta de IVA y RC-IVA trimestral Form. 610 bajo Ley N° 1448 y DS N° 4850—, aportes voluntarios a la Gestora Pública y cláusulas contractuales clave).
 
 ---
 
@@ -206,6 +210,7 @@ flowchart TD
         PrivacyGuard["src/privacy_guard.js (Limpieza PII RAM + URL Sanitizer)"]
         ScannerEng["src/scanner.js (Parser JSON/RSS/HTML + Filtro Bolivia)"]
         EvaluatorEng["src/evaluator.js (Algoritmo 4 Ejes & Filtro Estricto ES/EN)"]
+<<<<<<< HEAD
         HybridSearch["src/hybrid_search.js (RRF 3 Canales + bge-reranker-base)"]
         AiEnricher["src/ai_enricher.js (Llama 3.3 70B + <bolivia_context>)"]
         CareerBrain["src/career_brain_do.js (BoliviaCareerBrainDO SQLite KG + 12 Playbooks)"]
@@ -217,6 +222,14 @@ flowchart TD
         VecJobs[("Vectorize: bolivia-remote-jobs-m3 (1024d bge-m3)")]
         VecIntel[("Vectorize: bolivia-remote-intel-m3 (1024d bge-m3)")]
         WorkersAI["Workers AI (bge-m3 + bge-reranker-base + Llama 3.3/3.1)"]
+=======
+        AiEnricher["src/ai_enricher.js (Workers AI Llama 3.3 70B + Fallback Borde)"]
+        VectorStore["src/vector_store.js (Búsqueda Semántica BGE-M3 / Vectorize)"]
+        McpServer["src/mcp.js (Servidor MCP Streamable HTTP)"]
+        SeedData["src/seed_data.js (86 Plataformas / 120+ Ofertas Bolivia)"]
+        SeedSync["src/seed_sync.js (Exportador de Plataformas custom_*)"]
+        EdgeCache["Cloudflare Cache API (caches.default)"]
+>>>>>>> origin/main
     end
 
     subgraph Fuentes ["86 Fuentes Globales de Empleo"]
@@ -347,7 +360,7 @@ Puedes alojar tu propia instancia en Cloudflare en menos de 5 minutos utilizando
    npm run build-html && npm test
    ```
    *Ejecuta 9 grupos de prueba automáticos que validan:*
-   - Interfaz web en Español (Bolivia), menú **Información Útil**, auto-cierre suave de desplegables, botón **Arriba**, modo oscuro, cápsulas de realidad/frescura/vacante fantasma, panel contextual `#ai-position-details` (5 bloques) y ejecución real en sandbox VM del cambio en vivo de idiomas (`Solo Español`, `Ambos`, `Solo Inglés`).
+   - Interfaz web en Español (Bolivia), menú **Información Útil**, página dedicada **Guía Legal y Fiscal** (`/guia-legal-fiscal`), auto-cierre suave de desplegables, botón **Arriba**, modo oscuro, cápsulas de realidad/frescura/vacante fantasma, panel contextual `#ai-position-details` (5 bloques) y ejecución real en sandbox VM del cambio en vivo de vistas e idiomas (`Solo Español`, `Ambos`, `Solo Inglés`).
    - Estado general del servicio con 86 plataformas monitoreadas y garantía de elegibilidad 100% remota desde Bolivia.
    - Evaluación simétrica de idiomas (`['es']`, `['en']`, `['es', 'en']` y respaldo limpio de valores heredados).
    - Cobertura de las 25 categorías profesionales y filtro estricto de área (`strict_position_match`).
@@ -418,13 +431,14 @@ El worker expone endpoints HTTP estándar para integraciones externas:
 | Método | Ruta | Parámetros / Cuerpo | Descripción |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/` | Ninguno | Retorna la aplicación web interactiva completa en Español (Bolivia) (HTML5/CSS3/JS). |
+| `GET` | `/guia-legal-fiscal` (`/legal-fiscal`) | Ninguno | Retorna renderizada desde servidor (SSR) la página dedicada **Guía Legal y Fiscal (EE. UU. y Bolivia)** para contratistas independientes remotos desde Bolivia ([`src/legal_tax_guide.js`](src/legal_tax_guide.js)). |
 | `GET` | `/api/state` | Ninguno | Retorna el estado v6.0.0, enlaces activos (`ai`, `d1`, `vectorize`, `intel_vectorize`, `career_brain`), 86 plataformas y ofertas elegibles enriquecidas con cápsulas `employer_reality`. |
 | `POST` | `/api/evaluate` | JSON `{ filters: { languages, position_types, experience_levels, contract_types, strict_position_match } }` | Evalúa dinámicamente el catálogo frente a los filtros provistos (`languages`: `["es"]`, `["en"]` o `["es","en"]`) y retorna las ofertas ordenadas con sus puntajes. |
 | `POST` | `/api/scan` | JSON opcional `{ track, platform }` | Ejecuta un escaneo de actualización bajo demanda, registra avistamientos (`job_sightings`) e indexa nuevas vacantes elegibles. |
 | `POST` | `/api/platforms/scan-url` | JSON `{ url, name, type, track, filters }` | Sanitiza la URL (elimina `utm_*`, `fbclid`, `gclid`, `ref`, `gh_src`), extrae ofertas 100% elegibles para Bolivia, registra `job_sightings` y las añade a la base. |
 | `GET` / `POST` | `/api/platforms/sync` | Ninguno | Exporta las plataformas personalizadas (`custom_*`) y sus oportunidades asociadas desde el estado vivo, sincronizándolas con los archivos semilla cuando el sistema de archivos local está disponible. |
-| `POST` | `/api/ai/analyze-position` | JSON `{ target_job_hash, title, company, platform_id, location, description, tags }` | Compila `<bolivia_context>` (~1200 tokens) desde `BoliviaCareerBrainDO` + `job_sightings`, analiza con `@cf/meta/llama-3.3-70b-instruct-fp8-fast` (respaldo Llama 3.1 8B / `edge-position-analyzer`) y devuelve resumen, requisitos, habilidades, compatibilidad `UTC-4`, consejos y bloque `bolivia_reality`. |
-| `POST` | `/api/ai/enrich` | JSON `{ job_hash, max_items }` | Enriquece oportunidades bajo demanda con Cloudflare Workers AI (`env.AI`), extrayendo remuneración referencial en USD y resúmenes ejecutivos. |
+| `POST` | `/api/ai/analyze-position` | JSON `{ target_job_hash, title, company, platform_id, location, description, tags }` | Compila `<bolivia_context>` (~1200 tokens) desde `BoliviaCareerBrainDO` + `job_sightings`, analiza con `@cf/meta/llama-3.3-70b-instruct-fp8-fast` (con respaldo `edge-position-analyzer`) y devuelve resumen, requisitos, habilidades, compatibilidad `UTC-4`, consejos y bloque `bolivia_reality`. |
+| `POST` | `/api/ai/enrich` | JSON `{ job_hash, max_items }` | Enriquece oportunidades bajo demanda con Cloudflare Workers AI (`@cf/meta/llama-3.3-70b-instruct-fp8-fast` vía `env.AI`), extrayendo remuneración referencial en USD y resúmenes ejecutivos. |
 | `GET` / `POST` | `/api/search/semantic` | Query `?q=...` o JSON `{ query, filters, topK }` | Búsqueda Híbrida v2 Zero-PII: limpieza PII en RAM + RRF de 3 canales (`d1_fts`, `vec_m3`, `edge_128d`) + frescura/ghost/empleador + Cross-Encoder `@cf/baai/bge-reranker-base`. |
 | `POST` | `/api/vectors/index` | JSON `{ max_items, deduplicate }` | Genera embeddings `@cf/baai/bge-m3` en lotes de 25 (1024d), indexa en `bolivia-remote-jobs-m3` (`env.VECTORIZE`) y persiste el estado en D1. |
 | `GET` / `POST` | `/mcp` (`/.well-known/mcp.json`) | JSON-RPC 2.0 (`initialize`, `tools/list`, `tools/call`, `resources/read`) | Servidor **Model Context Protocol (MCP)** fail-closed sobre Streamable HTTP (protegido por `MCP_API_KEY`) con **8 herramientas** (5 de búsqueda/escaneo/análisis + 3 de gobierno sobre `BoliviaCareerBrainDO`: `upsert_employer_reality`, `upsert_bolivia_playbook`, `inspect_career_brain_status`) y 2 recursos en vivo. |
