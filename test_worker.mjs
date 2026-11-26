@@ -88,8 +88,8 @@ async function runTests() {
     'Legal & Tax Guide must contain verified U.S. and Bolivia contractor tax, visa, and pension guidance'
   );
   assert.ok(!html.includes('Form 1040-NR-EZ') || html.includes('fue eliminado en 2020'), 'Must not recommend discontinued Form 1040-NR-EZ');
-  assert.ok(/#navbar a#nav-manual\s*\{[\s\S]*?background:\s*#f1f5f9;/.test(html), 'Manual de Uso must share the same light-mode background color (#f1f5f9) as Aviso');
-  assert.ok(/body\.dark-mode #navbar a#nav-manual\s*\{[\s\S]*?background:\s*#131d2e;/.test(html), 'Manual de Uso must share the same dark-mode background color (#131d2e) as Aviso');
+  assert.ok(/#navbar a#nav-manual,\s*#navbar a#nav-legal-tax\s*\{[\s\S]*?background:\s*transparent;[\s\S]*?color:\s*var\(--text-main\);/.test(html), 'Manual and Legal links in Swiss Minimalist navbar must use clean borderless transparent surface with --text-main ink');
+  assert.ok(/html\.dark-mode,\s*body\.dark-mode\s*\{[\s\S]*?--bg-page:\s*#09090b;[\s\S]*?--bg-card:\s*#111113;[\s\S]*?--bg-well:\s*#18181b;/.test(html), 'Dark mode must define Swiss Carbon surface tokens (#09090b / #111113 / #18181b)');
   assert.ok(navListHtml.includes('id="nav-hdr-creator">Sobre el creador</span>') && navListHtml.includes('onclick="toggleCreatorMenu()"'), 'Hamburger menu must include collapsible Sobre el creador section');
   assert.ok(
     navListHtml.includes('id="nav-creator-desc"') &&
@@ -103,7 +103,7 @@ async function runTests() {
     navListHtml.includes('https://github.com/t0m-a'),
     'Sobre el creador must describe Minka Lab with updated mission text and include minkalab.net, contact/site, Facebook, LinkedIn, and GitHub links'
   );
-  assert.ok(/#sidebar-unfold-btn\s*\{[\s\S]*?border:\s*1px solid #10b981;[\s\S]*?background:\s*#ecfdf5;[\s\S]*?color:\s*#065f46;/.test(html), 'Información Utiles button must use the .bolivia-only-label green highlight design');
+  assert.ok(/#sidebar-unfold-btn\s*\{[\s\S]*?border:\s*1px solid var\(--border-control\);[\s\S]*?background:\s*var\(--bg-card\);[\s\S]*?color:\s*var\(--text-main\);/.test(html), 'Información Útil button must use calm Swiss Minimalist hairline surface styling');
   assert.ok(!html.includes('Exporta tus Resultados y Sincroniza en Segundo Plano') && !html.includes('<!-- PASO 9 -->'), 'User Manual must remove section 9');
   const manualStartIdx = html.indexOf('<section id="view-manual"');
   const manualEndIdx = html.indexOf('</section>', manualStartIdx);
@@ -140,13 +140,15 @@ async function runTests() {
   assert.ok(!html.includes('body.view-manual-active footer'), 'Manual de Uso page must keep the same footer visible as the main page');
   assert.ok(
     html.includes('class="strict-pos-label"') &&
-    /body\.dark-mode \.strict-pos-label\s*\{[\s\S]*?color:\s*#94a3b8;/.test(html),
-    'Ocultar ofertas de otras áreas must use clear light muted color (#94a3b8) in dark mode'
+    /\.strict-pos-label\s*\{[\s\S]*?color:\s*var\(--text-secondary\);/.test(html) &&
+    /html\.dark-mode,\s*body\.dark-mode\s*\{[\s\S]*?--text-secondary:\s*#d4d4d8;[\s\S]*?--text-muted:\s*#a1a1aa;/.test(html),
+    'Ocultar ofertas de otras áreas and muted helper labels must use accessible Swiss dark-mode contrast tokens (#d4d4d8 / #a1a1aa)'
   );
   assert.ok(
     manualHtml.includes('<p id="man-p-intro">') &&
-    /body\.dark-mode #man-p-intro,\s*body\.dark-mode \.guide-step-body\s*\{[\s\S]*?color:\s*#cbd5e1;/.test(html),
-    'Manual de Uso intro paragraph must share the same dark-mode text color (#cbd5e1) as .guide-step-body'
+    /#man-p-intro,\s*#legal-p-intro\s*\{[\s\S]*?color:\s*var\(--text-secondary\);/.test(html) &&
+    /\.guide-step-body\s*\{[\s\S]*?color:\s*var\(--text-secondary\);/.test(html),
+    'Manual de Uso intro paragraph must share the same accessible var(--text-secondary) token as .guide-step-body'
   );
   assert.ok(!html.includes('id="tab-view-platforms"'), 'Must move Monitored Platforms button out of toolbar into footer');
   assert.ok(!html.includes('id="tab-view-results"'), 'Must remove no-op Resultados button from toolbar');
@@ -159,18 +161,16 @@ async function runTests() {
   );
   assert.ok(html.includes('id="btn-v-all">Todas las Elegibles</button>'), 'Spanish toolbar filter must say Todas las Elegibles');
   assert.ok(!html.includes('Todos los Elegibles'), 'Must replace Todos los Elegibles with Todas las Elegibles');
-  assert.ok(/\.btn-ai-info\s*\{[\s\S]*?background:\s*#ecfdf5;[\s\S]*?color:\s*#065f46 !important;[\s\S]*?border:\s*1px solid #10b981;/.test(html), 'Más información con IA button must use the same green design as Información Utiles');
-  assert.ok(/body\.dark-mode \.btn-ai-info\s*\{[\s\S]*?background:\s*#064e3b;[\s\S]*?color:\s*#a7f3d0 !important;[\s\S]*?border-color:\s*#10b981;/.test(html), 'Más información con IA dark mode must match Información Utiles');
-  assert.ok(/\.chip\.selected\s*\{[\s\S]*?background:\s*rgba\(2,\s*132,\s*199,\s*0\.12\);[\s\S]*?color:\s*#0369a1;[\s\S]*?border-color:\s*#0ea5e9;/.test(html), 'Selected language chips (Español/Inglés) must use light translucent blue tinted design');
+  assert.ok(/\.btn-ai-info\s*\{[\s\S]*?background:\s*var\(--bg-well\);[\s\S]*?color:\s*var\(--text-main\) !important;/.test(html), 'Más información con IA button must use calm Swiss tonal surface styling');
+  assert.ok(/\.chip\.selected\s*\{[\s\S]*?background:\s*var\(--accent-primary\);[\s\S]*?color:\s*var\(--accent-fg\);/.test(html), 'Selected language chips (Español/Inglés) must use high-contrast Swiss accent styling');
   assert.ok(
     /@media \(hover: hover\) and \(pointer: fine\)\s*\{[\s\S]*?\.chip:hover\s*\{/.test(html) &&
     /@media \(hover: hover\) and \(pointer: fine\)\s*\{[\s\S]*?body\.dark-mode \.chip:hover\s*\{/.test(html),
-    'Language chip :hover styles must be scoped to fine-pointer hover devices so touchscreens immediately revert deselected chips to grey'
+    'Language chip :hover styles must be scoped to fine-pointer hover devices so touchscreens immediately revert deselected chips to neutral'
   );
-  assert.ok(/\.btn-tab:hover,\s*\.btn-tab\.active\s*\{[\s\S]*?background:\s*rgba\(2,\s*132,\s*199,\s*0\.12\);[\s\S]*?color:\s*#0369a1;[\s\S]*?border-color:\s*#0ea5e9;/.test(html), 'Toolbar tabs (Resultados, Todas las Elegibles, etc.) must use light translucent blue tinted design');
-  assert.ok(/\.btn-tab\.btn-tab-scan\s*\{[\s\S]*?background:\s*rgba\(16,\s*185,\s*129,\s*0\.11\);[\s\S]*?color:\s*#065f46;[\s\S]*?border-color:\s*#10b981;/.test(html), 'Escanear Ofertas Ahora must use light translucent green tinted design');
-  assert.ok(/\.btn-primary\s*\{[\s\S]*?background:\s*rgba\(2,\s*132,\s*199,\s*0\.12\);[\s\S]*?color:\s*#0369a1 !important;[\s\S]*?border:\s*1px solid #0ea5e9;/.test(html), 'Primary action buttons (Buscar con IA, Ver Oferta y Postular, etc.) must use light translucent blue tinted design');
-  assert.ok(/body\.dark-mode \.btn-primary\s*\{[\s\S]*?background:\s*rgba\(14,\s*165,\s*233,\s*0\.18\);[\s\S]*?color:\s*#7dd3fc !important;[\s\S]*?border-color:\s*#0ea5e9;/.test(html), 'Dark mode primary action buttons must use matching translucent blue tinted design');
+  assert.ok(/\.btn-tab\.active,\s*\.btn-tab\.active:hover\s*\{[\s\S]*?background:\s*var\(--bg-card\);[\s\S]*?color:\s*var\(--text-main\);/.test(html), 'Toolbar verdict tabs must use Swiss segmented active surface styling');
+  assert.ok(/\.btn-tab\.btn-tab-scan\s*\{[\s\S]*?background:\s*var\(--bg-well\);[\s\S]*?color:\s*var\(--text-main\);/.test(html) && /\.btn-tab\.btn-tab-scan::before\s*\{[\s\S]*?background:\s*var\(--apply-border\);/.test(html), 'Escanear Ofertas Ahora must use Swiss tonal button with surgical emerald status dot');
+  assert.ok(/\.btn-primary\s*\{[\s\S]*?background:\s*var\(--accent-primary\);[\s\S]*?color:\s*var\(--accent-fg\) !important;/.test(html), 'Primary action buttons (Buscar con IA, Ver Oferta y Postular, etc.) must use crisp Swiss carbon ink styling');
   assert.ok(html.includes('function foldAllNavbarSubsections()') && html.includes('foldAllNavbarSubsections();'), 'Closing Información Utiles menu must refold all subsections');
   assert.ok(!html.includes('Asistente IA de Perfil y Generador de Cartas de Postulación'), 'Must remove AI Profile Matcher & Cover Letter Generator feature');
   assert.ok(!html.includes('panel-collapsible-header'), 'Must mask/remove panel-collapsible-header from #ai-cv-panel');
@@ -252,11 +252,9 @@ async function runTests() {
   assert.ok(!html.includes('id="nav-report"'), 'Must NOT have id="nav-report" in navbar (removed as requested)');
   assert.ok(html.includes('id="sidebar-unfold-btn"'), 'Must have sidebar unfold button');
   assert.ok(
-    /@keyframes boliviaHamburgerCycleLight\s*\{[\s\S]*?#ef4444[\s\S]*?#eab308[\s\S]*?#10b981/.test(html) &&
-    /@keyframes boliviaHamburgerCycleDark\s*\{[\s\S]*?#ef4444[\s\S]*?#facc15[\s\S]*?#10b981/.test(html) &&
-    /#sidebar-unfold-btn\s*\{[\s\S]*?animation:\s*boliviaHamburgerCycleLight 5\.4s ease-in-out infinite;/.test(html) &&
-    /body\.dark-mode #sidebar-unfold-btn\s*\{[\s\S]*?animation:\s*boliviaHamburgerCycleDark 5\.4s ease-in-out infinite;/.test(html),
-    'Información Útil hamburger button must cycle red -> vivid yellow -> green in harmonized button tones on both desktop and mobile (light and dark modes)'
+    /\.header-title::before\s*\{[\s\S]*?%23dc2626[\s\S]*?%23eab308[\s\S]*?%2316a34a/.test(html) &&
+    !html.includes('boliviaHamburgerCycleLight'),
+    'Swiss Minimalist navbar must replace flashing hamburger animation with restrained 3-dot geometric Bolivian brand mark'
   );
   assert.ok(html.includes('<body class="sidebar-collapsed">'), 'Navbar must start folded in hamburger menu by default');
   assert.ok(/<div class="navbar-header">[\s\S]*?id="nav-brand-title">Bolivia Remote Work<\/span>[\s\S]*?id="sidebar-unfold-btn"[\s\S]*?<span class="hamburger-label" id="lbl-unfold-nav">Información Útil<\/span>[\s\S]*?<span class="hamburger-icon">/.test(html), 'Hamburger button must be inside navbar-header on the right with Información Útil on the left of hamburger icon');
@@ -294,6 +292,9 @@ async function runTests() {
   assert.ok(!html.includes("semanticBtn: 'AI Vector Search'"), 'Must replace AI Vector Search button label');
   assert.ok(html.includes('https://tsimon.me'), 'Must include footer attribution link to tsimon.me');
   assert.ok(html.includes('title="Thomas Mathieu Simon  · Cloud Systems Architect · NOC &amp; AI Engineer"'), 'Must include title attribute on tsimon.me link');
+  assert.ok(html.includes('const __name = (target) => target;'), 'Client script must define __name shim so Wrangler esbuild keepNames helpers never throw ReferenceError in production');
+  assert.ok(!checkBoliviaRemoteEligibility.toString().includes('cacheReturn'), 'checkBoliviaRemoteEligibility must avoid inner named arrow functions that trigger esbuild __name wrapping');
+  assert.ok(html.includes('max-width: 1360px;'), 'Desktop layout measure must use wider 1360px container');
   assert.ok(html.includes('body.sidebar-collapsed #main-doc'), 'Must expand main-doc when collapsed');
   assert.ok(html.includes('body.sidebar-collapsed .top-banner'), 'Must expand sections to full width when collapsed');
   assert.ok(html.includes('body.view-manual-active .top-banner'), 'Must have CSS hiding preliminary sections when manual view is active');
@@ -313,9 +314,9 @@ async function runTests() {
   assert.ok(footerHtml.includes('id="lbl-last-sync"') && footerHtml.includes('id="val-last-sync"'), 'Last synced pill must be inside footer');
   assert.ok(footerHtml.includes('id="lbl-monitored-count"') && footerHtml.includes('id="val-platforms-count"'), 'Active platforms pill must be inside footer');
   assert.ok(
-    /\.btn-back-to-top\s*\{[\s\S]*?border:\s*1px solid #0ea5e9;[\s\S]*?background:\s*rgba\(2,\s*132,\s*199,\s*0\.12\);[\s\S]*?color:\s*#0369a1;/.test(html) &&
-    /body\.dark-mode \.btn-back-to-top\s*\{[\s\S]*?background:\s*rgba\(14,\s*165,\s*233,\s*0\.18\);[\s\S]*?color:\s*#7dd3fc;[\s\S]*?border-color:\s*#0ea5e9;/.test(html),
-    'Arriba button must use the same light translucent blue design as Buscar con IA in light and dark modes'
+    /\.btn-back-to-top\s*\{[\s\S]*?border:\s*1px solid var\(--border-control\);[\s\S]*?opacity:\s*0;[\s\S]*?pointer-events:\s*none;/.test(html) &&
+    /\.btn-back-to-top\.visible\s*\{[\s\S]*?opacity:\s*1;[\s\S]*?pointer-events:\s*auto;/.test(html),
+    'Arriba button must use Swiss frosted pill styling and stay hidden at scrollY < 160 so it never overlaps top/filter controls'
   );
   assert.ok(
     html.includes('class="filter-block filter-block-langs"') &&
@@ -341,9 +342,9 @@ async function runTests() {
     'Footer attribution must sit inside .footer-status-pills using the same .banner-pill design on the same line'
   );
   assert.ok(
-    /\.header-title\s*\{[\s\S]*?font-size:\s*1\.38em;[\s\S]*?font-weight:\s*500;[\s\S]*?letter-spacing:\s*0\.04em;/.test(html) &&
-    /#nav-brand-title\s*\{[\s\S]*?background-clip:\s*text;/.test(html),
-    'Bolivia Remote Work header title must stand out with refined lighter weight (500), larger size inside header height, and gradient styling'
+    /\.header-title\s*\{[\s\S]*?font-family:\s*var\(--font-head\);[\s\S]*?font-size:\s*1\.24em;[\s\S]*?font-weight:\s*600;/.test(html) &&
+    /#nav-brand-title\s*\{[\s\S]*?color:\s*var\(--text-main\);/.test(html),
+    'Bolivia Remote Work header title must use clean Swiss Minimalist geometric display typography and monochrome ink'
   );
   assert.ok(
     html.includes('.opp-card.card-reveal-pending') &&
@@ -519,13 +520,17 @@ async function runTests() {
   assert.equal(typeof vmSandbox.window.cancelNavbarAutoClose, 'function', 'cancelNavbarAutoClose must be bound');
   assert.equal(typeof vmSandbox.window.scrollToTop, 'function', 'scrollToTop must be bound');
   assert.equal(typeof vmSandbox.window.updateBackToTopPosition, 'function', 'updateBackToTopPosition must be bound');
+  vmSandbox.window.scrollY = 0;
   vmSandbox.window.innerWidth = 390;
   vmSandbox.window.innerHeight = 800;
   domElements['footer-text'].getBoundingClientRect = () => ({ top: 700 });
   vmSandbox.window.updateBackToTopPosition();
+  assert.equal(domElements['btn-back-to-top'].classList.contains('visible'), false, 'Arriba button must stay hidden at scrollY = 0');
   assert.equal(domElements['btn-back-to-top'].style.bottom, '110px', 'On mobile when footer enters viewport, Arriba button must stop cleanly in empty space above footer');
+  vmSandbox.window.scrollY = 240;
   vmSandbox.window.innerWidth = 1280;
   vmSandbox.window.updateBackToTopPosition();
+  assert.equal(domElements['btn-back-to-top'].classList.contains('visible'), true, 'Arriba button must become visible after scrolling >= 160px');
   assert.equal(domElements['btn-back-to-top'].style.bottom, '', 'On desktop, Arriba button must reset custom bottom offset');
   assert.equal(typeof vmSandbox.window.initCardScrollReveal, 'function', 'initCardScrollReveal must be bound');
   assert.equal(typeof vmSandbox.window.scheduleRecomputeAndRender, 'function', 'scheduleRecomputeAndRender must be bound');
