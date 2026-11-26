@@ -1,12 +1,12 @@
 /**
- * Cloudflare Worker Entrypoint — Bolivia 100% Remote Job Scout & Evaluator (v6.0.0)
+ * Cloudflare Worker Entrypoint — Bolivia 100% Remote Job Scout & Evaluator (v6.1.0)
  * 100% Air-Gapped Cognitive Upgrade inside scout-analyst-pipeline (ADR-06 Zero-PII & ADR-08 Separation):
  *   - Spanish (Bolivia) first UI + customizable user filters & Employer Reality badges
  *   - Dedicated D1 (`bolivia-remote-jobs-db`) with FTS5 BM25 & `job_sightings` Ghost-Job tracking
  *   - Hybrid Search v2 (3-Channel Weighted RRF + `@cf/baai/bge-reranker-base`)
  *   - Isolated `BoliviaCareerBrainDO` SQLite Durable Object (`<bolivia_context>` compiler)
- *   - Fail-closed `/mcp` Streamable HTTP server with 3 Career Brain admin tools
- *   - On-demand execution + Scheduled Cron Trigger every 15 minutes
+ *   - Fail-closed `/mcp` Streamable HTTP server with Career Brain & discovery admin tools
+ *   - Scheduled Cron Trigger every 15 minutes + autonomous direct ATS source discovery
  */
 
 import { INITIAL_PLATFORMS, INITIAL_OPPORTUNITIES } from './seed_data.js';
@@ -18,7 +18,6 @@ import {
   detectOfferAttributes
 } from './evaluator.js';
 import {
-  scanCustomPlatformUrl,
   runIngestionScan,
   stripHtml,
   computeJobHash,
@@ -26,7 +25,6 @@ import {
 } from './scanner.js';
 import { renderAppHtml } from './ui.js';
 import { FAVICON_SVG } from './favicon.js';
-import { buildSeedExportPayload, persistCustomPlatformsToDisk } from './seed_sync.js';
 import {
   buildDeterministicSummaries,
   enrichOpportunityWithAI,
@@ -914,6 +912,7 @@ Sitemap: https://boliviaremote.work/sitemap.xml
     // 2. Get Current State API
     if (request.method === 'GET' && path === '/api/state') {
       const enrichedOpps = await attachEmployerReality(state.opportunities, env);
+      const activePlatforms = state.platforms.filter(p => p && p.enabled !== false);
       return jsonResponse({
         version: '6.1.0',
         schedule: '*/15 * * * *',
@@ -923,14 +922,14 @@ Sitemap: https://boliviaremote.work/sitemap.xml
         intel_vectorize_enabled: Boolean(env && env.INTEL_VECTORIZE),
         career_brain_enabled: Boolean(env && env.CAREER_BRAIN),
         autonomous_discovery_enabled: true,
-        direct_ats_platforms_count: state.platforms.filter(p => p && p.type === 'ats_json' && p.enabled !== false).length,
+        direct_ats_platforms_count: activePlatforms.filter(p => p.type === 'ats_json').length,
         qdrant_enabled: Boolean(env && env.QDRANT_URL),
         mcp_endpoint: '/mcp',
         mcp_auth_enabled: !(env && String(env.MCP_PUBLIC_ACCESS).toLowerCase() === 'true'),
         lastScanAt: state.lastScanAt,
-        platforms_count: state.platforms.length,
+        platforms_count: activePlatforms.length,
         opportunities_count: enrichedOpps.length,
-        platforms: state.platforms,
+        platforms: activePlatforms,
         opportunities: enrichedOpps
       });
     }
@@ -1003,164 +1002,9 @@ Sitemap: https://boliviaremote.work/sitemap.xml
       });
     }
 
-    // 5. On-Demand Scan Trigger API
-    if (request.method === 'POST' && path === '/api/scan') {
-      const body = await request.json().catch(() => ({}));
-      const existingHashes = new Set(state.opportunities.map(o => o.job_hash));
-      const scanRes = await runIngestionScan(state.platforms, existingHashes, {
-        track: body.track,
-        platform: body.platform,
-        maxFeeds: 8,
-        maxDorkClusters: 2
-      });
-
-      if (scanRes.new_opportunities.length > 0) {
-        const enrichedNew = await enrichBatchWithAI(scanRes.new_opportunities, env, 5);
-        const withSightings = await recordJobSightings(enrichedNew, env);
-        await indexOpportunitiesInVectorStore(withSightings, env, 15);
-        state.opportunities = [...withSightings, ...state.opportunities];
-      }
-      state.lastScanAt = scanRes.timestamp;
-      if (ctx && typeof ctx.waitUntil === 'function') {
-        ctx.waitUntil(saveState(state, env));
-      } else {
-        await saveState(state, env);
-      }
-
-      const enrichedOpps = await attachEmployerReality(state.opportunities, env);
-      return jsonResponse({
-        ok: true,
-        scanned_platforms: scanRes.scanned_platforms,
-        new_count: scanRes.new_count,
-        lastScanAt: state.lastScanAt,
-        platforms: state.platforms,
-        opportunities: enrichedOpps
-      });
-    }
-
-    // 6. Custom Platform URL Live Scanner & Evaluator API (Zero-PII URL Sanitization)
-    if (request.method === 'POST' && path === '/api/platforms/scan-url') {
-      try {
-        const body = await request.json();
-        const cleanBody = {
-          ...body,
-          url: sanitizePlatformUrl(body.url || '')
-        };
-        const scanRes = await scanCustomPlatformUrl(cleanBody, cleanBody.filters || DEFAULT_FILTERS);
-        scanRes.platform.url = sanitizePlatformUrl(scanRes.platform.url || '');
-        scanRes.opportunities = await enrichBatchWithAI(scanRes.opportunities, env, 4);
-        scanRes.opportunities = await recordJobSightings(scanRes.opportunities, env);
-        await indexOpportunitiesInVectorStore(scanRes.opportunities, env, 10);
-
-        const existingIdx = state.platforms.findIndex(p => p.id === scanRes.platform.id);
-        if (existingIdx >= 0) {
-          state.platforms[existingIdx] = scanRes.platform;
-        } else {
-          state.platforms.unshift(scanRes.platform);
-        }
-
-        const existingHashes = new Set(state.opportunities.map(o => o.job_hash));
-        for (const item of scanRes.opportunities) {
-          if (!checkBoliviaRemoteEligibility(item).eligible) continue;
-          if (!existingHashes.has(item.job_hash)) {
-            existingHashes.add(item.job_hash);
-            state.opportunities.unshift(item);
-          }
-        }
-
-        state.lastScanAt = new Date().toISOString();
-        if (ctx && typeof ctx.waitUntil === 'function') {
-          ctx.waitUntil(saveState(state, env));
-        } else {
-          await saveState(state, env);
-        }
-
-        let seedSyncInfo = null;
-        if (body.persist === true && !scanRes.dead_lead) {
-          const syncRes = await persistCustomPlatformsToDisk(state, ['.']);
-          seedSyncInfo = {
-            persisted_to_disk: syncRes.persisted_to_disk,
-            custom_platforms_count: syncRes.custom_platforms_count,
-            total_platforms_count: syncRes.total_platforms_count
-          };
-        }
-
-        return jsonResponse({
-          ok: true,
-          platform: scanRes.platform,
-          dead_lead: scanRes.dead_lead,
-          http_status: scanRes.http_status,
-          verdict_counts: scanRes.verdict_counts,
-          discovered_count: scanRes.discovered_count,
-          bolivia_eligible_count: scanRes.bolivia_eligible_count,
-          opportunities: scanRes.opportunities,
-          evaluated_opportunities: scanRes.evaluated_opportunities,
-          all_opportunities: state.opportunities,
-          platforms: state.platforms,
-          seed_sync: seedSyncInfo
-        });
-      } catch (err) {
-        return jsonResponse({ ok: false, error: err.message || 'Failed to scan URL' }, 400);
-      }
-    }
-
-    // 7. Export / Sync Custom Platforms to src/seed_data.js & platforms_config.json
-    if ((request.method === 'GET' || request.method === 'POST') && path === '/api/platforms/sync') {
-      try {
-        if (request.method === 'POST') {
-          const body = await request.json().catch(() => ({}));
-          if (Array.isArray(body.platforms)) {
-            const existingIds = new Set(state.platforms.map(p => p.id));
-            for (const p of body.platforms) {
-              if (p && p.id && !existingIds.has(p.id)) {
-                existingIds.add(p.id);
-                state.platforms.unshift({ ...p, url: sanitizePlatformUrl(p.url || '') });
-              }
-            }
-          }
-          if (Array.isArray(body.opportunities)) {
-            const existingHashes = new Set(state.opportunities.map(o => o.job_hash));
-            for (const o of body.opportunities) {
-              if (!o || !checkBoliviaRemoteEligibility(o).eligible) continue;
-              if (o.job_hash && !existingHashes.has(o.job_hash)) {
-                existingHashes.add(o.job_hash);
-                state.opportunities.unshift(cleanOpportunityFields(o));
-              }
-            }
-          }
-          await saveState(state, env);
-          const syncRes = await persistCustomPlatformsToDisk(state, ['.']);
-          return jsonResponse({
-            ok: true,
-            persisted_to_disk: syncRes.persisted_to_disk,
-            written_files: syncRes.written_files,
-            custom_platforms_count: syncRes.custom_platforms_count,
-            newly_added_platforms_count: syncRes.newly_added_platforms_count,
-            newly_added_opportunities_count: syncRes.newly_added_opportunities_count,
-            total_platforms_count: syncRes.total_platforms_count,
-            total_opportunities_count: syncRes.total_opportunities_count,
-            custom_platforms: syncRes.custom_platforms
-          });
-        }
-
-        const exportPayload = buildSeedExportPayload(state);
-        return jsonResponse({
-          ok: true,
-          custom_platforms_count: exportPayload.custom_platforms_count,
-          newly_added_platforms_count: exportPayload.newly_added_platforms_count,
-          newly_added_opportunities_count: exportPayload.newly_added_opportunities_count,
-          total_platforms_count: exportPayload.total_platforms_count,
-          total_opportunities_count: exportPayload.total_opportunities_count,
-          custom_platforms: exportPayload.custom_platforms,
-          newly_added_platforms: exportPayload.newly_added_platforms,
-          newly_added_opportunities: exportPayload.newly_added_opportunities
-        });
-      } catch (err) {
-        return jsonResponse({ ok: false, error: err.message || 'Sync failed' }, 500);
-      }
-    }
-
-    // 8. Grounded Context-Compiled Position Insights ("Más información con IA" v2)
+    // 5. Grounded Context-Compiled Position Insights ("Más información con IA" v2)
+    // Note: Public manual scan/URL-addition endpoints (/api/scan, /api/platforms/scan-url, /api/platforms/sync)
+    // are intentionally omitted; ingestion runs solely via the 15-minute Cron Trigger and authenticated /mcp.
     if (request.method === 'POST' && path === '/api/ai/analyze-position') {
       try {
         const body = await request.json().catch(() => ({}));

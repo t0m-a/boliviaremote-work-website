@@ -1,7 +1,7 @@
 /**
- * Self-Contained Bilingual UI Generator (Spanish Bolivia 'es-BO' first, switchable to English 'en')
+ * Self-Contained UI Generator (Spanish Bolivia 'es-BO')
  * Renders the complete interactive application with embedded data, on-the-fly Results generation,
- * customizable filters, custom platform URL scanner, in-app User Manual, and 15-minute + on-demand scan controls.
+ * customizable filters, in-app User Manual, Legal & Tax Guide, and 15-minute automatic state sync.
  */
 
 import {
@@ -32,9 +32,11 @@ export function renderAppHtml(initialState, options = {}) {
     : 'Empleos Remotos desde Bolivia — Buscador y Evaluador en Vivo';
   const pageDescription = isInitialLegalTax
     ? 'Guía legal y fiscal actualizada para contratistas independientes y trabajadores remotos en Bolivia que prestan servicios a empresas de Estados Unidos (W-8BEN, IRC 862, SIN/SIAT, RC-IVA y visa B-1).'
-    : 'Herramienta pública para filtrar, escanear y evaluar ofertas de trabajo remotas elegibles desde Bolivia según tus idiomas, área profesional, experiencia y tipo de contrato.';
+    : 'Herramienta pública para filtrar y evaluar ofertas de trabajo remotas elegibles desde Bolivia según tus idiomas, área profesional, experiencia y tipo de contrato.';
 
   const eligibleOpportunities = (opportunities || []).filter(o => checkBoliviaRemoteEligibility(o).eligible);
+  const activePlatforms = (platforms || []).filter(p => p && p.enabled !== false);
+  const activePlatformsCount = activePlatforms.length;
 
   const clientPayload = JSON.stringify({
     opportunities: eligibleOpportunities,
@@ -449,7 +451,6 @@ export function renderAppHtml(initialState, options = {}) {
     }
     body.view-manual-active .top-banner,
     body.view-manual-active #custom-filters-panel,
-    body.view-manual-active #custom-url-panel,
     body.view-manual-active #ai-cv-panel,
     body.view-manual-active .kpi-grid,
     body.view-manual-active .toolbar {
@@ -883,20 +884,6 @@ export function renderAppHtml(initialState, options = {}) {
       box-shadow: 0 0 0 2px rgba(24, 24, 27, 0.10);
     }
 
-    /* CUSTOM URL SCANNER */
-    .url-scanner-form {
-      display: grid;
-      grid-template-columns: minmax(220px, 2fr) minmax(150px, 1.1fr) minmax(160px, 1fr) auto;
-      gap: 10px;
-      align-items: end;
-      width: 100%;
-    }
-    .url-scanner-form #btn-submit-url {
-      min-height: 36px;
-      height: auto;
-      width: 100%;
-      justify-content: center;
-    }
     .form-field {
       min-width: 0;
       width: 100%;
@@ -1121,34 +1108,8 @@ export function renderAppHtml(initialState, options = {}) {
       font-weight: 600;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
     }
-    .btn-tab.btn-tab-scan {
-      background: var(--bg-well);
-      color: var(--text-main);
-      border: 1px solid var(--border-control);
-      font-weight: 600;
-      gap: 7px;
-      padding: 6px 13px;
-    }
-    .btn-tab.btn-tab-scan::before {
-      content: "";
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--apply-border);
-      display: inline-block;
-      flex-shrink: 0;
-    }
-    .btn-tab.btn-tab-scan:hover {
-      background: var(--bg-well-hover);
-      border-color: var(--border-strong);
-      color: var(--text-main);
-    }
-    .btn-tab.btn-tab-scan:disabled {
-      opacity: 0.65;
-      cursor: wait;
-    }
     @media (hover: none), (pointer: coarse) {
-      .btn-tab:not(.active):not(.btn-tab-scan):hover {
+      .btn-tab:not(.active):hover {
         background: transparent;
         color: var(--text-secondary);
         border-color: transparent;
@@ -1959,71 +1920,6 @@ export function renderAppHtml(initialState, options = {}) {
       color: var(--text-main);
       outline: none;
     }
-    .footer-pill-caret {
-      display: inline-block;
-      width: 6px;
-      height: 6px;
-      border-right: 1.6px solid currentColor;
-      border-bottom: 1.6px solid currentColor;
-      transform: rotate(-135deg);
-      margin-left: 3px;
-      margin-top: 2px;
-      transition: transform 0.2s ease;
-      flex-shrink: 0;
-    }
-    .footer-pill-btn.expanded .footer-pill-caret {
-      transform: rotate(45deg);
-      margin-top: -2px;
-    }
-    .footer-categories-dropdown {
-      position: relative;
-      display: inline-flex;
-      align-items: center;
-      max-width: 100%;
-    }
-    .footer-categories-menu {
-      position: absolute;
-      bottom: calc(100% + 6px);
-      left: 50%;
-      transform: translateX(-50%);
-      width: min(260px, calc(100vw - 24px));
-      margin: 0;
-      padding: 6px;
-      list-style: none;
-      text-align: left;
-      background: var(--bg-card);
-      border: 1px solid var(--border-control);
-      border-radius: 10px;
-      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.10);
-      z-index: 950;
-      display: none;
-    }
-    .footer-categories-dropdown.open .footer-categories-menu {
-      display: block;
-    }
-    .footer-categories-menu li {
-      border-bottom: none;
-    }
-    .footer-categories-menu li.nav-track-item.nav-track-folded {
-      display: none;
-    }
-    footer .footer-categories-menu a {
-      display: block;
-      padding: 8px 12px;
-      border-radius: 6px;
-      color: var(--text-secondary);
-      text-decoration: none;
-      font-size: 1.02em;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.15s ease, color 0.15s ease;
-    }
-    footer .footer-categories-menu a:hover,
-    footer .footer-categories-menu a.active-track {
-      background: var(--bg-well);
-      color: var(--text-main);
-      font-weight: 600;
-    }
     .footer-credit {
       line-height: 1.45;
     }
@@ -2127,8 +2023,7 @@ export function renderAppHtml(initialState, options = {}) {
       border-bottom-color: var(--border-hairline);
     }
     body.dark-mode #navbar ul,
-    body.dark-mode .pos-dropdown-menu,
-    body.dark-mode .footer-categories-menu {
+    body.dark-mode .pos-dropdown-menu {
       box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55);
     }
     body.dark-mode .input-text:focus,
@@ -2169,7 +2064,7 @@ export function renderAppHtml(initialState, options = {}) {
       }
     }
     @media (hover: none), (pointer: coarse) {
-      body.dark-mode .btn-tab:not(.active):not(.btn-tab-scan):hover {
+      body.dark-mode .btn-tab:not(.active):hover {
         background: transparent;
         color: var(--text-secondary);
         border-color: transparent;
@@ -2179,9 +2074,6 @@ export function renderAppHtml(initialState, options = {}) {
 
     /* RESPONSIVE BREAKPOINTS */
     @media only screen and (max-width: 1080px) {
-      .url-scanner-form {
-        grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
-      }
       .toolbar-search-group {
         flex: 1 1 100%;
         width: 100%;
@@ -2271,9 +2163,6 @@ export function renderAppHtml(initialState, options = {}) {
         padding: 12px 14px;
       }
       .toolbar .filter-group {
-        width: 100%;
-      }
-      .toolbar-scan-group .btn-tab {
         width: 100%;
       }
       #verdictFilterBar {
@@ -2411,13 +2300,6 @@ export function renderAppHtml(initialState, options = {}) {
         white-space: normal;
         line-height: 1.35;
       }
-      .url-scanner-form {
-        grid-template-columns: 1fr;
-      }
-      .url-scanner-form #btn-submit-url {
-        width: 100%;
-        justify-content: center;
-      }
       .kpi-grid {
         grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
         gap: 8px;
@@ -2434,10 +2316,6 @@ export function renderAppHtml(initialState, options = {}) {
       .toolbar {
         padding: 12px;
         gap: 8px;
-      }
-      .toolbar-scan-group .btn-tab {
-        width: 100%;
-        padding: 8px 12px;
       }
       #verdictFilterBar {
         display: grid;
@@ -2745,9 +2623,6 @@ export function renderAppHtml(initialState, options = {}) {
 
     <!-- TOOLBAR -->
     <section class="toolbar">
-      <div class="filter-group toolbar-scan-group">
-        <button type="button" class="btn-tab btn-tab-scan" id="btn-scan-now" onclick="triggerOnDemandScan()"><span id="lbl-scan-now">Escanear Ofertas Ahora</span></button>
-      </div>
       <div class="filter-group" id="verdictFilterBar">
         <button type="button" class="btn-tab active" data-verdict="ALL" onclick="setVerdictFilter('ALL')" id="btn-v-all">Todas las Elegibles</button>
         <button type="button" class="btn-tab" data-verdict="APPLY" onclick="setVerdictFilter('APPLY')"><span id="btn-v-apply">Postular</span></button>
@@ -2788,7 +2663,7 @@ export function renderAppHtml(initialState, options = {}) {
             </div>
           </div>
           <p id="man-p-intro">
-            <strong>Bolivia Remote Work</strong> es una plataforma pública, gratuita e interactiva diseñada para encontrar, filtrar y evaluar en vivo oportunidades laborales internacionales que admiten trabajo 100% remoto desde Bolivia (UTC-4), eliminando el ruido de ofertas con restricciones territoriales o visados extranjeros. <strong><u>Nota: Algunas de estas plataformas requieren que te registres para ver el contenido de la oferta.</u></strong> Puedes verificar las fuentes por tipo en <a href="#footer-categories-dropdown" id="man-link-categories" onclick="openFooterCategoriesFromManual(event)">Categorías De Plataformas</a> o consultar el directorio completo en <a href="#view-platforms" id="man-link-platforms" onclick="event.preventDefault(); switchMainView('platforms');">Plataformas Monitoreadas</a>.
+            <strong>Bolivia Remote Work</strong> es una plataforma pública, gratuita e interactiva diseñada para encontrar, filtrar y evaluar en vivo oportunidades laborales internacionales que admiten trabajo 100% remoto desde Bolivia (UTC-4), eliminando el ruido de ofertas con restricciones territoriales o visados extranjeros. <strong><u>Nota: Algunas de estas plataformas requieren que te registres para ver el contenido de la oferta.</u></strong>
           </p>
           <div class="info-callout" id="man-box-privacy">
             <strong>Privacidad Total y Sin Registros:</strong> No necesitas crear una cuenta ni ingresar datos personales. Tus filtros se guardan solo en tu navegador (localStorage) y cualquier dato privado escrito en una búsqueda se limpia automáticamente en memoria antes de procesarse.
@@ -2806,7 +2681,7 @@ export function renderAppHtml(initialState, options = {}) {
               </div>
               <div class="manual-memory-card">
                 <strong>2. Memoria de Empresas y Cobros en Bolivia</strong>
-                Conserva información verificada sobre las 86 plataformas y empresas contratantes: canales de cobro útiles en Bolivia (<em>AirTM, Payoneer, Deel, Tipalti, USDC</em>), advertencias locales, modalidad independiente (<em>W-8BEN</em>) y guías prácticas para <em>UTC-4</em>.
+                Conserva información verificada sobre las <span id="man-platforms-count">${activePlatformsCount}</span> plataformas y empresas contratantes: canales de cobro útiles en Bolivia (<em>AirTM, Payoneer, Deel, Tipalti, USDC</em>), advertencias locales, modalidad independiente (<em>W-8BEN</em>) y guías prácticas para <em>UTC-4</em>.
               </div>
               <div class="manual-memory-card">
                 <strong>3. Memoria Semántica e IA de Búsqueda</strong>
@@ -2976,13 +2851,13 @@ ${LEGAL_TAX_GUIDE_HTML}
       </div>
     </section>
 
-    <!-- VIEW 4: MONITORED PLATFORMS & CUSTOM URLS -->
+    <!-- VIEW 4: MONITORED PLATFORMS -->
     <section id="view-platforms" style="display:none;">
       <div class="panel-card">
         <div class="panel-header">
           <div>
             <h3 class="panel-title"><span id="lbl-platforms-heading">Directorio de Plataformas Remotas Monitoreadas</span></h3>
-            <span class="meta-hint-sub" id="lbl-platforms-sub">Haz clic en "Escanear" en cualquier plataforma para buscar nuevas ofertas al instante</span>
+            <span class="meta-hint-sub" id="lbl-platforms-sub">Explora las bolsas globales y empresas directas (ATS) que nuestro motor actualiza automáticamente cada 15 minutos</span>
           </div>
           <button type="button" class="btn-action btn-primary" onclick="switchMainView('results')"><span id="plat-btn-back">Volver a la Página Principal</span></button>
         </div>
@@ -2990,66 +2865,16 @@ ${LEGAL_TAX_GUIDE_HTML}
           <button type="button" class="btn-tab active" data-plat-group="all" onclick="setPlatformsGroupFilter('all')">Todas</button>
           <button type="button" class="btn-tab" data-plat-group="ats" onclick="setPlatformsGroupFilter('ats')">Empresas Directas (ATS)</button>
           <button type="button" class="btn-tab" data-plat-group="boards" onclick="setPlatformsGroupFilter('boards')">Bolsas y Redes Globales</button>
-          <button type="button" class="btn-tab" data-plat-group="custom" onclick="setPlatformsGroupFilter('custom')">Agregadas por Usuarios</button>
         </div>
         <div id="platformsGridContainer" class="radar-grid"></div>
       </div>
     </section>
 
-    <!-- ADD & SCAN CUSTOM PLATFORM URL PANEL -->
-    <section class="panel-card" id="custom-url-panel" style="margin-top:18px;">
-      <div class="panel-header" style="margin-bottom:12px;">
-        <h2 class="panel-title"><span id="lbl-add-url-title">Agregar y Escanear tu Propia URL de Plataforma o Bolsa de Empleo</span></h2>
-        <span class="meta-hint-sub" id="lbl-add-url-sub">Auto-detecta APIs JSON, Feeds RSS/Atom y Páginas Web de Empleo</span>
-      </div>
-      <form class="url-scanner-form" onsubmit="event.preventDefault(); submitCustomPlatformScan();">
-        <div class="form-field">
-          <label for="scan-url-input" id="lbl-url-field">URL de la Plataforma o Feed a Escanear *</label>
-          <input type="text" id="scan-url-input" class="input-text" placeholder="https://remotive.com/api/remote-jobs o https://empresa.com/careers" required>
-        </div>
-        <div class="form-field">
-          <label for="scan-name-input" id="lbl-name-field">Nombre (Opcional)</label>
-          <input type="text" id="scan-name-input" class="input-text" placeholder="Ej: Mi Portal Remoto">
-        </div>
-        <div class="form-field">
-          <label for="scan-type-select" id="lbl-type-field">Modo de Escaneo</label>
-          <select id="scan-type-select" class="input-select">
-            <option value="auto" id="opt-type-auto">Auto-detectar (Web / RSS / JSON)</option>
-            <option value="html_board">Página Web / Bolsa HTML</option>
-            <option value="rss_feed">Feed RSS / Atom XML</option>
-            <option value="json_api">API JSON</option>
-            <option value="portal_dork">Búsqueda Profunda de Portal</option>
-          </select>
-        </div>
-        <div>
-          <button type="submit" class="btn-action btn-primary" id="btn-submit-url">
-            <span id="lbl-btn-submit-url">Escanear y Evaluar URL</span>
-          </button>
-        </div>
-      </form>
-      <div id="scan-feedback-box" class="scan-alert"></div>
-    </section>
-
     <footer id="footer-text">
       <div class="footer-status-pills">
-        <span class="banner-pill" id="pill-schedule">Ejecución: Bajo Demanda + Automático cada 15 min</span>
+        <span class="banner-pill" id="pill-schedule">Actualización automática cada 15 min</span>
         <span class="banner-pill"><span id="lbl-last-sync">Última sincronización:</span> <span id="val-last-sync">-</span></span>
-        <span class="banner-pill"><span id="lbl-monitored-count">Plataformas activas:</span> <span id="val-platforms-count">0</span></span>
-        <div class="footer-categories-dropdown" id="footer-categories-dropdown">
-          <button type="button" class="banner-pill footer-pill-btn" id="nav-hdr-tracks-item" onclick="toggleCategoriesMenu(event)" aria-expanded="false" aria-haspopup="true" aria-controls="footer-categories-menu">
-            <span id="nav-hdr-tracks">Categorías De Plataformas</span>
-            <span class="footer-pill-caret" id="nav-tracks-caret" aria-hidden="true"></span>
-          </button>
-          <ul id="footer-categories-menu" class="footer-categories-menu" role="menu">
-            <li class="nav-track-item nav-track-folded"><a data-track="ALL" class="active-track" onclick="selectFooterTrack('ALL')"><span id="nav-track-all">Todas las Categorías</span></a></li>
-            <li class="nav-track-item nav-track-folded"><a data-track="TRACK A" onclick="selectFooterTrack('TRACK A')"><span id="nav-track-a">B2B Directo &amp; Freelance</span></a></li>
-            <li class="nav-track-item nav-track-folded"><a data-track="TRACK B" onclick="selectFooterTrack('TRACK B')"><span id="nav-track-b">Entrenamiento IA &amp; RLHF</span></a></li>
-            <li class="nav-track-item nav-track-folded"><a data-track="TRACK C" onclick="selectFooterTrack('TRACK C')"><span id="nav-track-c">Redes LATAM &amp; Globales</span></a></li>
-            <li class="nav-track-item nav-track-folded"><a data-track="TRACK D" onclick="selectFooterTrack('TRACK D')"><span id="nav-track-d">Portales Europeos &amp; Globales</span></a></li>
-            <li class="nav-track-item nav-track-folded"><a data-track="TRACK E" onclick="selectFooterTrack('TRACK E')"><span id="nav-track-e">Redes de Consultoría Experta</span></a></li>
-            <li class="nav-track-item nav-track-folded"><a data-track="TRACK F" onclick="selectFooterTrack('TRACK F')"><span id="nav-track-f">Bolsas de Empleo Remoto</span></a></li>
-          </ul>
-        </div>
+        <span class="banner-pill"><span id="lbl-monitored-count">Plataformas activas:</span> <span id="val-platforms-count">${activePlatformsCount}</span></span>
         <button type="button" class="banner-pill footer-pill-btn" id="nav-platforms" onclick="switchMainView('platforms')">
           <span id="nav-lbl-platforms">Plataformas Monitoreadas</span>
         </button>
@@ -3093,7 +2918,6 @@ ${LEGAL_TAX_GUIDE_HTML}
     }
 
     let currentVerdictFilter = 'ALL';
-    let currentTrackFilter = 'ALL';
     let lastEvaluationResult = { surfaced: [], all: [], apply: [], possible: [], skip: [], geo_excluded: [] };
 
     let currentTheme = 'light';
@@ -3153,14 +2977,6 @@ ${LEGAL_TAX_GUIDE_HTML}
         navResults: 'Resultados en Vivo',
         navManual: 'Guía del Usuario: Bolivia Remote Work',
         navPlatforms: 'Plataformas Monitoreadas',
-        navTracks: 'Categorías De Plataformas',
-        navTrackAll: 'Todas las Categorías',
-        navTrackA: 'B2B Directo & Freelance',
-        navTrackB: 'Entrenamiento IA & RLHF',
-        navTrackC: 'Redes LATAM & Globales',
-        navTrackD: 'Portales Europeos & Globales',
-        navTrackE: 'Redes de Consultoría Experta',
-        navTrackF: 'Bolsas de Empleo Remoto',
         navPayments: 'Información Financiera y de Pago',
         navPaymentsDesc: 'Las empresas suelen liquidar mediante plataformas de nómina global como <strong>AirTM. Wise, Payoneer o Tipalti</strong>. Desde estas cuentas puedes transferir vía SWIFT O transferancia ACH hacia tu cuenta bancaria boliviana en Boliviano o en USD, usar tarjetas de débito internacionales, o liquidar honorarios a través de pasarelas reguladas entre tus cuentas globales y locales.',
         categoryLabel: 'Categoría',
@@ -3170,9 +2986,7 @@ ${LEGAL_TAX_GUIDE_HTML}
         themeLightText: 'Claro',
         bannerTitle: 'Buscador y Evaluador de Empleos Remotos desde Bolivia',
         bannerSubtitle: 'Filtra y evalúa ofertas globales y regionales que permiten trabajar remoto desde Bolivia. Personaliza tus idiomas, área profesional, experiencia y modalidad de contrato.',
-        scanNow: 'Escanear Ofertas Ahora',
-        scanningNow: 'Escaneando plataformas...',
-        pillSchedule: 'Ejecución: Bajo Demanda + Automático cada 15 min',
+        pillSchedule: 'Actualización automática cada 15 min',
         lastSync: 'Última sincronización:',
         monitoredCount: 'Plataformas activas:',
         filtersTitle: 'Personaliza tu Búsqueda y Criterios de Evaluación',
@@ -3189,14 +3003,6 @@ ${LEGAL_TAX_GUIDE_HTML}
         clearPos: 'Ver todas las áreas',
         customKwPlaceholder: 'Asistente Virtual, Soporte, Ventas, Excel, Python, React, Contador, Diseñador, SQL, Azure, QA...',
         weightPos: '(Peso Posición/Habilidades: 35 pts · Elegibilidad Bolivia: 25 pts)',
-        addUrlTitle: 'Agregar y Escanear tu Propia URL de Plataforma o Bolsa de Empleo',
-        addUrlSub: 'Auto-detecta APIs JSON, Feeds RSS/Atom y Páginas Web de Empleo',
-        urlField: 'URL de la Plataforma o Feed a Escanear *',
-        nameField: 'Nombre (Opcional)',
-        typeField: 'Modo de Escaneo',
-        typeAuto: 'Auto-detectar (Web / RSS / JSON)',
-        btnSubmitUrl: 'Escanear y Evaluar URL',
-        scanningUrl: 'Escaneando URL...',
         aiAnalysisHdr: 'Información sobre la Posición',
         draftAiBtn: 'Más información con IA',
         semanticBtn: 'Buscar con IA',
@@ -3230,7 +3036,7 @@ ${LEGAL_TAX_GUIDE_HTML}
         dlMd: 'Descargar resultados.md',
         dlCsv: 'Exportar CSV',
         platformsHeading: 'Directorio de Plataformas Remotas Monitoreadas',
-        platformsSub: 'Puedes escanear cualquier plataforma bajo demanda o agregar nuevas URLs abajo',
+        platformsSub: 'Explora las bolsas globales y empresas directas (ATS) que nuestro motor actualiza automáticamente cada 15 minutos',
         verdictLabels: { APPLY: 'POSTULAR', POSSIBLE: 'EXPLORAR', SKIP: 'BAJA COINCIDENCIA', GEO: 'NO ELEGIBLE BOLIVIA' },
         scorePos: 'Posición/Habilidades',
         scoreBol: 'Remoto Bolivia',
@@ -3240,7 +3046,6 @@ ${LEGAL_TAX_GUIDE_HTML}
         matchedLangs: 'Idiomas:',
         contractsLabel: 'Modalidad:',
         openOfferBtn: 'Ver Oferta y Postular',
-        scanPlatformBtn: 'Escanear esta plataforma',
         openPlatformBtn: 'Abrir Portal',
         noResults: 'No se encontraron ofertas con los filtros actuales. Prueba ampliando los tipos de posición, contrato o palabras clave.',
         manBtnBack: 'Volver a la Página Principal',
@@ -3294,19 +3099,10 @@ ${LEGAL_TAX_GUIDE_HTML}
         'nav-lbl-results': t.navResults,
         'nav-lbl-manual': t.navManual,
         'nav-lbl-platforms': t.navPlatforms,
-        'nav-hdr-tracks': t.navTracks,
-        'nav-track-all': t.navTrackAll,
-        'nav-track-a': t.navTrackA,
-        'nav-track-b': t.navTrackB,
-        'nav-track-c': t.navTrackC,
-        'nav-track-d': t.navTrackD,
-        'nav-track-e': t.navTrackE,
-        'nav-track-f': t.navTrackF,
         'nav-hdr-payments': t.navPayments,
         'nav-payments-desc': t.navPaymentsDesc,
         'banner-title': t.bannerTitle,
         'banner-subtitle': t.bannerSubtitle,
-        'lbl-scan-now': t.scanNow,
         'pill-schedule': t.pillSchedule,
         'lbl-last-sync': t.lastSync,
         'lbl-monitored-count': t.monitoredCount,
@@ -3323,13 +3119,6 @@ ${LEGAL_TAX_GUIDE_HTML}
         'lbl-strict-pos': t.strictPos,
         'btn-clear-pos': t.clearPos,
         'lbl-weight-pos': t.weightPos,
-        'lbl-add-url-title': t.addUrlTitle,
-        'lbl-add-url-sub': t.addUrlSub,
-        'lbl-url-field': t.urlField,
-        'lbl-name-field': t.nameField,
-        'lbl-type-field': t.typeField,
-        'opt-type-auto': t.typeAuto,
-        'lbl-btn-submit-url': t.btnSubmitUrl,
         'lbl-ai-analysis-hdr': t.aiAnalysisHdr,
         'lbl-btn-semantic': t.semanticBtn,
         'lbl-btn-clear-search': t.clearSearchBtn,
@@ -3699,13 +3488,6 @@ ${LEGAL_TAX_GUIDE_HTML}
           if (btn) btn.setAttribute('aria-expanded', 'false');
         }
       }
-      const catDd = document.getElementById('footer-categories-dropdown');
-      if (catDd && catDd.classList && catDd.classList.contains('open') && typeof catDd.getBoundingClientRect === 'function') {
-        const cRect = catDd.getBoundingClientRect();
-        if (cRect.bottom < 56 || cRect.top > vh) {
-          closeCategoriesMenu();
-        }
-      }
     }
     window.handleFilterDropdownScrollAutoClose = handleFilterDropdownScrollAutoClose;
 
@@ -3736,10 +3518,6 @@ ${LEGAL_TAX_GUIDE_HTML}
             const btn = document.getElementById(btnId);
             if (btn) btn.setAttribute('aria-expanded', 'false');
           }
-        }
-        const catDd = document.getElementById('footer-categories-dropdown');
-        if (catDd && catDd.classList.contains('open') && typeof catDd.contains === 'function' && !catDd.contains(e.target)) {
-          closeCategoriesMenu();
         }
       };
       document.addEventListener('pointerdown', handleDropdownOutside, { passive: true });
@@ -3776,8 +3554,6 @@ ${LEGAL_TAX_GUIDE_HTML}
       const currentLang = userFilters.ui_lang || 'es';
       userFilters = Object.assign({}, PAYLOAD.DEFAULT_FILTERS, { ui_lang: currentLang });
       currentVerdictFilter = 'ALL';
-      currentTrackFilter = 'ALL';
-      updateActiveTrackHighlight();
       document.getElementById('searchInput').value = '';
       syncSearchClearButton('');
       saveFilters();
@@ -3798,7 +3574,7 @@ ${LEGAL_TAX_GUIDE_HTML}
         lastEvaluationResult,
         userFilters,
         userFilters.ui_lang,
-        platformsState.length,
+        getActivePlatformsCount(),
         lastScanAtState
       );
       reportMarkdownDirty = false;
@@ -3827,6 +3603,20 @@ ${LEGAL_TAX_GUIDE_HTML}
     }
     window.scheduleRecomputeAndRender = scheduleRecomputeAndRender;
 
+    function getActivePlatformsCount() {
+      return (platformsState || []).filter(p => p && p.enabled !== false).length;
+    }
+
+    function updateActivePlatformsCountUi() {
+      const activeCount = getActivePlatformsCount();
+      const navPlatCntEl = document.getElementById('nav-cnt-platforms');
+      if (navPlatCntEl) navPlatCntEl.textContent = activeCount;
+      const footerPlatCntEl = document.getElementById('val-platforms-count');
+      if (footerPlatCntEl) footerPlatCntEl.textContent = activeCount;
+      const manPlatCntEl = document.getElementById('man-platforms-count');
+      if (manPlatCntEl) manPlatCntEl.textContent = activeCount;
+    }
+
     function recomputeAndRender() {
       if (semanticOverrideResults !== null) {
         semanticOverrideResults = null;
@@ -3847,9 +3637,7 @@ ${LEGAL_TAX_GUIDE_HTML}
 
       const navCntEl = document.getElementById('nav-cnt-results');
       if (navCntEl) navCntEl.textContent = lastEvaluationResult.surfaced.length;
-      const navPlatCntEl = document.getElementById('nav-cnt-platforms');
-      if (navPlatCntEl) navPlatCntEl.textContent = platformsState.length;
-      document.getElementById('val-platforms-count').textContent = platformsState.length;
+      updateActivePlatformsCountUi();
       document.getElementById('val-last-sync').textContent = String(lastScanAtState || '').replace('T', ' ').slice(0, 16);
 
       renderResultsCards();
@@ -4050,8 +3838,6 @@ ${LEGAL_TAX_GUIDE_HTML}
       }
 
       const filtered = pool.filter(r => {
-        const tCode = extractTrackCode(r.track);
-        if (currentTrackFilter !== 'ALL' && tCode !== currentTrackFilter) return false;
         if (qTokens.length > 0 && !Array.isArray(semanticOverrideResults)) {
           const hay = normalizeSearchText(r.title + ' ' + r.company + ' ' + r.platform_name + ' ' + r.location + ' ' + r.matched_skills + ' ' + r.description);
           const allMatch = qTokens.every(tok => hay.includes(tok) || (tok.length >= 5 && hay.includes(tok.slice(0, Math.min(tok.length - 1, 5)))));
@@ -4277,13 +4063,13 @@ ${LEGAL_TAX_GUIDE_HTML}
     function renderPlatformsDirectory() {
       const t = I18N[userFilters.ui_lang] || I18N.es;
       const container = document.getElementById('platformsGridContainer');
+      updateActivePlatformsCountUi();
       if (!container) return;
 
       const activePlatforms = (platformsState || []).filter(p => p && p.enabled !== false);
       const filtered = activePlatforms.filter(p => {
         if (currentPlatformsGroupFilter === 'ats') return p.type === 'ats_json' || String(p.id || '').startsWith('ats_');
-        if (currentPlatformsGroupFilter === 'custom') return String(p.id || '').startsWith('custom_');
-        if (currentPlatformsGroupFilter === 'boards') return p.type !== 'ats_json' && !String(p.id || '').startsWith('ats_') && !String(p.id || '').startsWith('custom_');
+        if (currentPlatformsGroupFilter === 'boards') return p.type !== 'ats_json' && !String(p.id || '').startsWith('ats_');
         return true;
       });
 
@@ -4294,7 +4080,6 @@ ${LEGAL_TAX_GUIDE_HTML}
 
       container.innerHTML = filtered.map(p => {
         const isAts = p.type === 'ats_json' || String(p.id || '').startsWith('ats_');
-        const scanUrl = p.feed_url || p.url;
         const typeLabel = formatPlatformTypeLabel(p);
         const pills = ['<span class="plat-badge' + (isAts ? ' ats' : '') + '">' + escapeHtml(typeLabel) + '</span>'];
         if (p.discovered_by === 'ai_autonomous') {
@@ -4313,8 +4098,6 @@ ${LEGAL_TAX_GUIDE_HTML}
           '<p style="margin-bottom:6px;"><strong>' + escapeHtml(t.categoryLabel || 'Categoría') + ':</strong> ' + escapeHtml(cleanTrackName(p.track || '')) + '</p>' +
           '<p style="margin-bottom:10px;">' + escapeHtml(p.notes || p.url) + '</p>' +
           '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
-            '<button type="button" class="btn-action btn-primary" style="padding:4px 10px;font-size:0.78em;" onclick="scanExistingPlatform(\\'' + escapeHtml(scanUrl) + '\\', \\'' + escapeHtml(p.name) + '\\', \\'' + escapeHtml(p.type || 'auto') + '\\', \\'' + escapeHtml(p.track || '') + '\\')">' +
-              escapeHtml(t.scanPlatformBtn) + '</button>' +
             '<a class="btn-action btn-secondary" style="padding:4px 10px;font-size:0.78em;" href="' + escapeHtml(p.url) + '" target="_blank" rel="noopener">' +
               escapeHtml(t.openPlatformBtn) + '</a>' +
           '</div>' +
@@ -4331,22 +4114,7 @@ ${LEGAL_TAX_GUIDE_HTML}
       renderResultsCards();
     }
 
-    function updateActiveTrackHighlight() {
-      if (typeof document.querySelectorAll === 'function') {
-        document.querySelectorAll('#footer-categories-menu a[data-track]').forEach(link => {
-          link.classList.toggle('active-track', link.getAttribute('data-track') === currentTrackFilter);
-        });
-      }
-    }
-
-    function filterByTrack(trackCode) {
-      currentTrackFilter = trackCode;
-      updateActiveTrackHighlight();
-      renderResultsCards();
-    }
-
     function switchMainView(viewName, opts) {
-      closeCategoriesMenu();
       const vResults = document.getElementById('view-results');
       const vManual = document.getElementById('view-manual');
       const vLegalTax = document.getElementById('view-legal-tax');
@@ -4364,7 +4132,6 @@ ${LEGAL_TAX_GUIDE_HTML}
 
       const banner = document.querySelector('.top-banner');
       const filters = document.getElementById('custom-filters-panel');
-      const urlPanel = document.getElementById('custom-url-panel');
       const aiPanel = document.getElementById('ai-cv-panel');
       const kpis = document.querySelector('.kpi-grid');
       const toolbar = document.querySelector('.toolbar');
@@ -4372,7 +4139,6 @@ ${LEGAL_TAX_GUIDE_HTML}
 
       if (banner) banner.style.display = isDedicatedPage ? 'none' : '';
       if (filters) filters.style.display = isDedicatedPage ? 'none' : '';
-      if (urlPanel) urlPanel.style.display = isDedicatedPage ? 'none' : '';
       if (aiPanel) aiPanel.style.display = isDedicatedPage ? 'none' : '';
       if (kpis) kpis.style.display = isDedicatedPage ? 'none' : '';
       if (toolbar) toolbar.style.display = isDedicatedPage ? 'none' : '';
@@ -4439,7 +4205,6 @@ ${LEGAL_TAX_GUIDE_HTML}
       document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') {
           closePositionsDropdown();
-          closeCategoriesMenu();
           closeNavbarMenu();
         }
       });
@@ -4640,139 +4405,6 @@ ${LEGAL_TAX_GUIDE_HTML}
       }
     })();
 
-    let footerCategoriesAutoCloseTimer = null;
-
-    function cancelFooterCategoriesAutoClose() {
-      if (footerCategoriesAutoCloseTimer) {
-        clearTimeout(footerCategoriesAutoCloseTimer);
-        footerCategoriesAutoCloseTimer = null;
-      }
-    }
-    window.cancelFooterCategoriesAutoClose = cancelFooterCategoriesAutoClose;
-
-    function closeCategoriesMenu() {
-      cancelFooterCategoriesAutoClose();
-      const dd = document.getElementById('footer-categories-dropdown');
-      const hdr = document.getElementById('nav-hdr-tracks-item');
-      const items = typeof document.querySelectorAll === 'function'
-        ? document.querySelectorAll('#footer-categories-menu li.nav-track-item')
-        : [];
-      if (dd && dd.classList && typeof dd.classList.remove === 'function') {
-        dd.classList.remove('open');
-      }
-      if (hdr) {
-        if (hdr.classList && typeof hdr.classList.remove === 'function') {
-          hdr.classList.remove('expanded');
-        }
-        if (typeof hdr.setAttribute === 'function') {
-          hdr.setAttribute('aria-expanded', 'false');
-        }
-      }
-      items.forEach(item => {
-        if (item && item.classList && typeof item.classList.add === 'function') {
-          item.classList.add('nav-track-folded');
-        }
-      });
-    }
-    window.closeCategoriesMenu = closeCategoriesMenu;
-
-    function scheduleFooterCategoriesAutoClose() {
-      cancelFooterCategoriesAutoClose();
-      const dd = document.getElementById('footer-categories-dropdown');
-      if (!dd || (dd.classList && typeof dd.classList.contains === 'function' && !dd.classList.contains('open'))) return;
-      footerCategoriesAutoCloseTimer = setTimeout(() => {
-        closeCategoriesMenu();
-        footerCategoriesAutoCloseTimer = null;
-      }, 320);
-    }
-    window.scheduleFooterCategoriesAutoClose = scheduleFooterCategoriesAutoClose;
-
-    function toggleCategoriesMenu(event) {
-      if (event && typeof event.stopPropagation === 'function') {
-        event.stopPropagation();
-      }
-      cancelFooterCategoriesAutoClose();
-      const dd = document.getElementById('footer-categories-dropdown');
-      const hdr = document.getElementById('nav-hdr-tracks-item');
-      const menu = document.getElementById('footer-categories-menu');
-      const items = typeof document.querySelectorAll === 'function'
-        ? document.querySelectorAll('#footer-categories-menu li.nav-track-item')
-        : [];
-      const nowExpanded = dd && dd.classList ? dd.classList.toggle('open') : false;
-      items.forEach(item => {
-        if (item && item.classList && typeof item.classList.toggle === 'function') {
-          item.classList.toggle('nav-track-folded', !nowExpanded);
-        }
-      });
-      if (hdr) {
-        if (hdr.classList && typeof hdr.classList.toggle === 'function') {
-          hdr.classList.toggle('expanded', nowExpanded);
-        }
-        if (typeof hdr.setAttribute === 'function') {
-          hdr.setAttribute('aria-expanded', nowExpanded ? 'true' : 'false');
-        }
-      }
-      if (menu && menu.style) {
-        menu.style.left = '';
-        menu.style.right = '';
-        menu.style.transform = '';
-        if (nowExpanded && typeof menu.getBoundingClientRect === 'function') {
-          const rect = menu.getBoundingClientRect();
-          const vw = (typeof window !== 'undefined' && typeof window.innerWidth === 'number') ? window.innerWidth : 1280;
-          const margin = 12;
-          let shiftX = 0;
-          if (rect.left < margin) {
-            shiftX = Math.ceil(margin - rect.left);
-          } else if (rect.right > vw - margin) {
-            shiftX = -Math.ceil(rect.right - (vw - margin));
-          }
-          if (shiftX !== 0) {
-            menu.style.transform = 'translateX(calc(-50% + ' + shiftX + 'px))';
-          }
-        }
-      }
-    }
-    window.toggleCategoriesMenu = toggleCategoriesMenu;
-
-    function selectFooterTrack(trackCode) {
-      switchMainView('results');
-      filterByTrack(trackCode);
-      closeCategoriesMenu();
-      const resultsEl = document.getElementById('view-results');
-      if (resultsEl && typeof resultsEl.scrollIntoView === 'function') {
-        resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }
-    window.selectFooterTrack = selectFooterTrack;
-
-    function openFooterCategoriesFromManual(event) {
-      if (event && typeof event.preventDefault === 'function') event.preventDefault();
-      if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
-      const dd = document.getElementById('footer-categories-dropdown');
-      const hdr = document.getElementById('nav-hdr-tracks-item');
-      if (dd && typeof dd.scrollIntoView === 'function') {
-        dd.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-      if (dd && dd.classList && !dd.classList.contains('open')) {
-        toggleCategoriesMenu();
-      } else if (hdr && typeof hdr.focus === 'function') {
-        hdr.focus();
-      }
-    }
-    window.openFooterCategoriesFromManual = openFooterCategoriesFromManual;
-
-    (function initFooterCategoriesHoverAutoClose() {
-      const dd = document.getElementById('footer-categories-dropdown');
-      if (dd && typeof dd.addEventListener === 'function') {
-        dd.addEventListener('mouseenter', () => {
-          if (supportsFineHover()) cancelFooterCategoriesAutoClose();
-        });
-        dd.addEventListener('mouseleave', () => {
-          if (supportsFineHover()) scheduleFooterCategoriesAutoClose();
-        });
-      }
-    })();
-
     function togglePaymentsMenu() {
       const hdr = document.getElementById('nav-hdr-payments-item');
       const items = document.querySelectorAll('#navbar li.nav-payment-item');
@@ -4788,165 +4420,28 @@ ${LEGAL_TAX_GUIDE_HTML}
     }
     window.togglePaymentsMenu = togglePaymentsMenu;
 
-    async function triggerOnDemandScan() {
-      const t = I18N[userFilters.ui_lang] || I18N.es;
-      const btn = document.getElementById('btn-scan-now');
-      const lbl = document.getElementById('lbl-scan-now');
-      btn.disabled = true;
-      lbl.textContent = t.scanningNow;
-
+    async function refreshLiveStateFromServer() {
+      if (typeof fetch !== 'function') return;
       try {
-        const resp = await fetch('/api/scan', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ filters: userFilters })
-        });
-        if (resp.ok) {
-          const data = await resp.json();
-          if (Array.isArray(data.opportunities)) {
-            opportunitiesState = data.opportunities;
-          }
-          if (Array.isArray(data.platforms)) {
-            platformsState = data.platforms;
-          }
-          lastScanAtState = data.lastScanAt || new Date().toISOString();
-          recomputeAndRender();
-          renderPlatformsDirectory();
-        }
-      } catch (e) {
-        // Fallback when opened as local file without Worker backend
-        lastScanAtState = new Date().toISOString();
-        recomputeAndRender();
-      } finally {
-        btn.disabled = false;
-        lbl.textContent = (I18N[userFilters.ui_lang] || I18N.es).scanNow;
-      }
-    }
-
-    function closeScanFeedback() {
-      const feedbackBox = document.getElementById('scan-feedback-box');
-      if (!feedbackBox) return;
-      feedbackBox.className = 'scan-alert';
-      feedbackBox.style.display = 'none';
-      feedbackBox.innerHTML = '';
-    }
-
-    function renderScanFeedback(platformName, counts, isDeadLead) {
-      const feedbackBox = document.getElementById('scan-feedback-box');
-      if (!feedbackBox) return;
-      const c = counts || { apply: 0, possible: 0, skip: 0, geo: 0 };
-      const dead = Boolean(isDeadLead);
-      feedbackBox.className = 'scan-alert ' + (dead ? 'error' : 'success');
-      feedbackBox.style.display = 'flex';
-      const badgesHtml = dead
-        ? '<span class="badge badge-GEO">DEAD LEAD</span>'
-        : '<span class="badge badge-APPLY">POSTULAR: ' + Number(c.apply || 0) + '</span>' +
-          ' &middot; <span class="badge badge-POSSIBLE">EXPLORAR: ' + Number(c.possible || 0) + '</span>' +
-          ' &middot; <span class="badge badge-SKIP">BAJA COINCIDENCIA: ' + Number(c.skip || 0) + '</span>' +
-          ' &middot; <span class="badge badge-GEO">BLOQUEADAS PA&Iacute;S: ' + Number(c.geo || 0) + '</span>';
-      feedbackBox.innerHTML =
-        '<div class="scan-alert-content">' +
-          '<strong>' + escapeHtml(platformName || 'URL') + '</strong>' +
-          '<span>' + badgesHtml + '</span>' +
-        '</div>' +
-        '<button type="button" class="scan-alert-close" onclick="closeScanFeedback()" aria-label="Cerrar" title="Cerrar">&times;</button>';
-    }
-
-    async function submitCustomPlatformScan(customArgs) {
-      const t = I18N[userFilters.ui_lang] || I18N.es;
-      const urlInput = document.getElementById('scan-url-input');
-      const nameInput = document.getElementById('scan-name-input');
-      const typeSelect = document.getElementById('scan-type-select');
-      const submitBtn = document.getElementById('btn-submit-url');
-      const submitLbl = document.getElementById('lbl-btn-submit-url');
-
-      const url = customArgs ? customArgs.url : urlInput.value.trim();
-      const name = customArgs ? customArgs.name : nameInput.value.trim();
-      const type = customArgs ? customArgs.type : typeSelect.value;
-      const track = customArgs && customArgs.track ? customArgs.track : 'Track F: Curated Remote-First & WFA Job Boards';
-
-      if (!url) return;
-
-      submitBtn.disabled = true;
-      submitLbl.textContent = t.scanningUrl;
-      closeScanFeedback();
-
-      try {
-        const resp = await fetch('/api/platforms/scan-url', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url, name, type, track, persist: true, filters: userFilters })
-        });
-        if (!resp.ok) {
-          const errData = await resp.json().catch(() => ({}));
-          throw new Error(errData.error || 'HTTP ' + resp.status);
-        }
+        const resp = await fetch('/api/state', { method: 'GET', cache: 'no-store' });
+        if (!resp.ok) return;
         const data = await resp.json();
-        const evalList = Array.isArray(data.evaluated_opportunities) ? data.evaluated_opportunities : [];
-        const counts = data.verdict_counts || {
-          apply: evalList.filter(r => r.bolivia_eligible && r.verdict === 'APPLY').length,
-          possible: evalList.filter(r => r.bolivia_eligible && r.verdict === 'POSSIBLE').length,
-          skip: evalList.filter(r => r.bolivia_eligible && r.verdict === 'SKIP').length,
-          geo: evalList.filter(r => !r.bolivia_eligible).length
-        };
-        const isDeadLead = Boolean(
-          data.dead_lead ||
-          !data.discovered_count ||
-          (data.http_status && data.http_status >= 400)
-        );
-
-        if (!isDeadLead) {
-          if (Array.isArray(data.all_opportunities)) {
-            opportunitiesState = data.all_opportunities;
-          } else if (Array.isArray(data.opportunities)) {
-            const existingHashes = new Set(opportunitiesState.map(o => o.job_hash));
-            for (const o of data.opportunities) {
-              if (!existingHashes.has(o.job_hash)) {
-                opportunitiesState.unshift(o);
-              }
-            }
-          }
-          if (Array.isArray(data.platforms)) {
-            platformsState = data.platforms;
-          } else if (data.platform) {
-            const exists = platformsState.some(p => p.id === data.platform.id);
-            if (!exists) platformsState.unshift(data.platform);
-          }
-          lastScanAtState = new Date().toISOString();
-          recomputeAndRender();
-          renderPlatformsDirectory();
-          if (!customArgs) {
-            urlInput.value = '';
-            nameInput.value = '';
-          }
+        if (Array.isArray(data.opportunities)) {
+          opportunitiesState = data.opportunities;
         }
-
-        renderScanFeedback((data.platform && data.platform.name) || name || url, counts, isDeadLead);
-      } catch (err) {
-        let fallbackName = name;
-        if (!fallbackName) {
-          try {
-            const cleanUrl = /^https?:\\/\\//i.test(url) ? url : 'https://' + url;
-            const parsed = new URL(cleanUrl);
-            fallbackName = parsed.hostname.replace(/^www\\./i, '');
-          } catch (e) {
-            fallbackName = url;
-          }
+        if (Array.isArray(data.platforms)) {
+          platformsState = data.platforms;
         }
-        renderScanFeedback(fallbackName, { apply: 0, possible: 0, skip: 0, geo: 0 }, true);
-      } finally {
-        submitBtn.disabled = false;
-        submitLbl.textContent = (I18N[userFilters.ui_lang] || I18N.es).btnSubmitUrl;
+        if (data.lastScanAt) {
+          lastScanAtState = data.lastScanAt;
+        }
+        recomputeAndRender();
+        renderPlatformsDirectory();
+      } catch (e) {
+        // Ignore network errors when opened offline as standalone index.html
       }
     }
-    window.closeScanFeedback = closeScanFeedback;
-    window.renderScanFeedback = renderScanFeedback;
-    window.submitCustomPlatformScan = submitCustomPlatformScan;
-
-    function scanExistingPlatform(url, name, type, track) {
-      switchMainView('results');
-      submitCustomPlatformScan({ url, name, type, track });
-    }
+    window.refreshLiveStateFromServer = refreshLiveStateFromServer;
 
     let currentAiTargetJobHash = '';
     let lastAiResultData = null;
@@ -5311,9 +4806,9 @@ ${LEGAL_TAX_GUIDE_HTML}
     updateBackToTopPosition();
     updateNavbarStickyState();
 
-    // Auto-trigger background sync every 15 minutes while page is open
+    // Read-only refresh from the 15-minute cron state while the page stays open
     setInterval(() => {
-      triggerOnDemandScan();
+      refreshLiveStateFromServer();
     }, 15 * 60 * 1000);
   </script>
 </body>

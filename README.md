@@ -11,7 +11,7 @@
 [![Versión](https://img.shields.io/badge/Versi%C3%B3n-v6.1.0%20Producci%C3%B3n-0284c7?style=for-the-badge&logo=cloudflare&logoColor=white)](src/worker.js)
 [![Plataforma](https://img.shields.io/badge/Runtime-Cloudflare%20Workers-f38020?style=for-the-badge&logo=cloudflareworkers&logoColor=white)](wrangler.toml)
 [![IA y Memoria](https://img.shields.io/badge/IA-Llama%203.3%20%2B%20BGE--M3%20%2B%20DO%20SQLite-0d9488?style=for-the-badge&logo=cloudflare&logoColor=white)](src/career_brain_do.js)
-[![Automatización](https://img.shields.io/badge/Frecuencia-Cada%2015%20min%20%2B%20Bajo%20Demanda-10b981?style=for-the-badge&logo=clockify&logoColor=white)](wrangler.toml)
+[![Automatización](https://img.shields.io/badge/Frecuencia-Autom%C3%A1tica%20Cada%2015%20min-10b981?style=for-the-badge&logo=clockify&logoColor=white)](wrangler.toml)
 [![Idioma UI](https://img.shields.io/badge/Interfaz-Espa%C3%B1ol%20Bolivia-f59e0b?style=for-the-badge&logo=googletranslate&logoColor=white)](src/ui.js)
 [![Licencia](https://img.shields.io/badge/Licencia-GPL%20v3.0-blue.svg?style=for-the-badge&logo=gnu&logoColor=white)](#licencia)
 
@@ -148,7 +148,7 @@ Al abrir el portal, la aplicación carga completamente en **Español (Bolivia)**
   2. **Guía Legal y Fiscal (EE. UU. y Bolivia)** (`/guia-legal-fiscal`, referencia verificada sobre impuestos, W-8BEN, visas B-1/B-2, SIN/SIAT y Gestora Pública).
   3. **Información Financiera y de Pago** (AirTM, Wise, Payoneer, Tipalti y Dólar Bolivia Hoy).
   4. **Sobre el creador** (iniciativa comunitaria **Minka Lab** en [minkalab.net](https://minkalab.net) dedicada a educación digital, IA e idiomas).
-- En el **pie de página** de todas las vistas tienes las cápsulas interactivas **Categorías De Plataformas** y **Plataformas Monitoreadas**, junto al estado de sincronización.
+- En el **pie de página** de todas las vistas tienes el estado de actualización automática cada 15 minutos, el contador dinámico de **Plataformas activas** y el acceso directo a **Plataformas Monitoreadas**.
 
 ### Paso 2: Configuración de tus filtros personalizados (25 Categorías)
 
@@ -171,7 +171,7 @@ Cada vacante se evalúa sobre **100 puntos** en tres tarjetas KPI (**POSTULAR** 
 - **Cobro verificado / Verificar cobro:** Canales de pago conocidos en Bolivia (por ejemplo, `AirTM / Payoneer / Deel`) o aviso de precaución local.
 - **Nueva hoy / Re-publicada Nx (D días):** Distingue oportunidades frescas frente a vacantes re-publicadas repetidamente (riesgo de vacante fantasma).
 
-En la barra de herramientas puedes pulsar **Escanear Ofertas Ahora** o usar **Buscar con IA** (búsqueda híbrida de 3 canales + re-ordenamiento neuronal tolerante a tildes y errores de tipeo) y volver con **Borrar búsqueda**.
+En la barra de herramientas puedes usar **Buscar con IA** (búsqueda híbrida de 3 canales + re-ordenamiento neuronal tolerante a tildes y errores de tipeo) y volver a la lista completa con **Borrar búsqueda**. La sincronización de ofertas ocurre automáticamente en segundo plano cada 15 minutos.
 
 Al hacer clic en **"Más información con IA"** sobre cualquier oferta, se despliega justo debajo el panel **Información sobre la Posición** (con encabezado ajustado al contenido en formato rectangular de bordes suavemente redondeados) mostrando:
 1. Resumen claro de la posición.
@@ -181,9 +181,9 @@ Al hacer clic en **"Más información con IA"** sobre cualquier oferta, se despl
 5. **Consejos para el candidato**.
 6. **Realidad desde Bolivia: Contrato, Cobro e Historial** (EOR/W-8BEN, canales de cobro, advertencias locales, referencia salarial e historial de re-publicaciones).
 
-### Paso 5: Escanear y evaluar URLs de plataformas personalizadas
+### Paso 5: Descubrimiento automático y directorio de plataformas monitoreadas
 
-Al final de la página principal, el panel **"Agregar y Escanear tu Propia URL de Plataforma o Bolsa de Empleo"** acepta páginas HTML, feeds RSS/Atom o APIs JSON, sanitiza automáticamente parámetros de rastreo de la URL, extrae ofertas elegibles para Bolivia, registra sus avistamientos en `job_sightings` y las incorpora al listado al instante.
+Para maximizar la seguridad (evitando abuso SSRF o inyección de enlaces no verificados), el descubrimiento y escaneo de nuevas fuentes se ejecuta exclusivamente en segundo plano cada 15 minutos (y a través del servidor privado `/mcp`). Puedes explorar todas las bolsas globales y empresas directas (ATS) promovidas por la IA desde **Plataformas Monitoreadas** en el pie de página.
 
 ### Paso 6: Guías integradas ("Guía del Usuario" y "Guía Legal y Fiscal")
 
@@ -277,7 +277,7 @@ flowchart TD
 | [`src/ats_adapters.js`](src/ats_adapters.js) | Lista blanca SSRF estricta para 7 proveedores ATS (`Greenhouse`, `Lever`, `Ashby`, `Workable`, `SmartRecruiters`, `Recruitee`, `Breezy HR`), extractor de candidatos desde agregadores y parser nativo de GetOnBoard JSON:API. |
 | [`src/ats_discovery.js`](src/ats_discovery.js) | Ciclo autónomo en segundo plano (`v6.1.0`): sondeo de tableros directos ATS, puntuación con bono de español y escasez multi-categoría, decisión de promoción por Llama 3.3 70B + memoria en 3 capas, enriquecimiento bidireccional del grafo KG y auto-saneamiento (`COOLDOWN`). |
 | [`src/mcp.js`](src/mcp.js) | Servidor MCP fail-closed sobre Streamable HTTP (`/mcp`, `/.well-known/mcp.json`) con 8 herramientas (incluyendo telemetría y disparo opcional del ciclo de descubrimiento en `inspect_career_brain_status`), 2 recursos y 1 prompt guiado. |
-| [`src/ui.js`](src/ui.js) & [`src/legal_tax_guide.js`](src/legal_tax_guide.js) | Interfaz web responsiva completa en Español (Bolivia), modo claro/oscuro, pestañas en **Plataformas Monitoreadas** (`Todas`, `Empresas Directas (ATS)`, `Bolsas y Redes Globales`, `Agregadas por Usuarios`), cápsulas de realidad/ghost, panel IA de 5 bloques, Guía del Usuario y `/guia-legal-fiscal`. |
+| [`src/ui.js`](src/ui.js) & [`src/legal_tax_guide.js`](src/legal_tax_guide.js) | Interfaz web responsiva completa en Español (Bolivia), modo claro/oscuro, pestañas en **Plataformas Monitoreadas** (`Todas`, `Empresas Directas (ATS)`, `Bolsas y Redes Globales`), contador dinámico de plataformas activas, cápsulas de realidad/ghost, panel IA de 5 bloques, Guía del Usuario y `/guia-legal-fiscal`. |
 | [`schema.sql`](schema.sql) | Esquema D1 `v6.1.0`: `opportunities`, `opportunities_fts` + triggers, `job_sightings`, `custom_platforms` (con metadatos ATS), `discovered_sources`, `career_brain_fallback` y `evaluations`. |
 
 ---
@@ -422,9 +422,6 @@ Empaqueta los datos semilla, el evaluador, las guías y el analizador determiní
 | `GET` | `/guia-legal-fiscal` (`/legal-fiscal`) | Ninguno | Página SSR dedicada **Guía Legal y Fiscal (EE. UU. y Bolivia)** ([`src/legal_tax_guide.js`](src/legal_tax_guide.js)). |
 | `GET` | `/api/state` | Ninguno | Estado `v6.1.0`, enlaces activos (`ai`, `d1`, `vectorize`, `intel_vectorize`, `career_brain`), telemetría `autonomous_discovery_enabled` / `direct_ats_platforms_count`, 86+ plataformas y vacantes con `employer_reality`. |
 | `POST` | `/api/evaluate` | JSON `{ filters: { languages, position_types, experience_levels, contract_types, strict_position_match } }` | Evalúa dinámicamente el catálogo frente a tus filtros y retorna resultados ordenados + Markdown. |
-| `POST` | `/api/scan` | JSON opcional `{ track, platform }` | Dispara un escaneo bajo demanda, registra `job_sightings`, enriquece e indexa nuevas vacantes. |
-| `POST` | `/api/platforms/scan-url` | JSON `{ url, name, type, track, filters }` | Sanitiza la URL, extrae vacantes elegibles para Bolivia, actualiza `job_sightings` y guarda la plataforma. |
-| `GET` / `POST` | `/api/platforms/sync` | Ninguno | Exporta/sincroniza plataformas `custom_*` hacia los archivos semilla locales. |
 | `POST` | `/api/ai/analyze-position` | JSON `{ target_job_hash, title, company, platform_id, location, description, tags }` | Compila `<bolivia_context>` (~1200 tokens) + `job_sightings`, analiza con `@cf/meta/llama-3.3-70b-instruct-fp8-fast` (respaldo determinístico) y retorna los 5 bloques incluido `bolivia_reality`. |
 | `POST` | `/api/ai/enrich` | JSON `{ job_hash, max_items }` | Enriquece vacantes bajo demanda con `@cf/meta/llama-3.3-70b-instruct-fp8-fast` y persiste en D1. |
 | `GET` / `POST` | `/api/search/semantic` | Query `?q=...` o JSON `{ query, filters, topK }` | Búsqueda Híbrida v2 Zero-PII: limpieza PII en RAM + RRF de 3 canales (`d1_fts`, `vec_m3`, `edge_128d`) + frescura/ghost/empleador + Cross-Encoder `@cf/baai/bge-reranker-base`. |

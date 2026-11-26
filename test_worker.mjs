@@ -35,8 +35,8 @@ async function runTests() {
   assert.ok(!html.includes('Bolivia Remoto'), 'Must NOT contain Bolivia Remoto anywhere in HTML');
   assert.ok(html.includes('Buscador y Evaluador de Empleos Remotos desde Bolivia'), 'Must include banner title without 100% and without (BO)');
   assert.ok(!html.includes('Buscador y Evaluador de Empleos 100% Remotos desde Bolivia (BO)'), 'Must remove 100% and (BO) from banner title');
-  assert.ok(html.includes('id="nav-track-a">B2B Directo &amp; Freelance'), 'Must keep category name and remove Track A prefix in categories list');
-  assert.ok(!html.includes('>Track A:'), 'Must NOT include Track A: in category links');
+  assert.ok(!html.includes('id="nav-track-a"') && !html.includes('nav-track-item'), 'Must remove platform category links from UI');
+  assert.ok(!html.includes('>Track A:'), 'Must NOT include Track A: in UI');
   assert.ok(html.includes('id="btn-theme-toggle"'), 'Must have discrete dark mode theme toggle button');
   assert.ok(html.includes('theme-symbol-moon'), 'Must have discrete moon symbol');
   assert.ok(html.includes('theme-symbol-sun'), 'Must have discrete sun symbol');
@@ -55,7 +55,7 @@ async function runTests() {
   assert.ok(!html.includes('flex-wrap: nowrap !important'), 'Must not force nowrap so buttons and pills wrap responsively');
   assert.ok(html.includes('text-transform: capitalize'), 'Hamburger menu group headers must keep only the first letter of each word capitalized');
   assert.ok(!html.includes('text-transform: uppercase'), 'Hamburger menu group headers must be decapitalized from uppercase');
-  assert.ok(html.includes('id="nav-hdr-tracks">Categorías De Plataformas</span>'), 'Must include Categorías De Plataformas with first letter of each word capitalized');
+  assert.ok(!html.includes('id="footer-categories-dropdown"') && !html.includes('Categorías De Plataformas'), 'Must remove platform categories list from the entire site');
   assert.ok(!html.includes('id="banner-disclaimer"'), 'Must remove Notice from the main page banner');
   assert.ok(!html.includes('id="notice-overlay"'), 'Must remove Notice overlay from the main page');
   assert.ok(!html.includes('id="nav-hdr-notice-item"') && !html.includes('id="nav-notice-desc"'), 'Must remove Avisos section from the hamburger menu on all versions');
@@ -117,13 +117,12 @@ async function runTests() {
   const manualIntroEnd = manualHtml.indexOf('</p>', manualIntroStart);
   const manualIntroHtml = manualHtml.slice(manualIntroStart, manualIntroEnd);
   assert.ok(
-    manualIntroHtml.includes('territoriales o visados extranjeros. <strong><u>Nota: Algunas de estas plataformas requieren que te registres para ver el contenido de la oferta.</u></strong> Puedes verificar las fuentes por tipo en') &&
+    manualIntroHtml.includes('territoriales o visados extranjeros. <strong><u>Nota: Algunas de estas plataformas requieren que te registres para ver el contenido de la oferta.</u></strong>') &&
     !manualIntroHtml.includes('También puedes explorar') &&
-    manualIntroHtml.includes('id="man-link-categories"') &&
-    manualIntroHtml.includes('Categorías De Plataformas</a>') &&
-    manualIntroHtml.includes('id="man-link-platforms"') &&
-    manualIntroHtml.includes('Plataformas Monitoreadas</a>'),
-    'Guía del Usuario intro paragraph must include the bold underlined Nota and links to Categorías De Plataformas and Plataformas Monitoreadas'
+    !manualIntroHtml.includes('Puedes verificar las fuentes por tipo en') &&
+    !manualIntroHtml.includes('Categorías De Plataformas') &&
+    !manualIntroHtml.includes('Plataformas Monitoreadas'),
+    'Guía del Usuario intro paragraph must keep the bold underlined Nota and remove the old platform categories/directory links sentence'
   );
   assert.ok(
     /#man-p-intro a\s*\{[\s\S]*?font-weight:\s*400;[\s\S]*?font-size:\s*inherit;/.test(html),
@@ -152,12 +151,11 @@ async function runTests() {
   );
   assert.ok(!html.includes('id="tab-view-platforms"'), 'Must move Monitored Platforms button out of toolbar into footer');
   assert.ok(!html.includes('id="tab-view-results"'), 'Must remove no-op Resultados button from toolbar');
-  assert.ok(/<section class="toolbar">[\s\S]*?class="filter-group toolbar-scan-group"[\s\S]*?class="btn-tab btn-tab-scan" id="btn-scan-now"/.test(html), 'Toolbar must include Scan Offers Now button inside .toolbar-scan-group with green btn-tab styling');
+  assert.ok(!html.includes('id="btn-scan-now"') && !html.includes('triggerOnDemandScan'), 'Must remove manual Scan Offers Now button from public UI');
   assert.ok(
     html.includes('grid-template-columns: repeat(2, minmax(0, 1fr))') &&
-    html.includes('.toolbar-scan-group .btn-tab') &&
     html.includes('#verdictFilterBar .btn-tab'),
-    'Mobile toolbar must use responsive full-width scan button, 2-column verdict button grid, and full-width search field'
+    'Mobile toolbar must use responsive 2-column verdict button grid and full-width search field'
   );
   assert.ok(html.includes('id="btn-v-all">Todas las Elegibles</button>'), 'Spanish toolbar filter must say Todas las Elegibles');
   assert.ok(!html.includes('Todos los Elegibles'), 'Must replace Todos los Elegibles with Todas las Elegibles');
@@ -169,7 +167,7 @@ async function runTests() {
     'Language chip :hover styles must be scoped to fine-pointer hover devices so touchscreens immediately revert deselected chips to neutral'
   );
   assert.ok(/\.btn-tab\.active,\s*\.btn-tab\.active:hover\s*\{[\s\S]*?background:\s*var\(--bg-card\);[\s\S]*?color:\s*var\(--text-main\);/.test(html), 'Toolbar verdict tabs must use Swiss segmented active surface styling');
-  assert.ok(/\.btn-tab\.btn-tab-scan\s*\{[\s\S]*?background:\s*var\(--bg-well\);[\s\S]*?color:\s*var\(--text-main\);/.test(html) && /\.btn-tab\.btn-tab-scan::before\s*\{[\s\S]*?background:\s*var\(--apply-border\);/.test(html), 'Escanear Ofertas Ahora must use Swiss tonal button with surgical emerald status dot');
+  assert.ok(!html.includes('btn-tab-scan'), 'Must remove unused .btn-tab-scan CSS from public UI');
   assert.ok(/\.btn-primary\s*\{[\s\S]*?background:\s*var\(--accent-primary\);[\s\S]*?color:\s*var\(--accent-fg\) !important;/.test(html), 'Primary action buttons (Buscar con IA, Ver Oferta y Postular, etc.) must use crisp Swiss carbon ink styling');
   assert.ok(html.includes('function foldAllNavbarSubsections()') && html.includes('foldAllNavbarSubsections();'), 'Closing Información Utiles menu must refold all subsections');
   assert.ok(!html.includes('Asistente IA de Perfil y Generador de Cartas de Postulación'), 'Must remove AI Profile Matcher & Cover Letter Generator feature');
@@ -261,8 +259,7 @@ async function runTests() {
   assert.ok(!html.includes('Información Utiles'), 'Must replace Información Utiles with Información Útil');
   assert.ok(html.includes('id="exp-dropdown"') && html.includes('id="exp-dropdown-menu"'), 'Experience Level must use a multi-select dropdown');
   assert.ok(html.includes('id="contract-dropdown"') && html.includes('id="contract-dropdown-menu"'), 'Target Contract Types must use a multi-select dropdown');
-  assert.ok(html.includes('onclick="toggleCategoriesMenu(event)"'), 'Categories button inside footer must be collapsible');
-  assert.ok(html.includes('class="nav-track-item nav-track-folded"'), 'Categories inside footer menu must start folded');
+  assert.ok(!html.includes('onclick="toggleCategoriesMenu(event)"') && !html.includes('class="nav-track-item nav-track-folded"'), 'Categories dropdown menu must be removed from footer');
   assert.ok(navListHtml.includes('id="nav-hdr-payments">Información Financiera y de Pago</span>'), 'Must include Información Financiera y de Pago section header in hamburger menu');
   assert.ok(
     html.includes('class="panel-header-actions filters-reset-actions"') &&
@@ -299,20 +296,20 @@ async function runTests() {
   assert.ok(html.includes('body.sidebar-collapsed .top-banner'), 'Must expand sections to full width when collapsed');
   assert.ok(html.includes('body.view-manual-active .top-banner'), 'Must have CSS hiding preliminary sections when manual view is active');
   assert.ok(html.includes('id="man-btn-back"'), 'Must include back to results button in manual view');
-  assert.ok(html.includes('Agregar y Escanear tu Propia URL de Plataforma'), 'Must include Custom Platform URL scanner');
+  assert.ok(!html.includes('Agregar y Escanear tu Propia URL de Plataforma') && !html.includes('id="custom-url-panel"'), 'Must remove public Custom Platform URL scanner panel');
   assert.ok(html.includes('id="ai-cv-panel"'), 'Must retain #ai-cv-panel container for Diagnóstico de Compatibilidad Remota');
   assert.ok(html.includes('class="panel-card ai-cv-folded" id="ai-cv-panel"'), '#ai-cv-panel must start masked via ai-cv-folded by default');
   assert.ok(!html.includes('(Cloudflare Workers AI)'), 'Must not contain (Cloudflare Workers AI)');
   const resultsIdx = html.indexOf('id="resultsCardsContainer"');
-  const customUrlIdx = html.indexOf('id="custom-url-panel"');
   const footerIdx = html.indexOf('<footer id="footer-text">');
   const footerEndIdx = html.indexOf('</footer>', footerIdx);
-  assert.ok(resultsIdx > -1 && customUrlIdx > resultsIdx && footerIdx > customUrlIdx, '#custom-url-panel must be placed at the bottom of the page after results and before footer');
+  assert.ok(resultsIdx > -1 && footerIdx > resultsIdx, 'Footer must appear after results container');
   const footerHtml = html.slice(footerIdx, footerEndIdx);
   assert.ok(!html.includes('id="pill-bolivia"') && !html.includes('Filtro Base: 100% Remoto desde Bolivia (UTC-4)'), 'Filtro Base pill must be removed from footer on all pages');
-  assert.ok(footerHtml.includes('id="pill-schedule"'), 'Schedule pill must be inside footer');
+  assert.ok(footerHtml.includes('id="pill-schedule">Actualización automática cada 15 min</span>') && !html.includes('Bajo Demanda'), 'Schedule pill must show Actualización automática cada 15 min');
   assert.ok(footerHtml.includes('id="lbl-last-sync"') && footerHtml.includes('id="val-last-sync"'), 'Last synced pill must be inside footer');
-  assert.ok(footerHtml.includes('id="lbl-monitored-count"') && footerHtml.includes('id="val-platforms-count"'), 'Active platforms pill must be inside footer');
+  const footerCountMatch = footerHtml.match(/id="val-platforms-count">(\d+)<\/span>/);
+  assert.ok(footerCountMatch && Number(footerCountMatch[1]) >= 85, 'Active platforms pill in footer must SSR the real active platform count (>= 85)');
   assert.ok(
     /\.btn-back-to-top\s*\{[\s\S]*?border:\s*1px solid var\(--border-control\);[\s\S]*?opacity:\s*0;[\s\S]*?pointer-events:\s*none;/.test(html) &&
     /\.btn-back-to-top\.visible\s*\{[\s\S]*?opacity:\s*1;[\s\S]*?pointer-events:\s*auto;/.test(html),
@@ -327,10 +324,10 @@ async function runTests() {
   const footerPillsStart = footerHtml.indexOf('<div class="footer-status-pills">');
   const footerPillsHtml = footerHtml.slice(footerPillsStart);
   assert.ok(
-    footerPillsHtml.includes('class="banner-pill footer-pill-btn" id="nav-hdr-tracks-item"') &&
-    footerPillsHtml.includes('id="nav-hdr-tracks">Categorías De Plataformas</span>') &&
-    footerPillsHtml.includes('id="footer-categories-menu"'),
-    'Categorías De Plataformas must be in footer-status-pills with banner-pill design and collapsible menu'
+    !footerPillsHtml.includes('footer-categories-dropdown') &&
+    !footerPillsHtml.includes('footer-categories-menu') &&
+    !footerPillsHtml.includes('Categorías De Plataformas'),
+    'Categorías De Plataformas dropdown must be removed from footer-status-pills'
   );
   assert.ok(
     footerPillsHtml.includes('class="banner-pill footer-pill-btn" id="nav-platforms"') &&
@@ -551,10 +548,9 @@ async function runTests() {
   vmSandbox.window.updateNavbarStickyState();
   assert.equal(domElements['navbar'].classList.contains('navbar-scrolled'), false, 'Scrolling back to top must remove .navbar-scrolled from #navbar');
   assert.equal(typeof vmSandbox.window.toggleCreatorMenu, 'function', 'toggleCreatorMenu must be bound');
-  assert.equal(typeof vmSandbox.window.toggleCategoriesMenu, 'function', 'toggleCategoriesMenu must be bound');
-  assert.equal(typeof vmSandbox.window.closeCategoriesMenu, 'function', 'closeCategoriesMenu must be bound');
-  assert.equal(typeof vmSandbox.window.selectFooterTrack, 'function', 'selectFooterTrack must be bound');
-  assert.equal(typeof vmSandbox.window.openFooterCategoriesFromManual, 'function', 'openFooterCategoriesFromManual must be bound');
+  assert.equal(typeof vmSandbox.window.refreshLiveStateFromServer, 'function', 'refreshLiveStateFromServer must be bound');
+  assert.equal(vmSandbox.window.toggleCategoriesMenu, undefined, 'toggleCategoriesMenu must be removed');
+  assert.equal(vmSandbox.window.submitCustomPlatformScan, undefined, 'submitCustomPlatformScan must be removed');
   vmSandbox.switchMainView('manual');
   assert.equal(domElements['footer-text'].style.display, '', 'switchMainView(manual) must keep #footer-text visible');
   vmSandbox.switchMainView('results');
@@ -569,36 +565,20 @@ async function runTests() {
   assert.equal(domElements['searchInput'].value, '', 'clearSearchInput must empty the search field');
   assert.equal(domElements['btn-clear-search-input'].style.display, 'none', 'clearSearchInput must hide Borrar búsqueda button');
   assert.equal(domElements['search-input-wrap'].classList.contains('has-value'), false, 'clearSearchInput must remove has-value class');
-  vmSandbox.window.toggleCategoriesMenu();
-  assert.equal(domElements['footer-categories-dropdown'].classList.contains('open'), true, 'toggleCategoriesMenu must open footer categories dropdown');
-  assert.equal(domElements['nav-hdr-tracks-item'].attributes['aria-expanded'], 'true', 'toggleCategoriesMenu must set aria-expanded=true');
-  vmSandbox.window.closeCategoriesMenu();
-  assert.equal(domElements['footer-categories-dropdown'].classList.contains('open'), false, 'closeCategoriesMenu must close footer categories dropdown');
-  assert.equal(domElements['nav-hdr-tracks-item'].attributes['aria-expanded'], 'false', 'closeCategoriesMenu must reset aria-expanded=false');
   assert.equal(typeof vmSandbox.window.closeAiDiagnosticPanel, 'function', 'closeAiDiagnosticPanel must be bound');
   assert.equal(typeof vmSandbox.window.handleAiPanelScrollAutoClose, 'function', 'handleAiPanelScrollAutoClose must be bound');
   assert.equal(typeof vmSandbox.window.setAiCvPanelFolded, 'function', 'setAiCvPanelFolded must be bound');
-  assert.equal(typeof vmSandbox.window.renderScanFeedback, 'function', 'renderScanFeedback must be bound');
-  assert.equal(typeof vmSandbox.window.closeScanFeedback, 'function', 'closeScanFeedback must be bound');
 
-  // Verify #scan-feedback-box display:flex fix, verdict badges, DEAD LEAD, and close button
-  vmSandbox.window.renderScanFeedback('Remotive', { apply: 6, possible: 9, skip: 3, geo: 6 }, false);
-  assert.equal(domElements['scan-feedback-box'].style.display, 'flex', '#scan-feedback-box must set style.display = flex when visible');
-  assert.ok(domElements['scan-feedback-box'].innerHTML.includes('Remotive'), 'Must show Platform Name');
-  assert.ok(domElements['scan-feedback-box'].innerHTML.includes('POSTULAR: 6'), 'Must show POSTULAR badge count');
-  assert.ok(domElements['scan-feedback-box'].innerHTML.includes('EXPLORAR: 9'), 'Must show EXPLORAR badge count');
-  assert.ok(domElements['scan-feedback-box'].innerHTML.includes('BAJA COINCIDENCIA: 3'), 'Must show BAJA COINCIDENCIA badge count');
-  assert.ok(domElements['scan-feedback-box'].innerHTML.includes('BLOQUEADAS PA&Iacute;S: 6'), 'Must show BLOQUEADAS PAIS badge count');
-  assert.ok(domElements['scan-feedback-box'].innerHTML.includes('closeScanFeedback()'), 'Must include close button');
-
-  vmSandbox.window.renderScanFeedback('BrokenBoard', { apply: 0, possible: 0, skip: 0, geo: 0 }, true);
-  assert.equal(domElements['scan-feedback-box'].style.display, 'flex', '#scan-feedback-box must set style.display = flex on DEAD LEAD');
-  assert.ok(domElements['scan-feedback-box'].className.includes('error'), 'DEAD LEAD must use error class');
-  assert.ok(domElements['scan-feedback-box'].innerHTML.includes('BrokenBoard'), 'Must show Platform Name on DEAD LEAD');
-  assert.ok(domElements['scan-feedback-box'].innerHTML.includes('DEAD LEAD'), 'Must show DEAD LEAD badge');
-
-  vmSandbox.window.closeScanFeedback();
-  assert.equal(domElements['scan-feedback-box'].style.display, 'none', 'closeScanFeedback must hide #scan-feedback-box');
+  // Verify dynamic footer active platform counter ignores disabled platforms and updates live
+  const initialActiveCount = Number(domElements['val-platforms-count'].textContent);
+  assert.ok(initialActiveCount >= 85, `Expected >= 85 active platforms in footer, got ${initialActiveCount}`);
+  vm.runInContext(
+    `platformsState.push({ id: 'ats_ashby_testdyn', name: 'TestDyn', type: 'ats_json', enabled: true, url: 'https://jobs.ashbyhq.com/testdyn' });
+     platformsState.push({ id: 'ats_ashby_disabled', name: 'DisabledDyn', type: 'ats_json', enabled: false, url: 'https://jobs.ashbyhq.com/disabled' });
+     recomputeAndRender();`,
+    vmSandbox
+  );
+  assert.equal(Number(domElements['val-platforms-count'].textContent), initialActiveCount + 1, 'Footer active platform counter must dynamically count only enabled platforms');
 
   console.log('2. Testing GET /api/state (85+ platforms + 100% Bolivia-eligible opportunities only)...');
   const reqState = new Request('https://bolivia-remote-scout.workers.dev/api/state');
@@ -784,31 +764,15 @@ async function runTests() {
   const dedupEval = evaluateAllOpportunities(dupSample, {});
   assert.equal(dedupEval.all.length, 1, 'Must deduplicate cross-platform reposts with identical (title, company)');
 
-  console.log('6. Testing POST /api/platforms/scan-url (Custom URL addition & evaluation)...');
-  const reqScanUrl = new Request('https://bolivia-remote-scout.workers.dev/api/platforms/scan-url', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      url: 'https://weworkremotely.com/categories/remote-devops-sysadmin-jobs.rss',
-      name: 'WWR DevOps Custom Feed',
-      type: 'rss_feed'
-    })
-  });
-  const respScanUrl = await worker.fetch(reqScanUrl, {}, {});
-  assert.equal(respScanUrl.status, 200);
-  const scanUrlData = await respScanUrl.json();
-  assert.equal(scanUrlData.ok, true);
-  assert.ok(scanUrlData.platform.id.includes('weworkremotely'));
-  assert.equal(typeof scanUrlData.dead_lead, 'boolean', 'scan-url must return dead_lead boolean');
-  assert.ok(scanUrlData.verdict_counts && typeof scanUrlData.verdict_counts.apply === 'number', 'scan-url must return verdict_counts');
-
-  console.log('6b. Testing GET /api/platforms/sync (Export custom_* platforms)...');
-  const respSync = await worker.fetch(new Request('https://bolivia-remote-scout.workers.dev/api/platforms/sync'), {}, {});
-  assert.equal(respSync.status, 200);
-  const syncData = await respSync.json();
-  assert.equal(syncData.ok, true);
-  assert.ok(syncData.custom_platforms_count >= 1, 'Must export at least 1 custom_* platform');
-  assert.ok(syncData.custom_platforms.some(p => p.id.startsWith('custom_')), 'Must include custom_* platform record');
+  console.log('6. Testing removal of public manual scan & custom URL endpoints (cron + MCP only)...');
+  const respRemovedScan = await worker.fetch(new Request('https://bolivia-remote-scout.workers.dev/api/scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }), {}, {});
+  assert.equal(respRemovedScan.status, 404, 'Public POST /api/scan must be removed (404)');
+  const respRemovedScanUrl = await worker.fetch(new Request('https://bolivia-remote-scout.workers.dev/api/platforms/scan-url', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: 'https://example.com' }) }), {}, {});
+  assert.equal(respRemovedScanUrl.status, 404, 'Public POST /api/platforms/scan-url must be removed (404)');
+  const respRemovedSyncGet = await worker.fetch(new Request('https://bolivia-remote-scout.workers.dev/api/platforms/sync'), {}, {});
+  assert.equal(respRemovedSyncGet.status, 404, 'Public GET /api/platforms/sync must be removed (404)');
+  const respRemovedSyncPost = await worker.fetch(new Request('https://bolivia-remote-scout.workers.dev/api/platforms/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }), {}, {});
+  assert.equal(respRemovedSyncPost.status, 404, 'Public POST /api/platforms/sync must be removed (404)');
 
   console.log('6c. Testing Phase 2 Cloudflare Workers AI (POST /api/ai/analyze-position, POST /api/ai/enrich) & D1 (env.DB) bindings...');
   assert.equal(
@@ -1652,8 +1616,15 @@ async function runTests() {
   assert.ok(healRes.demoted.includes(discRes.promoted_platforms[0].id), 'Must auto-disable promoted ATS board returning HTTP 404');
   assert.equal(mockDiscState.platforms[0].enabled, false);
 
-  // 10g. Monitored Platforms UI tabs
-  assert.ok(html.includes('id="platformsFilterBar"') && html.includes('Empresas Directas (ATS)'), 'UI must include Monitored Platforms filter tabs with Empresas Directas (ATS)');
+  // 10g. Monitored Platforms UI tabs (ATS + Global Boards only; no user-added tab or manual scan button)
+  assert.ok(
+    html.includes('id="platformsFilterBar"') &&
+    html.includes('Empresas Directas (ATS)') &&
+    html.includes('Bolsas y Redes Globales') &&
+    !html.includes('Agregadas por Usuarios') &&
+    !html.includes('scanExistingPlatform'),
+    'UI must include Monitored Platforms filter tabs (ATS & Global Boards) without user-added tab or manual scan button'
+  );
 
   console.log('ALL TESTS PASSED SUCCESSFULLY!');
 }
