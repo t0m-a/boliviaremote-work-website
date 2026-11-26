@@ -2,12 +2,18 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
-import worker, { BoliviaCareerBrainDO, recordJobSightings } from './src/worker.js';
-import { stripHtml, computeJobHash } from './src/scanner.js';
+import worker, {
+  BoliviaCareerBrainDO,
+  recordJobSightings,
+  normalizeAndMergeState,
+  expireStaleOpportunities,
+  saveState
+} from './src/worker.js';
+import { stripHtml, computeJobHash, parseRssFeed, parseJsonFeed, parseHtmlJobBoard } from './src/scanner.js';
 import { checkBoliviaRemoteEligibility, evaluateAllOpportunities } from './src/evaluator.js';
 import { extractCompensationUsd } from './src/ai_enricher.js';
 import { buildLocalSemanticVector, cosineSimilarity, deduplicateSemantically } from './src/vector_store.js';
-import { scrubEphemeralPii, sanitizePlatformUrl, computeGhostJobMetrics } from './src/privacy_guard.js';
+import { scrubEphemeralPii, sanitizePlatformUrl, decodeUrlEntities, computeGhostJobMetrics } from './src/privacy_guard.js';
 import { hybridSearchOpportunities } from './src/hybrid_search.js';
 import {
   isAllowedAtsApiUrl,
@@ -1276,7 +1282,107 @@ async function runTests() {
   assert.ok(piiRes.cleanText.toLowerCase().includes('devops'), 'Scrubbed query must preserve job search intent');
 
   const cleanTrackedUrl = sanitizePlatformUrl('https://user:pass@jobs.example.com/roles?team=cloud&utm_source=x&utm_medium=social&fbclid=abc&gclid=xyz&ref=home&gh_src=123#apply');
-  assert.equal(cleanTrackedUrl, 'https://jobs.example.com/roles?team=cloud', 'Must strip credentials, fragment, and tracking params while keeping functional params');
+  assert.equal(cleanTrackedUrl, 'https://jobs.example.com/roles?team=cloud', 'Must strip credentials, non-route anchor fragment, and tracking params while keeping functional params');
+
+  // 9a2. URL preservation: functional job IDs/tokens, SPA hash routes (#/...), verbatim encoding, and XML entity decoding
+  assert.equal(
+    sanitizePlatformUrl('https://acme.example/careers?gh_jid=4123456&amp;team=Cloud%20Infra&amp;utm_source=himalayas&amp;gh_src=board'),
+    'https://acme.example/careers?gh_jid=4123456&team=Cloud%20Infra',
+    'Must decode &amp;, preserve gh_jid and exact %20 encoding, and strip only tracking params'
+  );
+  assert.equal(
+    sanitizePlatformUrl('https://portal.example/openings?sid=8841&token=pub_abc123&uid=A1.234&ashby_jid=999&access_token=secret&email=a@b.com'),
+    'https://portal.example/openings?sid=8841&token=pub_abc123&uid=A1.234&ashby_jid=999',
+    'Must preserve functional ID/route params (sid, token, uid, ashby_jid) while stripping PII/secrets'
+  );
+  assert.equal(
+    sanitizePlatformUrl('https://spa.example/careers#/jobs/cloud-engineer-42'),
+    'https://spa.example/careers#/jobs/cloud-engineer-42',
+    'Must preserve SPA #/... hash routes verbatim'
+  );
+  assert.equal(
+    sanitizePlatformUrl('https://spa.example/careers#!/positions/99?gh_jid=777&utm_medium=social&fbclid=zzz'),
+    'https://spa.example/careers#!/positions/99?gh_jid=777',
+    'Must preserve #!/... hash routes and functional params inside hash while stripping tracking params'
+  );
+  assert.equal(
+    sanitizePlatformUrl('//boards.greenhouse.io/acme/jobs/12345'),
+    'https://boards.greenhouse.io/acme/jobs/12345',
+    'Must resolve protocol-relative URLs cleanly without double slashes'
+  );
+  assert.equal(sanitizePlatformUrl('javascript:alert(1)'), '', 'Must reject non-HTTP(S) schemes');
+  assert.equal(
+    decodeUrlEntities('https://acme.example/job?gh_jid=10&amp;amp;sid=20&#38;uid=30&#x26;token=40'),
+    'https://acme.example/job?gh_jid=10&sid=20&uid=30&token=40',
+    'decodeUrlEntities must decode XML/HTML entities including double-encoded &amp;amp;'
+  );
+
+  // RSS/Atom parseRssFeed XML entity decoding + rel="alternate" selection + clean URL preservation
+  const sampleAtomXml = `<?xml version="1.0" encoding="UTF-8"?>
+  <feed xmlns="http://www.w3.org/2005/Atom">
+    <entry>
+      <title>Acme: Senior Cloud Engineer</title>
+      <link rel="enclosure" href="https://acme.example/logo.png"/>
+      <link rel="self" href="https://acme.example/feed/entry/1"/>
+      <link rel="alternate" type="text/html" href="https://acme.example/careers?gh_jid=4123456&amp;team=Platform&amp;utm_source=atom#/jobs/4123456"/>
+      <summary>100% Remote Worldwide role open to Bolivia.</summary>
+      <published>2026-11-25T10:00:00Z</published>
+    </entry>
+  </feed>`;
+  const parsedAtom = parseRssFeed(sampleAtomXml, { id: 'test_atom', name: 'Test Atom', url: 'https://acme.example/careers', domain: 'acme.example' });
+  assert.equal(parsedAtom.length, 1);
+  assert.equal(
+    parsedAtom[0].url,
+    'https://acme.example/careers?gh_jid=4123456&team=Platform#/jobs/4123456',
+    'parseRssFeed must prefer rel="alternate", decode &amp;, preserve gh_jid + #/... hash route, and strip utm_source'
+  );
+
+  const sampleRssXml = `<rss><channel><item>
+    <title>DevOps Engineer at BetaCloud</title>
+    <link>https://betacloud.example/jobs?id=501&amp;sid=77&amp;utm_campaign=rss</link>
+    <description>Remote anywhere in LATAM.</description>
+  </item></channel></rss>`;
+  const parsedRss = parseRssFeed(sampleRssXml, { id: 'test_rss', name: 'Test RSS', url: 'https://betacloud.example/', domain: 'betacloud.example' });
+  assert.equal(parsedRss.length, 1);
+  assert.equal(
+    parsedRss[0].url,
+    'https://betacloud.example/jobs?id=501&sid=77',
+    'parseRssFeed must decode &amp; in <link> text and preserve functional id/sid without utm_campaign'
+  );
+
+  // JSON feed URL sanitization without altering functional params or hash routes
+  const parsedJson = parseJsonFeed(JSON.stringify({
+    jobs: [{
+      title: 'Cloud Infrastructure Engineer',
+      company: 'Canonical',
+      applicationLink: 'https://himalayas.app/companies/canonical/jobs/cloud-field-engineer?utm_source=api',
+      location: 'Remote Worldwide',
+      description: 'Remote cloud role'
+    }]
+  }), { id: 'himalayas_api', name: 'Himalayas', url: 'https://himalayas.app/', domain: 'himalayas.app' });
+  assert.equal(parsedJson.length, 1);
+  assert.equal(
+    parsedJson[0].url,
+    'https://himalayas.app/companies/canonical/jobs/cloud-field-engineer',
+    'parseJsonFeed must strip ?utm_source=api cleanly for true canonical URL and stable job_hash'
+  );
+
+  // HTML board parser: entity-decoded gh_jid links and SPA #/... hash routes
+  const sampleHtmlBoard = `
+    <html><body>
+      <a href="/careers?gh_jid=9001&amp;team=SRE&amp;utm_source=board">Senior SRE Cloud Engineer (Remote)</a>
+      <a href="https://spa.example/careers#/jobs/backend-python-engineer">Senior Backend Python Engineer Remote</a>
+      <a href="#top">Back to top</a>
+    </body></html>`;
+  const parsedHtml = parseHtmlJobBoard(sampleHtmlBoard, { id: 'test_html', name: 'Acme Board', url: 'https://acme.example/careers', domain: 'acme.example' });
+  assert.ok(
+    parsedHtml.some(j => j.url === 'https://acme.example/careers?gh_jid=9001&team=SRE'),
+    'parseHtmlJobBoard must decode &amp; and preserve gh_jid while stripping utm_source'
+  );
+  assert.ok(
+    parsedHtml.some(j => j.url === 'https://spa.example/careers#/jobs/backend-python-engineer'),
+    'parseHtmlJobBoard must capture SPA #/... hash route job links'
+  );
 
   // 9b. Ghost-job deterministic classifier & sightings recorder
   const nowSec = Math.floor(Date.now() / 1000);
@@ -1749,6 +1855,183 @@ async function runTests() {
   assert.ok(pulsePageHtml.includes('<section id="view-pulse">'), '/pulso must render #view-pulse visible by default');
   assert.ok(html.includes('id="nav-pulse"') && html.includes('Pulso del Mercado'), 'Main page footer must include Pulso del Mercado button');
   assert.ok(html.includes('id="view-pulse"'), 'Main page must include #view-pulse section');
+
+  console.log('12. Testing Seed Non-Resurrection & expireStaleOpportunities() vs saveState() Lifecycle Fix...');
+
+  // 12a. normalizeAndMergeState must NOT resurrect INITIAL_OPPORTUNITIES when live offers already exist
+  const liveOnlyState = normalizeAndMergeState({
+    opportunities: [
+      {
+        title: 'Live Cloud Architect',
+        company: 'Cloudflare',
+        platform_id: 'ats_greenhouse_cloudflare',
+        platform_name: 'Cloudflare (Greenhouse)',
+        location: 'Remote Worldwide',
+        url: 'https://boards.greenhouse.io/cloudflare/jobs/9990001',
+        description: 'Remote cloud engineering role open globally including LATAM and Bolivia.',
+        published_at: '2026-11-26',
+        discovered_at: '2026-11-26T00:00:00Z',
+        last_seen_epoch: Math.floor(Date.now() / 1000)
+      }
+    ],
+    platforms: []
+  });
+  assert.equal(liveOnlyState.opportunities.length, 1, 'normalizeAndMergeState must NOT inject INITIAL_OPPORTUNITIES when live offers exist');
+  assert.equal(liveOnlyState.opportunities[0].url, 'https://boards.greenhouse.io/cloudflare/jobs/9990001');
+
+  const emptyNoSeedState = normalizeAndMergeState({ opportunities: [], platforms: [] }, { includeSeedOpportunities: false });
+  assert.equal(emptyNoSeedState.opportunities.length, 0, 'normalizeAndMergeState with includeSeedOpportunities=false must stay empty');
+
+  // 12b. expireStaleOpportunities + saveState race regression test (expired offers must stay expired)
+  const lifecycleNow = Math.floor(Date.now() / 1000);
+  const oldEpoch = lifecycleNow - 45 * 86400; // 45 days unseen (> 30d STALE_THRESHOLD_SECONDS)
+  const freshEpoch = lifecycleNow - 2 * 86400;
+  const staleHash = computeJobHash('Expired Legacy Role', 'OldCorp', 'https://oldcorp.example/jobs/expired-1');
+  const activeHash = computeJobHash('Fresh Live Role', 'FreshCorp', 'https://freshcorp.example/jobs/live-1');
+
+  const d1Rows = new Map([
+    [staleHash, { job_hash: staleHash, status: 'ACTIVE', last_seen_epoch: oldEpoch }],
+    [activeHash, { job_hash: activeHash, status: 'ACTIVE', last_seen_epoch: freshEpoch }]
+  ]);
+  const executedSqls = [];
+  const deletedVectorIds = [];
+  const mockLifecycleEnv = {
+    DB: {
+      prepare(sql) {
+        return {
+          _sql: sql,
+          _args: [],
+          bind(...args) {
+            this._args = args;
+            return this;
+          },
+          async all() {
+            if (sql.includes('SELECT job_hash FROM opportunities')) {
+              const cutoff = Number(this._args[0] || 0);
+              const matched = Array.from(d1Rows.values())
+                .filter(r => (r.status === 'ACTIVE' || !r.status) && r.last_seen_epoch > 0 && r.last_seen_epoch < cutoff)
+                .map(r => ({ job_hash: r.job_hash }));
+              return { results: matched };
+            }
+            return { results: [] };
+          },
+          async run() {
+            executedSqls.push(sql);
+            if (sql.includes("UPDATE opportunities SET status = 'STALE'")) {
+              const cutoff = Number(this._args[0] || 0);
+              for (const row of d1Rows.values()) {
+                if ((row.status === 'ACTIVE' || !row.status) && row.last_seen_epoch > 0 && row.last_seen_epoch < cutoff) {
+                  row.status = 'STALE';
+                }
+              }
+            } else if (sql.includes('INSERT INTO opportunities') && sql.includes('ON CONFLICT(job_hash) DO UPDATE')) {
+              const hash = this._args[0];
+              const incomingLastSeen = Number(this._args[22] || 0);
+              const incomingStatus = this._args[31] || 'ACTIVE';
+              const existing = d1Rows.get(hash);
+              if (existing) {
+                const keepTerminal = ['STALE', 'EXPIRED', 'DEAD_LINK'].includes(existing.status) && incomingLastSeen <= existing.last_seen_epoch;
+                existing.status = keepTerminal ? existing.status : incomingStatus;
+                existing.last_seen_epoch = Math.max(existing.last_seen_epoch, incomingLastSeen);
+              } else {
+                d1Rows.set(hash, { job_hash: hash, status: incomingStatus, last_seen_epoch: incomingLastSeen });
+              }
+            }
+            return { success: true };
+          }
+        };
+      },
+      async batch(stmts) {
+        for (const s of stmts) await s.run();
+        return [];
+      }
+    },
+    VECTORIZE: {
+      async deleteByIds(ids) {
+        deletedVectorIds.push(...ids);
+        return { count: ids.length };
+      }
+    }
+  };
+
+  const lifecycleState = {
+    _d1Loaded: true,
+    _hasLiveStorage: true,
+    platforms: [],
+    opportunities: [
+      {
+        job_hash: staleHash,
+        title: 'Expired Legacy Role',
+        company: 'OldCorp',
+        platform_id: 'remotive_api',
+        platform_name: 'Remotive',
+        location: 'Remote Worldwide',
+        url: 'https://oldcorp.example/jobs/expired-1',
+        description: 'Remote worldwide engineering contractor role',
+        published_at: '2026-10-01',
+        discovered_at: '2026-10-01T00:00:00Z',
+        first_seen_epoch: oldEpoch,
+        last_seen_epoch: oldEpoch,
+        status: 'ACTIVE'
+      },
+      {
+        job_hash: activeHash,
+        title: 'Fresh Live Role',
+        company: 'FreshCorp',
+        platform_id: 'ats_ashby_supabase',
+        platform_name: 'Supabase (Ashby)',
+        location: 'Remote Worldwide',
+        url: 'https://freshcorp.example/jobs/live-1',
+        description: 'Remote worldwide engineering contractor role',
+        published_at: '2026-11-24',
+        discovered_at: '2026-11-24T00:00:00Z',
+        first_seen_epoch: freshEpoch,
+        last_seen_epoch: freshEpoch,
+        status: 'ACTIVE'
+      }
+    ]
+  };
+
+  const expRes = await expireStaleOpportunities(mockLifecycleEnv, lifecycleNow, lifecycleState);
+  assert.equal(expRes.expired_count, 1, 'Must expire exactly 1 stale offer');
+  assert.ok(expRes.expired_ids.includes(staleHash), 'Must return expired staleHash');
+  assert.ok(deletedVectorIds.includes(staleHash), 'Must delete expired job_hash from VECTORIZE');
+  assert.equal(lifecycleState.opportunities.length, 1, 'expireStaleOpportunities must prune expired offer from state.opportunities before saveState');
+  assert.equal(lifecycleState.opportunities[0].job_hash, activeHash);
+
+  await saveState(lifecycleState, mockLifecycleEnv);
+  assert.equal(d1Rows.get(staleHash).status, 'STALE', 'saveState must NOT overwrite STALE row back to ACTIVE in D1');
+  assert.equal(d1Rows.get(activeHash).status, 'ACTIVE', 'Active offer must remain ACTIVE in D1');
+  assert.equal(lifecycleState.opportunities.length, 1, 'saveState must NOT resurrect INITIAL_OPPORTUNITIES into live D1 state');
+  assert.ok(
+    executedSqls.some(s => s.includes('ON CONFLICT(job_hash) DO UPDATE')),
+    'saveState must use ON CONFLICT(job_hash) DO UPDATE rather than destructive INSERT OR REPLACE'
+  );
+
+  // Even if a stale isolate attempts to save an outdated copy of the already-STALE row, ON CONFLICT guard must preserve STALE
+  await saveState({
+    _d1Loaded: true,
+    _hasLiveStorage: true,
+    platforms: [],
+    opportunities: [
+      {
+        job_hash: staleHash,
+        title: 'Expired Legacy Role',
+        company: 'OldCorp',
+        platform_id: 'remotive_api',
+        platform_name: 'Remotive',
+        location: 'Remote Worldwide',
+        url: 'https://oldcorp.example/jobs/expired-1',
+        description: 'Remote worldwide engineering contractor role',
+        published_at: '2026-10-01',
+        discovered_at: '2026-10-01T00:00:00Z',
+        first_seen_epoch: oldEpoch,
+        last_seen_epoch: oldEpoch,
+        status: 'ACTIVE'
+      }
+    ]
+  }, mockLifecycleEnv);
+  assert.equal(d1Rows.get(staleHash).status, 'STALE', 'Concurrent stale isolate saveState must NOT resurrect terminal STALE status in D1');
 
   console.log('ALL TESTS PASSED SUCCESSFULLY!');
 }

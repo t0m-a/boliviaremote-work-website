@@ -9,13 +9,21 @@
 
 import { stripHtml } from './scanner.js';
 
+// Functional job-board ID & routing query parameters that must NEVER be stripped
+const FUNCTIONAL_JOB_PARAMS = new Set([
+  'gh_jid', 'ashby_jid', 'jid', 'job_id', 'jobid', 'posting_id', 'postingid',
+  'vacancy_id', 'offer_id', 'position_id', 'req', 'req_id', 'requisition_id',
+  'id', 'uid', 'sid', 'token', 'job_token', 'board', 'company', 'team',
+  'department', 'location', 'lang', 'locale', 'page', 'p'
+]);
+
 const TRACKING_PARAM_PREFIXES = ['utm_', 'mc_', 'hsa_', 'ga_', 'pk_', 'mtm_', 'vero_'];
 const TRACKING_PARAM_EXACT = new Set([
   'fbclid', 'gclid', 'dclid', 'msclkid', 'yclid', 'twclid', 'li_fat_id',
-  'ref', 'ref_src', 'ref_url', 'referrer', 'gh_src', 'gh_jid', 'lever-source',
+  'ref', 'ref_src', 'ref_url', 'referrer', 'gh_src', 'lever-source',
   'lever-origin', 'source', 'src', 'trk', 'tracking', 'trackingid', 'campaign',
-  'session', 'session_id', 'sid', 'token', 'auth', 'access_token', 'email',
-  'user', 'user_id', 'uid', 'applicant_id', 'candidate_id', 'mkt_tok'
+  'session', 'session_id', 'auth', 'access_token', 'email',
+  'user', 'user_id', 'applicant_id', 'candidate_id', 'mkt_tok'
 ]);
 
 const EMAIL_RE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
@@ -58,14 +66,106 @@ export function scrubEphemeralPii(rawText) {
 }
 
 /**
- * Validates an HTTP(S) URL and strips tracking parameters, credentials, and fragments.
+ * Decodes XML/HTML character entities commonly found in RSS/Atom/HTML link attributes
+ * (e.g. `&amp;` -> `&`, `&#38;` -> `&`, `&#x26;` -> `&`) without altering valid URL encoding.
+ */
+export function decodeUrlEntities(rawUrl) {
+  if (!rawUrl) return '';
+  let str = String(rawUrl)
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+    .trim();
+  for (let pass = 0; pass < 2; pass++) {
+    const next = str
+      .replace(/&#x([0-9a-f]+);/gi, (match, hex) => {
+        const code = parseInt(hex, 16);
+        return code >= 32 && code <= 126 ? String.fromCharCode(code) : match;
+      })
+      .replace(/&#(\d+);/g, (match, dec) => {
+        const code = Number(dec);
+        return code >= 32 && code <= 126 ? String.fromCharCode(code) : match;
+      })
+      .replace(/&apos;/gi, "'")
+      .replace(/&quot;/gi, '"')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&amp;/gi, '&');
+    if (next === str) break;
+    str = next;
+  }
+  return str.trim();
+}
+
+function isTrackingParam(rawKey) {
+  let decodedKey = rawKey;
+  try {
+    decodedKey = decodeURIComponent(rawKey.replace(/\+/g, ' '));
+  } catch {
+    // Keep rawKey if malformed percent-encoding
+  }
+  const low = decodedKey.trim().toLowerCase();
+  if (!low || FUNCTIONAL_JOB_PARAMS.has(low)) return false;
+  return (
+    TRACKING_PARAM_EXACT.has(low) ||
+    TRACKING_PARAM_PREFIXES.some(pref => low.startsWith(pref))
+  );
+}
+
+/**
+ * Removes tracking/PII query parameters while preserving remaining functional parameters
+ * verbatim (no `%20` -> `+` re-encoding or unnecessary mutation).
+ */
+function stripTrackingQueryString(rawQuery) {
+  if (!rawQuery) return '';
+  const segments = rawQuery.split('&').filter(Boolean);
+  let removedAny = false;
+  const kept = [];
+  for (const seg of segments) {
+    const eqIdx = seg.indexOf('=');
+    const rawKey = eqIdx >= 0 ? seg.slice(0, eqIdx) : seg;
+    if (isTrackingParam(rawKey)) {
+      removedAny = true;
+      continue;
+    }
+    kept.push(seg);
+  }
+  return removedAny ? kept.join('&') : rawQuery;
+}
+
+/**
+ * Preserves SPA hash routes (`#/...` and `#!/...`) while stripping plain anchor fragments (`#apply`, `#top`, `#`).
+ * Cleans tracking parameters inside hash-route query strings without altering functional route params.
+ */
+function sanitizeHashFragment(rawHash) {
+  if (!rawHash) return '';
+  if (!/^#!?\/.+/.test(rawHash)) {
+    return '';
+  }
+  const qIdx = rawHash.indexOf('?');
+  if (qIdx === -1) {
+    return rawHash;
+  }
+  const routePart = rawHash.slice(0, qIdx);
+  const queryPart = rawHash.slice(qIdx + 1);
+  const cleanedQuery = stripTrackingQueryString(queryPart);
+  return cleanedQuery ? `${routePart}?${cleanedQuery}` : routePart;
+}
+
+/**
+ * Validates an HTTP(S) URL, decodes XML/HTML entities, strips credentials, non-route anchors,
+ * and tracking/PII query parameters while preserving functional job IDs and SPA hash routes (`#/...`).
  */
 export function sanitizePlatformUrl(rawUrl) {
-  const input = String(rawUrl || '').trim();
+  const input = decodeUrlEntities(rawUrl);
   if (!input) return '';
 
   let candidate = input;
-  if (!/^https?:\/\//i.test(candidate)) {
+  if (candidate.startsWith('//')) {
+    candidate = `https:${candidate}`;
+  } else if (/^[a-z][a-z0-9+.-]*:/i.test(candidate)) {
+    if (!/^https?:/i.test(candidate)) {
+      return '';
+    }
+  } else {
     candidate = `https://${candidate}`;
   }
 
@@ -80,24 +180,21 @@ export function sanitizePlatformUrl(rawUrl) {
     return '';
   }
 
-  // Strip embedded credentials and hash fragments
+  const rawSearch = parsed.search ? parsed.search.slice(1) : '';
+  const cleanedSearch = stripTrackingQueryString(rawSearch);
+  const cleanedHash = sanitizeHashFragment(parsed.hash);
+  const hadCredentials = Boolean(parsed.username || parsed.password);
+  const searchChanged = cleanedSearch !== rawSearch;
+  const hashChanged = cleanedHash !== parsed.hash;
+
+  if (!hadCredentials && !searchChanged && !hashChanged) {
+    return parsed.toString();
+  }
+
   parsed.username = '';
   parsed.password = '';
-  parsed.hash = '';
-
-  const keysToDelete = [];
-  for (const [key] of parsed.searchParams.entries()) {
-    const low = key.toLowerCase();
-    if (
-      TRACKING_PARAM_EXACT.has(low) ||
-      TRACKING_PARAM_PREFIXES.some(pref => low.startsWith(pref))
-    ) {
-      keysToDelete.push(key);
-    }
-  }
-  for (const k of keysToDelete) {
-    parsed.searchParams.delete(k);
-  }
+  parsed.search = cleanedSearch ? `?${cleanedSearch}` : '';
+  parsed.hash = cleanedHash;
 
   return parsed.toString();
 }

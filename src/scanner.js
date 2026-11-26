@@ -6,6 +6,7 @@
 
 import { checkBoliviaRemoteEligibility, evaluateOpportunity } from './evaluator.js';
 import { parseAtsResponse, parseGetOnBoardApi } from './ats_adapters.js';
+import { sanitizePlatformUrl, decodeUrlEntities } from './privacy_guard.js';
 
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
@@ -153,12 +154,18 @@ export function parseJsonFeed(rawText, platform) {
       row[fmap.description] || row.description || row.excerpt || row.jobExcerpt || row.summary || row.content || '';
     const description = stripHtml(rawDesc).slice(0, 1500);
 
-    let jobUrl = String(
+    let jobUrl = decodeUrlEntities(
       row[fmap.url] || row.url || row.applicationLink || row.apply_url || row.jobUrl || row.link || platform.url
-    ).trim();
-    if (jobUrl.startsWith('/') && platform.domain) {
-      jobUrl = `https://${platform.domain}${jobUrl}`;
+    );
+    if (jobUrl.startsWith('/') && (platform.url || platform.domain)) {
+      try {
+        jobUrl = new URL(jobUrl, platform.url || `https://${platform.domain}`).toString();
+      } catch {
+        if (platform.domain) jobUrl = `https://${platform.domain}${jobUrl}`;
+      }
     }
+    jobUrl = sanitizePlatformUrl(jobUrl);
+    if (!jobUrl) continue;
 
     let locVal =
       row[fmap.location] ||
@@ -245,12 +252,51 @@ export function parseRssFeed(rawXml, platform) {
     }
 
     let link = '';
-    const linkHrefMatch = block.match(/<link[^>]+href=["']([^"']+)["']/i);
+    const linkTags = block.match(/<link\b[^>]*>/gi) || [];
+    let alternateHref = '';
+    let firstHref = '';
+    let fallbackHref = '';
+    for (const tag of linkTags) {
+      const hrefMatch = tag.match(/\bhref=["']([^"']+)["']/i);
+      if (!hrefMatch) continue;
+      const decodedHref = decodeUrlEntities(hrefMatch[1]);
+      if (!decodedHref) continue;
+      const relMatch = tag.match(/\brel=["']([^"']+)["']/i);
+      const rel = relMatch ? relMatch[1].trim().toLowerCase() : '';
+      if (!fallbackHref && rel !== 'enclosure') {
+        fallbackHref = decodedHref;
+      }
+      if (!firstHref && rel !== 'enclosure' && rel !== 'self') {
+        firstHref = decodedHref;
+      }
+      if (rel === 'alternate') {
+        alternateHref = decodedHref;
+        break;
+      }
+    }
     const linkTextMatch = block.match(/<link[^>]*>([\s\S]*?)<\/link>/i);
-    if (linkHrefMatch) {
-      link = linkHrefMatch[1].trim();
-    } else if (linkTextMatch) {
-      link = stripHtml(linkTextMatch[1]);
+    const linkTextVal = linkTextMatch ? decodeUrlEntities(linkTextMatch[1]) : '';
+    if (alternateHref) {
+      link = alternateHref;
+    } else if (firstHref) {
+      link = firstHref;
+    } else if (linkTextVal) {
+      link = linkTextVal;
+    } else if (fallbackHref) {
+      link = fallbackHref;
+    } else {
+      const guidMatch = block.match(/<guid[^>]*isPermaLink=["']true["'][^>]*>([\s\S]*?)<\/guid>/i);
+      const guidVal = guidMatch ? decodeUrlEntities(guidMatch[1]) : '';
+      if (/^https?:\/\//i.test(guidVal)) {
+        link = guidVal;
+      }
+    }
+    if (link && !/^https?:\/\//i.test(link) && (platform.url || platform.domain)) {
+      try {
+        link = new URL(link, platform.url || `https://${platform.domain}`).toString();
+      } catch {
+        // Keep link as-is
+      }
     }
 
     const descMatch =
@@ -274,8 +320,8 @@ export function parseRssFeed(rawXml, platform) {
       }
     }
 
-    const jobUrl = link || platform.url;
-    if (isDeadPlatform(jobUrl, title)) continue;
+    const jobUrl = sanitizePlatformUrl(link || platform.url);
+    if (!jobUrl || isDeadPlatform(jobUrl, title)) continue;
 
     results.push({
       job_hash: computeJobHash(title, company, jobUrl),
@@ -301,11 +347,12 @@ export function parseRssFeed(rawXml, platform) {
 /**
  * Extracts job postings from an HTML career page or job board (JSON-LD JobPosting + job anchor links).
  */
-export function parseHtmlJobBoard(rawHtml, platform) {
+export function parseHtmlJobBoard(rawHtml, platform, options = {}) {
   const results = [];
   const todayIso = new Date().toISOString().slice(0, 10);
   const nowIso = new Date().toISOString().slice(0, 19);
   const seenUrls = new Set();
+  const baseUrl = (options && options.baseUrl) || platform.url;
 
   // 1. Check for JSON-LD JobPosting schema blocks
   const ldMatches = rawHtml.match(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) || [];
@@ -320,10 +367,18 @@ export function parseHtmlJobBoard(rawHtml, platform) {
           if (!title) continue;
           const company = stripHtml(obj.hiringOrganization?.name || platform.name);
           const desc = stripHtml(obj.description || '').slice(0, 1500);
-          let jobUrl = String(obj.url || obj.sameAs || platform.url).trim();
-          if (jobUrl.startsWith('/') && platform.domain) {
-            jobUrl = `https://${platform.domain}${jobUrl}`;
+          let jobUrl = decodeUrlEntities(obj.url || obj.sameAs || platform.url);
+          if (jobUrl && !/^https?:\/\//i.test(jobUrl) && (baseUrl || platform.domain)) {
+            try {
+              jobUrl = new URL(jobUrl, baseUrl || `https://${platform.domain}`).toString();
+            } catch {
+              if (jobUrl.startsWith('/') && platform.domain) {
+                jobUrl = `https://${platform.domain}${jobUrl}`;
+              }
+            }
           }
+          jobUrl = sanitizePlatformUrl(jobUrl);
+          if (!jobUrl) continue;
           const loc =
             obj.jobLocationType === 'TELECOMMUTE'
               ? 'Remote Worldwide'
@@ -358,27 +413,28 @@ export function parseHtmlJobBoard(rawHtml, platform) {
     }
   }
 
-  // 2. Extract job-like anchor links from HTML
-  const linkRegex = /<a[^>]+href=["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a>/gi;
-  const jobUrlPattern = /(?:\/jobs?\/|\/careers?\/|\/remote[-_]|\/positions?\/|\/openings?\/|\/roles?\/|\/apply\/|\/vacanc|\/oferta|gh_jid=|lever\.co\/|ashbyhq\.com\/|workable\.com\/)/i;
+  // 2. Extract job-like anchor links from HTML (including SPA `#/...` hash routes)
+  const linkRegex = /<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  const jobUrlPattern = /(?:\/jobs?\/|\/careers?\/|\/remote[-_]|\/positions?\/|\/openings?\/|\/roles?\/|\/apply\/|\/vacanc|\/oferta|gh_jid=|ashby_jid=|lever\.co\/|ashbyhq\.com\/|workable\.com\/)/i;
   const jobRoleKeywordPattern = /\b(?:engineer|developer|designer|manager|analyst|specialist|consultant|trainer|evaluator|support|architect|administrator|director|coordinator|qa|devops|cloud|data|python|react|full[- ]?stack|backend|frontend|ingeniero|desarrollador|analista|soporte|consultor|remoto|remote)\b/i;
 
   let match;
   while ((match = linkRegex.exec(rawHtml)) !== null && results.length < 40) {
-    let href = match[1].trim();
+    let href = decodeUrlEntities(match[1]);
     const rawAnchorText = stripHtml(match[2]);
+    if (!href || href === '#' || /^#(?!\/|!\/)/.test(href) || /^(?:javascript|mailto|tel):/i.test(href)) continue;
     if (!rawAnchorText || rawAnchorText.length < 8 || rawAnchorText.length > 140) continue;
     if (/^(?:sign in|log in|register|privacy|terms|cookie|about us|contact|blog|home|read more|learn more|apply now|post a job)$/i.test(rawAnchorText)) {
       continue;
     }
 
     try {
-      href = new URL(href, platform.url).toString();
+      href = sanitizePlatformUrl(new URL(href, baseUrl).toString());
     } catch {
       continue;
     }
 
-    if (seenUrls.has(href)) continue;
+    if (!href || seenUrls.has(href)) continue;
     const isLikelyJob = jobUrlPattern.test(href) || jobRoleKeywordPattern.test(rawAnchorText);
     if (!isLikelyJob) continue;
     if (isDeadPlatform(href, rawAnchorText)) continue;
@@ -426,7 +482,7 @@ export async function fetchPortalDork(platform) {
 
   let m;
   while ((m = blockPattern.exec(page)) !== null && results.length < 25) {
-    const rawHref = m[1];
+    const rawHref = decodeUrlEntities(m[1]);
     const title = stripHtml(m[2]);
     const snippet = stripHtml(m[3]);
     if (!title) continue;
@@ -440,8 +496,8 @@ export async function fetchPortalDork(platform) {
         // Keep rawHref
       }
     }
-
-    if (isDeadPlatform(cleanUrl, title)) continue;
+    cleanUrl = sanitizePlatformUrl(cleanUrl);
+    if (!cleanUrl || isDeadPlatform(cleanUrl, title)) continue;
 
     results.push({
       job_hash: computeJobHash(title, platform.name, cleanUrl),
@@ -554,7 +610,7 @@ export async function scanCustomPlatformUrl(input, userFilters = {}) {
           discovered = parseRssFeed(text, platformObj);
         } else {
           detectedType = 'html_board';
-          discovered = parseHtmlJobBoard(text, platformObj);
+          discovered = parseHtmlJobBoard(text, platformObj, { baseUrl: resp.finalUrl || rawUrl });
 
           // If direct HTML parsing found few jobs (e.g. SPA or walled portal), supplement with portal search dork
           if (discovered.length < 2) {

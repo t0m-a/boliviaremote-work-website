@@ -90,7 +90,9 @@ function cleanOpportunityFields(o) {
   const publishedEpoch = Number(o.published_epoch) || parseDateToEpochSeconds(published_at, nowSec);
   const discoveredAt = o.discovered_at || new Date().toISOString();
   const firstSeenEpoch = Number(o.first_seen_epoch) || parseDateToEpochSeconds(discoveredAt, publishedEpoch);
-  const lastSeenEpoch = Math.max(firstSeenEpoch, Number(o.last_seen_epoch) || nowSec);
+  const lastSeenEpoch = Number(o.last_seen_epoch) > 0
+    ? Math.max(firstSeenEpoch, Number(o.last_seen_epoch))
+    : firstSeenEpoch;
 
   const cleaned = {
     ...o,
@@ -455,33 +457,67 @@ export async function recordJobSightings(items, env, nowEpochSec = Math.floor(Da
 }
 
 /**
- * Transitions unseen listings older than 30 days to `STALE` in D1 and deletes them from Vectorize.
+ * Transitions unseen listings older than 30 days to `STALE` in D1, prunes them from
+ * active in-memory `state.opportunities` so `saveState()` cannot resurrect them,
+ * and deletes them from Vectorize.
  */
-async function expireStaleOpportunities(env, nowEpochSec = Math.floor(Date.now() / 1000)) {
-  if (!env || !env.DB || typeof env.DB.prepare !== 'function') return { expired_count: 0 };
+export async function expireStaleOpportunities(env, nowEpochSec = Math.floor(Date.now() / 1000), state = null) {
   const cutoff = nowEpochSec - STALE_THRESHOLD_SECONDS;
-  try {
-    let staleIds = [];
-    const selBound = env.DB.prepare(
-      "SELECT job_hash FROM opportunities WHERE status = 'ACTIVE' AND last_seen_epoch > 0 AND last_seen_epoch < ? LIMIT 200"
-    ).bind(cutoff);
-    if (selBound && typeof selBound.all === 'function') {
-      const res = await selBound.all();
-      staleIds = (res && Array.isArray(res.results)) ? res.results.map(r => r.job_hash).filter(Boolean) : [];
-    }
-    if (staleIds.length > 0) {
-      await env.DB.prepare(
-        "UPDATE opportunities SET status = 'STALE' WHERE status = 'ACTIVE' AND last_seen_epoch > 0 AND last_seen_epoch < ?"
-      ).bind(cutoff).run();
+  const staleSet = new Set();
 
-      if (env.VECTORIZE && typeof env.VECTORIZE.deleteByIds === 'function') {
-        await env.VECTORIZE.deleteByIds(staleIds).catch(() => {});
+  if (env && env.DB && typeof env.DB.prepare === 'function') {
+    try {
+      const selBound = env.DB.prepare(
+        "SELECT job_hash FROM opportunities WHERE (status = 'ACTIVE' OR status IS NULL) AND last_seen_epoch > 0 AND last_seen_epoch < ? LIMIT 500"
+      ).bind(cutoff);
+      if (selBound && typeof selBound.all === 'function') {
+        const res = await selBound.all();
+        const rows = (res && Array.isArray(res.results)) ? res.results : [];
+        for (const r of rows) {
+          if (r && r.job_hash) staleSet.add(r.job_hash);
+        }
       }
+      if (staleSet.size > 0) {
+        await env.DB.prepare(
+          "UPDATE opportunities SET status = 'STALE' WHERE (status = 'ACTIVE' OR status IS NULL) AND last_seen_epoch > 0 AND last_seen_epoch < ?"
+        ).bind(cutoff).run();
+      }
+    } catch {
+      // Ignore D1 expiration query error
     }
-    return { expired_count: staleIds.length };
-  } catch {
-    return { expired_count: 0 };
   }
+
+  const pruneList = (opps) => {
+    if (!Array.isArray(opps)) return [];
+    return opps.filter(o => {
+      if (!o) return false;
+      if (staleSet.has(o.job_hash)) return false;
+      if (o.status === 'STALE' || o.status === 'EXPIRED' || o.status === 'DEAD_LINK') {
+        if (o.job_hash) staleSet.add(o.job_hash);
+        return false;
+      }
+      const lastSeen = Number(o.last_seen_epoch || 0);
+      if (lastSeen > 0 && lastSeen < cutoff) {
+        if (o.job_hash) staleSet.add(o.job_hash);
+        return false;
+      }
+      return true;
+    });
+  };
+
+  if (state && Array.isArray(state.opportunities)) {
+    state.opportunities = pruneList(state.opportunities);
+  }
+  if (MEMORY_STATE && Array.isArray(MEMORY_STATE.opportunities) && MEMORY_STATE !== state) {
+    MEMORY_STATE.opportunities = pruneList(MEMORY_STATE.opportunities);
+  }
+
+  const expiredIds = Array.from(staleSet);
+  if (expiredIds.length > 0 && env && env.VECTORIZE && typeof env.VECTORIZE.deleteByIds === 'function') {
+    await env.VECTORIZE.deleteByIds(expiredIds).catch(() => {});
+  }
+
+  return { expired_count: expiredIds.length, expired_ids: expiredIds };
 }
 
 /**
@@ -517,7 +553,7 @@ async function attachEmployerReality(opportunities, env) {
   }
 }
 
-function normalizeAndMergeState(rawState) {
+export function normalizeAndMergeState(rawState, options = {}) {
   const existingPlatIds = new Set((rawState.platforms || []).map(p => p.id));
   const mergedPlatforms = [...(rawState.platforms || [])];
   for (const p of INITIAL_PLATFORMS) {
@@ -534,10 +570,18 @@ function normalizeAndMergeState(rawState) {
 
   const isDirectAtsOpp = (o) => Boolean(o && (o.source_type === 'direct_ats' || String(o.platform_id || '').startsWith('ats_')));
 
-  const allCandidates = [...(rawState.opportunities || []), ...INITIAL_OPPORTUNITIES];
+  const rawOpps = Array.isArray(rawState && rawState.opportunities) ? rawState.opportunities : [];
+  const includeSeedOpportunities =
+    typeof options.includeSeedOpportunities === 'boolean'
+      ? options.includeSeedOpportunities
+      : rawOpps.length === 0;
+  const allCandidates = includeSeedOpportunities
+    ? [...rawOpps, ...INITIAL_OPPORTUNITIES]
+    : [...rawOpps];
+
   for (const rawOpp of allCandidates) {
     if (!rawOpp) continue;
-    if (rawOpp.status === 'STALE' || rawOpp.status === 'EXPIRED') continue;
+    if (rawOpp.status === 'STALE' || rawOpp.status === 'EXPIRED' || rawOpp.status === 'DEAD_LINK') continue;
     const opp = cleanOpportunityFields(rawOpp);
     if (!opp.title) continue;
     if (!checkBoliviaRemoteEligibility(opp).eligible) continue;
@@ -601,12 +645,14 @@ async function loadState(env) {
       const dbOpps = Array.isArray(oppsRes && oppsRes.results) ? oppsRes.results : [];
       const dbPlats = Array.isArray(platsRes && platsRes.results) ? platsRes.results : [];
       if (dbOpps.length > 0 || dbPlats.length > 0) {
+        const hasLiveOpps = dbOpps.length > 0;
         MEMORY_STATE = normalizeAndMergeState({
-          opportunities: [...dbOpps, ...(MEMORY_STATE ? MEMORY_STATE.opportunities : [])],
+          opportunities: hasLiveOpps ? dbOpps : (MEMORY_STATE ? MEMORY_STATE.opportunities : []),
           platforms: [...dbPlats, ...(MEMORY_STATE ? MEMORY_STATE.platforms : [])],
           lastScanAt: new Date().toISOString()
-        });
+        }, { includeSeedOpportunities: !hasLiveOpps });
         MEMORY_STATE._d1Loaded = true;
+        MEMORY_STATE._hasLiveStorage = hasLiveOpps;
         return MEMORY_STATE;
       }
     } catch {
@@ -619,7 +665,9 @@ async function loadState(env) {
     try {
       const kvRaw = await env.STORE.get('bolivia_remote_state_v6', 'json');
       if (kvRaw && Array.isArray(kvRaw.opportunities)) {
-        MEMORY_STATE = normalizeAndMergeState(kvRaw);
+        const hasKvOpps = kvRaw.opportunities.length > 0;
+        MEMORY_STATE = normalizeAndMergeState(kvRaw, { includeSeedOpportunities: !hasKvOpps });
+        MEMORY_STATE._hasLiveStorage = hasKvOpps;
         return MEMORY_STATE;
       }
     } catch {
@@ -634,7 +682,9 @@ async function loadState(env) {
       if (cachedResp) {
         const cachedData = await cachedResp.json();
         if (cachedData && Array.isArray(cachedData.opportunities)) {
-          MEMORY_STATE = normalizeAndMergeState(cachedData);
+          const hasCachedOpps = cachedData.opportunities.length > 0;
+          MEMORY_STATE = normalizeAndMergeState(cachedData, { includeSeedOpportunities: !hasCachedOpps });
+          MEMORY_STATE._hasLiveStorage = hasCachedOpps;
           return MEMORY_STATE;
         }
       }
@@ -643,21 +693,31 @@ async function loadState(env) {
     }
   }
 
-  // 3. Initialize from bundled seed data
+  // 3. Initialize from bundled seed data (only when storage is empty or unbound)
   MEMORY_STATE = normalizeAndMergeState({
     opportunities: [...INITIAL_OPPORTUNITIES],
     platforms: [...INITIAL_PLATFORMS],
     lastScanAt: new Date().toISOString()
-  });
+  }, { includeSeedOpportunities: false });
   if (env && env.DB) {
     MEMORY_STATE._d1Loaded = true;
   }
+  MEMORY_STATE._hasLiveStorage = false;
 
   return MEMORY_STATE;
 }
 
-async function saveState(state, env) {
-  MEMORY_STATE = normalizeAndMergeState(state);
+export async function saveState(state, env) {
+  const hadLiveStorage = Boolean(
+    state._hasLiveStorage ||
+    (MEMORY_STATE && MEMORY_STATE._hasLiveStorage) ||
+    (env && env.DB)
+  );
+  MEMORY_STATE = normalizeAndMergeState(state, { includeSeedOpportunities: false });
+  MEMORY_STATE._hasLiveStorage = hadLiveStorage;
+  if (state._d1Loaded || (env && env.DB)) {
+    MEMORY_STATE._d1Loaded = true;
+  }
   state.opportunities = MEMORY_STATE.opportunities;
   state.platforms = MEMORY_STATE.platforms;
 
@@ -665,9 +725,11 @@ async function saveState(state, env) {
   if (env && env.DB && typeof env.DB.prepare === 'function') {
     try {
       await ensureD1Tables(env.DB);
-      const oppsToSave = MEMORY_STATE.opportunities.slice(0, 1000);
+      const oppsToSave = MEMORY_STATE.opportunities
+        .filter(o => o && o.status !== 'STALE' && o.status !== 'EXPIRED' && o.status !== 'DEAD_LINK')
+        .slice(0, 1000);
       const oppInsertSql =
-        `INSERT OR REPLACE INTO opportunities (
+        `INSERT INTO opportunities (
           job_hash, title, company, company_slug, canonical_role_key,
           platform_id, platform_name, category, track, url,
           location, contract_caveat, tags, description,
@@ -675,7 +737,48 @@ async function saveState(state, env) {
           published_at, published_epoch, discovered_at,
           first_seen_epoch, last_seen_epoch, sighting_count, repost_span_days, ghost_risk,
           bolivia_eligible, compensation_usd, ai_summary_es, ai_summary_en, ai_verified, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(job_hash) DO UPDATE SET
+          title = excluded.title,
+          company = excluded.company,
+          company_slug = excluded.company_slug,
+          canonical_role_key = excluded.canonical_role_key,
+          platform_id = excluded.platform_id,
+          platform_name = excluded.platform_name,
+          category = excluded.category,
+          track = excluded.track,
+          url = excluded.url,
+          location = excluded.location,
+          contract_caveat = excluded.contract_caveat,
+          tags = excluded.tags,
+          description = excluded.description,
+          lang_mask = excluded.lang_mask,
+          categories_csv = excluded.categories_csv,
+          experience_tier = excluded.experience_tier,
+          contracts_csv = excluded.contracts_csv,
+          published_at = excluded.published_at,
+          published_epoch = excluded.published_epoch,
+          discovered_at = excluded.discovered_at,
+          first_seen_epoch = CASE
+            WHEN opportunities.first_seen_epoch > 0 AND excluded.first_seen_epoch > 0
+            THEN MIN(opportunities.first_seen_epoch, excluded.first_seen_epoch)
+            ELSE MAX(opportunities.first_seen_epoch, excluded.first_seen_epoch)
+          END,
+          last_seen_epoch = MAX(opportunities.last_seen_epoch, excluded.last_seen_epoch),
+          sighting_count = MAX(opportunities.sighting_count, excluded.sighting_count),
+          repost_span_days = MAX(opportunities.repost_span_days, excluded.repost_span_days),
+          ghost_risk = excluded.ghost_risk,
+          bolivia_eligible = excluded.bolivia_eligible,
+          compensation_usd = CASE WHEN excluded.compensation_usd != '' THEN excluded.compensation_usd ELSE opportunities.compensation_usd END,
+          ai_summary_es = CASE WHEN excluded.ai_summary_es != '' THEN excluded.ai_summary_es ELSE opportunities.ai_summary_es END,
+          ai_summary_en = CASE WHEN excluded.ai_summary_en != '' THEN excluded.ai_summary_en ELSE opportunities.ai_summary_en END,
+          ai_verified = MAX(opportunities.ai_verified, excluded.ai_verified),
+          status = CASE
+            WHEN opportunities.status IN ('STALE', 'EXPIRED', 'DEAD_LINK')
+              AND excluded.last_seen_epoch <= opportunities.last_seen_epoch
+            THEN opportunities.status
+            ELSE excluded.status
+          END`;
 
       const bindOpp = (o) => {
         const bol = checkBoliviaRemoteEligibility(o);
@@ -1192,17 +1295,31 @@ Sitemap: https://boliviaremote.work/sitemap.xml
 
       // Nightly Sleep Cycle at 03:00 AM America/La_Paz (07:00 UTC)
       if (event && event.cron === '0 7 * * *') {
-        await expireStaleOpportunities(env);
+        await expireStaleOpportunities(env, Math.floor(Date.now() / 1000), state);
         await runNightlySleepCycle(state, env);
         await saveState(state, env);
         return;
       }
 
+      const nowSec = Math.floor(Date.now() / 1000);
       const existingHashes = new Set(state.opportunities.map(o => o.job_hash));
       const scanRes = await runIngestionScan(state.platforms, existingHashes, {
         maxFeeds: 8,
         maxDorkClusters: 2
       });
+
+      // Refresh last_seen_epoch on still-active listings re-observed in this live scan
+      if (Array.isArray(scanRes.raw_scanned_items) && scanRes.raw_scanned_items.length > 0) {
+        const seenHashes = new Set(scanRes.raw_scanned_items.map(i => i && i.job_hash).filter(Boolean));
+        const seenUrls = new Set(scanRes.raw_scanned_items.map(i => i && i.url ? String(i.url).toLowerCase().replace(/\/+$/, '') : '').filter(Boolean));
+        for (const opp of state.opportunities) {
+          if (!opp) continue;
+          const normUrl = opp.url ? String(opp.url).toLowerCase().replace(/\/+$/, '') : '';
+          if (seenHashes.has(opp.job_hash) || (normUrl && seenUrls.has(normUrl))) {
+            opp.last_seen_epoch = Math.max(Number(opp.last_seen_epoch || 0), nowSec);
+          }
+        }
+      }
 
       // Self-healing health check for previously promoted direct ATS boards
       await applyPromotedSourceHealth(state, scanRes.platform_yields || [], env);
@@ -1236,7 +1353,7 @@ Sitemap: https://boliviaremote.work/sitemap.xml
         await indexOpportunitiesInVectorStore(withSightings, env, 25);
         state.opportunities = [...withSightings, ...state.opportunities];
       }
-      await expireStaleOpportunities(env);
+      await expireStaleOpportunities(env, nowSec, state);
       state.lastScanAt = scanRes.timestamp;
       await saveState(state, env);
     })();
