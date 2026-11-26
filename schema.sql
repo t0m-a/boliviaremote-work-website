@@ -128,7 +128,7 @@ CREATE INDEX IF NOT EXISTS idx_job_sightings_company
 CREATE INDEX IF NOT EXISTS idx_job_sightings_ghost
   ON job_sightings(ghost_risk, last_seen_epoch DESC);
 
--- Sanitized Custom Platforms Registry
+-- Sanitized Custom & Autonomous Direct ATS Platforms Registry
 CREATE TABLE IF NOT EXISTS custom_platforms (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -138,7 +138,15 @@ CREATE TABLE IF NOT EXISTS custom_platforms (
   enabled INTEGER DEFAULT 1,
   domain TEXT,
   url TEXT NOT NULL,
+  feed_url TEXT DEFAULT '',
   rss_url TEXT DEFAULT '',
+  ats_provider TEXT DEFAULT '',
+  ats_slug TEXT DEFAULT '',
+  discovered_by TEXT DEFAULT 'user',
+  active_bolivia_jobs INTEGER DEFAULT 0,
+  spanish_jobs INTEGER DEFAULT 0,
+  consecutive_zero_yield INTEGER DEFAULT 0,
+  last_yield_at TEXT DEFAULT '',
   search_query TEXT,
   contract_caveat TEXT DEFAULT 'fractional_or_fulltime',
   bolivia_avenue TEXT DEFAULT '',
@@ -146,6 +154,43 @@ CREATE TABLE IF NOT EXISTS custom_platforms (
   created_at TEXT,
   added_at TEXT
 );
+
+-- Autonomous Direct ATS Source Discovery & AI-Managed Promotion Ledger (v6.1.0)
+CREATE TABLE IF NOT EXISTS discovered_sources (
+  candidate_id TEXT PRIMARY KEY,
+  company_slug TEXT NOT NULL,
+  company_name TEXT NOT NULL,
+  domain TEXT DEFAULT '',
+  ats_provider TEXT NOT NULL,
+  ats_slug TEXT NOT NULL,
+  board_url TEXT NOT NULL,
+  api_url TEXT NOT NULL,
+  discovered_from TEXT DEFAULT '',
+  status TEXT DEFAULT 'CANDIDATE',
+  total_jobs INTEGER DEFAULT 0,
+  bolivia_eligible_jobs INTEGER DEFAULT 0,
+  spanish_jobs INTEGER DEFAULT 0,
+  bolivia_yield_ratio REAL DEFAULT 0,
+  categories_csv TEXT DEFAULT '',
+  category_diversity INTEGER DEFAULT 0,
+  yield_score REAL DEFAULT 0,
+  ai_decision TEXT DEFAULT '',
+  ai_confidence REAL DEFAULT 0,
+  ai_rationale TEXT DEFAULT '',
+  sample_titles_json TEXT DEFAULT '[]',
+  consecutive_zero_yield INTEGER DEFAULT 0,
+  last_probed_epoch INTEGER DEFAULT 0,
+  cooldown_until_epoch INTEGER DEFAULT 0,
+  promoted_at TEXT DEFAULT '',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_discovered_sources_status
+  ON discovered_sources(status, yield_score DESC, last_probed_epoch ASC);
+
+CREATE INDEX IF NOT EXISTS idx_discovered_sources_provider
+  ON discovered_sources(ats_provider, ats_slug);
 
 -- Lightweight D1 Fallback Mirror for Self-Hosted Environments Without Durable Objects
 CREATE TABLE IF NOT EXISTS career_brain_fallback (

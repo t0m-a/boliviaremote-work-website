@@ -32,7 +32,7 @@ export function sanitizeSeedText(val) {
 export function sanitizePlatformRecord(p) {
   const domain = sanitizeSeedText(p.domain || '');
   const url = sanitizeSeedText(p.url || '');
-  return {
+  const rec = {
     id: sanitizeSeedText(p.id),
     name: sanitizeSeedText(p.name),
     category: sanitizeSeedText(p.category || 'Plataforma Agregada por Usuario'),
@@ -48,6 +48,13 @@ export function sanitizePlatformRecord(p) {
     contract_caveat: sanitizeSeedText(p.contract_caveat || 'fractional_or_fulltime'),
     notes: sanitizeSeedText(p.notes || `Plataforma escaneada desde ${url}`)
   };
+  if (p.feed_url) rec.feed_url = sanitizeSeedText(p.feed_url);
+  if (p.ats_provider) rec.ats_provider = sanitizeSeedText(p.ats_provider);
+  if (p.ats_slug) rec.ats_slug = sanitizeSeedText(p.ats_slug);
+  if (p.discovered_by) rec.discovered_by = sanitizeSeedText(p.discovered_by);
+  if (Number(p.active_bolivia_jobs) > 0) rec.active_bolivia_jobs = Number(p.active_bolivia_jobs);
+  if (Number(p.spanish_jobs) > 0) rec.spanish_jobs = Number(p.spanish_jobs);
+  return rec;
 }
 
 export function sanitizeOpportunityRecord(o) {
@@ -98,7 +105,8 @@ export function buildSeedExportPayload(state, basePlatforms = INITIAL_PLATFORMS,
     .filter(
       p =>
         p &&
-        (String(p.id || '').startsWith('custom_') || !basePlatformIds.has(p.id)) &&
+        p.enabled !== false &&
+        (String(p.id || '').startsWith('custom_') || String(p.id || '').startsWith('ats_') || !basePlatformIds.has(p.id)) &&
         !/\b(?:test|live feed)\b/i.test(String(p.name || ''))
     )
     .map(sanitizePlatformRecord);

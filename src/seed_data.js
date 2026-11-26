@@ -767,10 +767,11 @@ export const INITIAL_PLATFORMS = [
     "type": "json_api",
     "enabled": true,
     "domain": "himalayas.app",
-    "url": "https://himalayas.app/jobs/api/search?q=cloud+azure+sysadmin+devops+ai+security&worldwide=true&limit=20",
+    "url": "https://himalayas.app/jobs/worldwide",
+    "feed_url": "https://himalayas.app/jobs/api?limit=50",
     "search_query": "site:himalayas.app (\"remote\" OR \"remoto\" OR \"work from anywhere\" OR \"LATAM\" OR \"Bolivia\")",
     "contract_caveat": "fractional_or_fulltime",
-    "notes": "Public JSON Search API filtered for worldwide visa-free contractor eligibility."
+    "notes": "Public JSON API covering all remote categories eligible worldwide and across LATAM/Bolivia."
   },
   {
     "id": "himalayas_rss",
@@ -787,55 +788,59 @@ export const INITIAL_PLATFORMS = [
   },
   {
     "id": "remotive_api",
-    "name": "Remotive DevOps & SysAdmin API",
+    "name": "Remotive All-Categories API",
     "category": "Category 6: Curated Remote-First Job Boards",
     "track": "Track F: Curated Remote-First & WFA Job Boards",
     "type": "json_api",
     "enabled": true,
     "domain": "remotive.com",
-    "url": "https://remotive.com/api/remote-jobs?category=devops&limit=50",
+    "url": "https://remotive.com/remote-jobs",
+    "feed_url": "https://remotive.com/api/remote-jobs?limit=100",
     "search_query": "site:remotive.com (\"remote\" OR \"remoto\" OR \"work from anywhere\" OR \"LATAM\" OR \"Bolivia\")",
     "contract_caveat": "fractional_or_fulltime",
-    "notes": "Verified remote DevOps, SysAdmin, Cloud, and SRE roles open to LATAM/Global."
+    "notes": "All-categories remote job API covering Software, Support, Sales, Marketing, Design, Finance, Product, Data, QA, and DevOps open to LATAM/Global."
   },
   {
     "id": "jobicy_api",
-    "name": "Jobicy Anywhere Engineering API",
+    "name": "Jobicy Anywhere All-Industries API",
     "category": "Category 6: Curated Remote-First Job Boards",
     "track": "Track F: Curated Remote-First & WFA Job Boards",
     "type": "json_api",
     "enabled": true,
     "domain": "jobicy.com",
-    "url": "https://jobicy.com/api/v2/remote-jobs?count=50&geo=anywhere&industry=engineering",
+    "url": "https://jobicy.com/jobs-remote-anywhere",
+    "feed_url": "https://jobicy.com/api/v2/remote-jobs?count=50&geo=anywhere",
     "search_query": "site:jobicy.com (\"remote\" OR \"remoto\" OR \"work from anywhere\" OR \"LATAM\" OR \"Bolivia\")",
     "contract_caveat": "fractional_or_fulltime",
-    "notes": "Worldwide remote infrastructure and engineering jobs without US residency restrictions."
+    "notes": "Worldwide remote roles across all industries without US residency restrictions."
   },
   {
     "id": "remoteok_api",
-    "name": "Remote OK API (SysAdmin/Cloud/Python)",
+    "name": "Remote OK Global API",
     "category": "Category 6: Curated Remote-First Job Boards",
     "track": "Track F: Curated Remote-First & WFA Job Boards",
     "type": "json_api",
     "enabled": true,
     "domain": "remoteok.com",
-    "url": "https://remoteok.com/api?tags=sysadmin,cloud,azure,security,python,devops",
+    "url": "https://remoteok.com/",
+    "feed_url": "https://remoteok.com/api",
     "search_query": "site:remoteok.com (\"remote\" OR \"remoto\" OR \"work from anywhere\" OR \"LATAM\" OR \"Bolivia\")",
     "contract_caveat": "fractional_or_fulltime",
-    "notes": "Tag-filtered global remote roles via JSON API."
+    "notes": "Full global remote roles feed across engineering, support, design, marketing, finance, and operations."
   },
   {
     "id": "wwr_devops_rss",
-    "name": "We Work Remotely (DevOps & SysAdmin RSS)",
+    "name": "We Work Remotely (All Categories RSS)",
     "category": "Category 6: Curated Remote-First Job Boards",
     "track": "Track F: Curated Remote-First & WFA Job Boards",
     "type": "rss_feed",
     "enabled": true,
     "domain": "weworkremotely.com",
-    "url": "https://weworkremotely.com/categories/remote-devops-sysadmin-jobs.rss",
+    "url": "https://weworkremotely.com/",
+    "feed_url": "https://weworkremotely.com/remote-jobs.rss",
     "search_query": "site:weworkremotely.com (\"remote\" OR \"remoto\" OR \"work from anywhere\" OR \"LATAM\" OR \"Bolivia\")",
     "contract_caveat": "fractional_or_fulltime",
-    "notes": "High-signal global asynchronous SysAdmin, DevOps, and Cloud RSS feed."
+    "notes": "High-signal global remote RSS feed across programming, customer support, design, sales, marketing, finance, and management."
   },
   {
     "id": "rwfa_devops_rss",
@@ -959,13 +964,14 @@ export const INITIAL_PLATFORMS = [
     "name": "GetOnBoard (Portal Remoto Latinoamericano)",
     "category": "Category 2: Vetted Global & Nearshore LATAM Networks",
     "track": "Track C: Vetted Global & Nearshore LATAM Networks",
-    "type": "portal_dork",
+    "type": "json_api",
     "enabled": true,
     "domain": "getonbrd.com",
-    "url": "https://www.getonbrd.com/",
+    "url": "https://www.getonbrd.com/jobs-remote",
+    "feed_url": "https://www.getonbrd.com/api/v0/search/jobs?query=remote&per_page=100",
     "search_query": "site:getonbrd.com (\"remoto\" OR \"remote\" OR \"LATAM\" OR \"asistente\" OR \"coordinador\" OR \"soporte\" OR \"ventas\" OR \"desarrollador\")",
     "contract_caveat": "fractional_or_fulltime",
-    "notes": "Portal líder de empleo remoto en español para tecnología, operaciones, diseño y marketing en LATAM."
+    "notes": "API pública JSON del portal líder de empleo remoto en español para tecnología, operaciones, diseño, soporte y marketing en LATAM."
   },
   {
     "id": "virtual_latinos",

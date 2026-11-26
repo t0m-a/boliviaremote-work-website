@@ -9,6 +9,17 @@ import { extractCompensationUsd } from './src/ai_enricher.js';
 import { buildLocalSemanticVector, cosineSimilarity, deduplicateSemantically } from './src/vector_store.js';
 import { scrubEphemeralPii, sanitizePlatformUrl, computeGhostJobMetrics } from './src/privacy_guard.js';
 import { hybridSearchOpportunities } from './src/hybrid_search.js';
+import {
+  isAllowedAtsApiUrl,
+  extractAtsCandidatesFromItems,
+  parseAtsResponse,
+  parseGetOnBoardApi
+} from './src/ats_adapters.js';
+import {
+  scoreDiscoveredSourceMetrics,
+  runAutonomousDiscoveryCycle,
+  applyPromotedSourceHealth
+} from './src/ats_discovery.js';
 
 const EMOJI_REGEX = /(?:[\u2700-\u27bf]|(?:\ud83c[\udde6-\uddff]){2}|[\ud800-\udbff][\udc00-\udfff]|[\u0023-\u0039]\ufe0f?\u20e3|\u3299|\u3297|\u303d|\u3030|\u24c2|\ud83c[\udd70-\udd71]|\ud83c[\udd7e-\udd7f]|\ud83c\udd8e|\ud83c[\udd91-\udd9a]|\ud83c[\udde6-\uddff]|[\ud83d\ud83e][\ud000-\udfff]|[\u200d\u20e3\ufe0f]|[\u2600-\u26ff])/g;
 
@@ -1235,6 +1246,8 @@ async function runTests() {
     'src/privacy_guard.js',
     'src/career_intel_seed.js',
     'src/career_brain_do.js',
+    'src/ats_adapters.js',
+    'src/ats_discovery.js',
     'src/mcp.js',
     'src/ui.js',
     'src/legal_tax_guide.js',
@@ -1504,10 +1517,138 @@ async function runTests() {
   assert.equal(mcpStatusData.result.isError, false);
   const statusOut = JSON.parse(mcpStatusData.result.content[0].text);
   assert.equal(statusOut.ok, true);
-  assert.equal(statusOut.version, '6.0.0');
+  assert.equal(statusOut.version, '6.1.0');
   assert.equal(statusOut.air_gapped_isolation, true);
+  assert.ok(statusOut.autonomous_discovery && typeof statusOut.autonomous_discovery.promoted_count === 'number', 'MCP status must expose autonomous_discovery telemetry');
   assert.ok(statusOut.career_brain.entities_count >= 100);
   assert.ok(statusOut.career_brain.playbooks_count >= 13, 'Must reflect newly upserted playbook');
+
+  console.log('10. Testing v6.1.0 Autonomous Direct ATS Source Discovery, AI-Managed Background Promotion & Self-Healing Lifecycle...');
+
+  // 10a. SSRF host allowlist validation
+  assert.equal(isAllowedAtsApiUrl('https://boards-api.greenhouse.io/v1/boards/gitlab/jobs?content=true', 'greenhouse'), true);
+  assert.equal(isAllowedAtsApiUrl('https://api.ashbyhq.com/posting-api/job-board/deel?includeCompensation=true', 'ashby'), true);
+  assert.equal(isAllowedAtsApiUrl('https://api.lever.co/v0/postings/ontop?mode=json', 'lever'), true);
+  assert.equal(isAllowedAtsApiUrl('https://acme.recruitee.com/api/offers/', 'recruitee'), true);
+  assert.equal(isAllowedAtsApiUrl('https://acme.breezy.hr/json', 'breezy'), true);
+  assert.equal(isAllowedAtsApiUrl('http://127.0.0.1/internal', 'greenhouse'), false, 'Must block internal HTTP IPs');
+  assert.equal(isAllowedAtsApiUrl('https://evil.example.com/v1/boards/gitlab/jobs', 'greenhouse'), false, 'Must block non-allowlisted hosts');
+  assert.equal(isAllowedAtsApiUrl('https://user:pass@boards-api.greenhouse.io/v1/boards/gitlab/jobs', 'greenhouse'), false, 'Must block embedded credentials');
+
+  // 10b. Candidate extraction from aggregator postings
+  const extractedCands = extractAtsCandidatesFromItems([
+    {
+      company: 'Andes Fintech',
+      platform_id: 'remotive_api',
+      url: 'https://boards.greenhouse.io/andesfintech/jobs/12345',
+      description: 'Apply via Greenhouse'
+    },
+    {
+      company: 'Latam Studio',
+      platform_id: 'himalayas_api',
+      url: 'https://jobs.ashbyhq.com/latamstudio/abc-def',
+      description: 'Remote LATAM'
+    }
+  ]);
+  assert.ok(extractedCands.explicit.some(c => c.ats_provider === 'greenhouse' && c.ats_slug === 'andesfintech'), 'Must extract explicit Greenhouse ATS slug');
+  assert.ok(extractedCands.explicit.some(c => c.ats_provider === 'ashby' && c.ats_slug === 'latamstudio'), 'Must extract explicit Ashby ATS slug');
+
+  // 10c. ATS JSON & GetOnBoard JSON:API parsers
+  const ashbyParsed = parseAtsResponse('ashby', JSON.stringify({
+    jobs: [
+      {
+        title: 'Especialista de Soporte al Cliente Bilingüe',
+        isRemote: true,
+        location: 'LATAM / Bolivia',
+        jobUrl: 'https://jobs.ashbyhq.com/deel/123',
+        descriptionPlain: 'Soporte remoto en español e inglés para clientes en Latinoamérica.',
+        department: 'Customer Support',
+        compensation: { compensationTierSummary: '$2,200 - $3,000/mo USD' },
+        publishedAt: '2026-11-24T12:00:00Z'
+      }
+    ]
+  }), { id: 'ats_ashby_deel', name: 'Deel', url: 'https://jobs.ashbyhq.com/deel', ats_slug: 'deel' });
+  assert.equal(ashbyParsed.length, 1);
+  assert.equal(ashbyParsed[0].source_type, 'direct_ats');
+  assert.equal(ashbyParsed[0].compensation_usd, '$2,200 - $3,000/mo USD');
+
+  const gobParsed = parseGetOnBoardApi(JSON.stringify({
+    data: [{
+      id: 'gob-1',
+      attributes: {
+        title: 'Diseñador UX/UI Senior Remoto',
+        remote: true,
+        remote_zone: 'LATAM',
+        min_salary: 3000,
+        max_salary: 4500,
+        description: 'Posición 100% remota en español desde Latinoamérica y Bolivia.',
+        company: { data: { attributes: { name: 'Fintech Andina' } } }
+      },
+      links: { public_url: 'https://www.getonbrd.com/jobs/gob-1' }
+    }]
+  }), { id: 'getonboard', name: 'GetOnBoard' });
+  assert.equal(gobParsed.length, 1);
+  assert.equal(gobParsed[0].company, 'Fintech Andina');
+  assert.equal(gobParsed[0].compensation_usd, '$3000 - $4500/mo USD');
+
+  // 10d. Spanish + Category Scarcity Yield Scoring
+  const techOnlyScore = scoreDiscoveredSourceMetrics({ bolivia_eligible_jobs: 3, bolivia_yield_ratio: 0.5, spanish_jobs: 0, categories: ['cloud_sys'] });
+  const spanishDiverseScore = scoreDiscoveredSourceMetrics({ bolivia_eligible_jobs: 3, bolivia_yield_ratio: 0.5, spanish_jobs: 2, categories: ['customer_support', 'finance_accounting'] }, { bolivia_tier: 'verified_friendly' });
+  assert.ok(spanishDiverseScore > techOnlyScore, 'Spanish + underrepresented categories + verified employer must score higher than English DevOps-only board');
+
+  // 10e. AI-Managed Background Autonomous Discovery & Promotion Cycle
+  const mockDiscState = { platforms: [], opportunities: [] };
+  const mockDiscEnv = {
+    AI: {
+      async run(model) {
+        assert.equal(model, '@cf/meta/llama-3.3-70b-instruct-fp8-fast', 'Autonomous promotion gate must use Llama 3.3 70B');
+        return {
+          response: JSON.stringify({
+            decision: 'PROMOTE',
+            confidence: 0.92,
+            rationale_es: 'Tablero directo con vacantes activas para Bolivia en soporte y finanzas en español.'
+          })
+        };
+      }
+    }
+  };
+  const mockFetchAts = async (apiUrl) => {
+    if (apiUrl.includes('/deel')) {
+      return {
+        ok: true,
+        status: 200,
+        text: JSON.stringify({
+          jobs: [
+            { title: 'Customer Support Specialist (Español)', isRemote: true, location: 'LATAM / Bolivia', jobUrl: 'https://jobs.ashbyhq.com/deel/s1', descriptionPlain: 'Atención al cliente remota desde Bolivia y Latinoamérica.' },
+            { title: 'Payroll Operations Analyst', isRemote: true, location: 'Remote Worldwide', jobUrl: 'https://jobs.ashbyhq.com/deel/s2', descriptionPlain: 'Finance and global payroll operations remote W-8BEN.' },
+            { title: 'US Tax Attorney', isRemote: false, location: 'USA Only', jobUrl: 'https://jobs.ashbyhq.com/deel/s3', descriptionPlain: 'Must reside in US W-2 only.' }
+          ]
+        })
+      };
+    }
+    return { ok: false, status: 404, text: '' };
+  };
+  const discRes = await runAutonomousDiscoveryCycle(mockDiscState, mockDiscEnv, {
+    maxProbes: 1,
+    fetchFn: mockFetchAts,
+    rawScannedItems: []
+  });
+  assert.equal(discRes.ok, true);
+  assert.equal(discRes.promoted_count, 1, 'AI gate must autonomously promote high-yield Deel Ashby board');
+  assert.equal(discRes.promoted_platforms[0].type, 'ats_json');
+  assert.equal(discRes.promoted_platforms[0].url, 'https://jobs.ashbyhq.com/deel', 'Human portal URL must stay separate from JSON API feed_url');
+  assert.ok(discRes.promoted_platforms[0].feed_url.includes('api.ashbyhq.com'), 'feed_url must point to allowlisted ATS JSON API');
+  assert.equal(discRes.discovered_opportunities_count, 2, 'Must ingest only the 2 Bolivia-eligible postings and block the US-only posting');
+
+  // 10f. Self-healing lifecycle demotion on dead/404 promoted ATS board
+  const healRes = await applyPromotedSourceHealth(mockDiscState, [
+    { platform_id: discRes.promoted_platforms[0].id, ats_provider: 'ashby', http_status: 404, total: 0, eligible: 0 }
+  ], {});
+  assert.ok(healRes.demoted.includes(discRes.promoted_platforms[0].id), 'Must auto-disable promoted ATS board returning HTTP 404');
+  assert.equal(mockDiscState.platforms[0].enabled, false);
+
+  // 10g. Monitored Platforms UI tabs
+  assert.ok(html.includes('id="platformsFilterBar"') && html.includes('Empresas Directas (ATS)'), 'UI must include Monitored Platforms filter tabs with Empresas Directas (ATS)');
 
   console.log('ALL TESTS PASSED SUCCESSFULLY!');
 }

@@ -5,6 +5,7 @@
  */
 
 import { checkBoliviaRemoteEligibility, evaluateOpportunity } from './evaluator.js';
+import { parseAtsResponse, parseGetOnBoardApi } from './ats_adapters.js';
 
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
@@ -99,6 +100,14 @@ export async function fetchWithTimeout(url, timeoutMs = 9500) {
  * Parses a JSON API response into normalized opportunity objects.
  */
 export function parseJsonFeed(rawText, platform) {
+  if (platform && platform.type === 'ats_json' && platform.ats_provider) {
+    return parseAtsResponse(platform.ats_provider, rawText, platform);
+  }
+  if (platform && (platform.id === 'getonboard' || String(platform.domain || '').includes('getonbrd.com'))) {
+    const gob = parseGetOnBoardApi(rawText, platform);
+    if (gob.length > 0) return gob;
+  }
+
   let data;
   try {
     data = JSON.parse(rawText);
@@ -616,27 +625,47 @@ export async function runIngestionScan(platforms, existingHashesSet, options = {
     );
   }
 
-  const directFeeds = active.filter(p => p.type === 'json_api' || p.type === 'rss_feed');
+  const directFeeds = active.filter(p => p.type === 'json_api' || p.type === 'rss_feed' || p.type === 'ats_json');
   const dorkPlatforms = active.filter(p => p.type === 'portal_dork' || !p.type);
+
+  // Prioritize high-yield direct ATS & broad JSON API feeds alongside rotating rotation
+  const sortedDirect = [...directFeeds].sort((a, b) => {
+    const score = (p) => (p.type === 'ats_json' ? 3 : (p.type === 'json_api' ? 2 : 1)) +
+      Math.min(2, (Number(p.active_bolivia_jobs) || 0) / 10) -
+      Math.min(2, (Number(p.consecutive_zero_yield) || 0) * 0.4);
+    return score(b) - score(a);
+  });
 
   // Rotate which feeds/clusters we poll based on the current 15-minute window
   const windowIndex = Math.floor(Date.now() / (15 * 60 * 1000));
   const selectedFeeds = [];
-  for (let i = 0; i < Math.min(maxFeeds, directFeeds.length); i++) {
-    selectedFeeds.push(directFeeds[(windowIndex + i) % directFeeds.length]);
+  for (let i = 0; i < Math.min(maxFeeds, sortedDirect.length); i++) {
+    selectedFeeds.push(sortedDirect[(windowIndex + i) % sortedDirect.length]);
   }
 
   const newOpportunities = [];
+  const rawScannedItems = [];
   const scannedPlatforms = [];
+  const platformYields = [];
 
-  // 1. Poll direct JSON & RSS feeds in parallel
+  // 1. Poll direct ATS, JSON & RSS feeds in parallel (using feed_url when distinct from human url)
   const feedPromises = selectedFeeds.map(async p => {
+    const fetchUrl = p.feed_url || p.url;
     try {
-      const resp = await fetchWithTimeout(p.url, 8000);
-      if (!resp.ok || !resp.text) return [];
+      const resp = await fetchWithTimeout(fetchUrl, 8000);
+      if (!resp.ok || !resp.text) {
+        platformYields.push({ platform_id: p.id, ats_provider: p.ats_provider || '', http_status: resp.status || 0, total: 0, eligible: 0 });
+        return [];
+      }
       scannedPlatforms.push(p.name);
-      return p.type === 'json_api' ? parseJsonFeed(resp.text, p) : parseRssFeed(resp.text, p);
+      const parsed = (p.type === 'ats_json' && p.ats_provider)
+        ? parseAtsResponse(p.ats_provider, resp.text, p)
+        : (p.type === 'json_api' ? parseJsonFeed(resp.text, p) : parseRssFeed(resp.text, p));
+      const eligibleCount = parsed.filter(item => checkBoliviaRemoteEligibility(item).eligible).length;
+      platformYields.push({ platform_id: p.id, ats_provider: p.ats_provider || '', http_status: resp.status, total: parsed.length, eligible: eligibleCount });
+      return parsed;
     } catch {
+      platformYields.push({ platform_id: p.id, ats_provider: p.ats_provider || '', http_status: 0, total: 0, eligible: 0 });
       return [];
     }
   });
@@ -644,6 +673,7 @@ export async function runIngestionScan(platforms, existingHashesSet, options = {
   const feedResults = await Promise.all(feedPromises);
   for (const list of feedResults) {
     for (const item of list) {
+      rawScannedItems.push(item);
       if (!existingHashesSet.has(item.job_hash)) {
         const bol = checkBoliviaRemoteEligibility(item);
         if (bol.eligible) {
@@ -705,6 +735,8 @@ export async function runIngestionScan(platforms, existingHashesSet, options = {
     scanned_platforms: Array.from(new Set(scannedPlatforms)),
     new_count: newOpportunities.length,
     new_opportunities: newOpportunities,
+    raw_scanned_items: rawScannedItems,
+    platform_yields: platformYields,
     timestamp: new Date().toISOString()
   };
 }

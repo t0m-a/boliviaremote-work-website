@@ -1404,6 +1404,38 @@ export function renderAppHtml(initialState, options = {}) {
       font-weight: 700;
       max-width: 100%;
     }
+    .platforms-filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0 0 14px 0;
+    }
+    .plat-meta-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 0 0 8px 0;
+    }
+    .plat-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 0.76em;
+      font-weight: 700;
+      background: #e0f2fe;
+      color: #0369a1;
+      border: 1px solid #bae6fd;
+    }
+    .plat-badge.ats {
+      background: #f0fdfa;
+      color: #0f766e;
+      border-color: #5eead4;
+    }
+    .plat-badge.ai {
+      background: #ede9fe;
+      color: #5b21b6;
+      border-color: #c4b5fd;
+    }
     .ai-detail-block.ai-detail-reality {
       grid-column: 1 / -1;
       border-left: 4px solid #0d9488;
@@ -2449,6 +2481,21 @@ export function renderAppHtml(initialState, options = {}) {
       background: #082f49;
       color: #7dd3fc;
       border-color: #0ea5e9;
+    }
+    body.dark-mode .plat-badge {
+      background: #082f49;
+      color: #7dd3fc;
+      border-color: #0284c7;
+    }
+    body.dark-mode .plat-badge.ats {
+      background: #042f2e;
+      color: #99f6e4;
+      border-color: #14b8a6;
+    }
+    body.dark-mode .plat-badge.ai {
+      background: #2e1065;
+      color: #ddd6fe;
+      border-color: #7c3aed;
     }
     body.dark-mode .ai-detail-block.ai-detail-reality {
       background: #0f292a;
@@ -3517,6 +3564,12 @@ ${LEGAL_TAX_GUIDE_HTML}
             <span style="font-size:0.84em;color:#64748b;" id="lbl-platforms-sub">Haz clic en "Escanear" en cualquier plataforma para buscar nuevas ofertas al instante</span>
           </div>
           <button type="button" class="btn-action btn-primary" onclick="switchMainView('results')"><span id="plat-btn-back">Volver a la Página Principal</span></button>
+        </div>
+        <div id="platformsFilterBar" class="platforms-filter-bar">
+          <button type="button" class="btn-tab active" data-plat-group="all" onclick="setPlatformsGroupFilter('all')">Todas</button>
+          <button type="button" class="btn-tab" data-plat-group="ats" onclick="setPlatformsGroupFilter('ats')">Empresas Directas (ATS)</button>
+          <button type="button" class="btn-tab" data-plat-group="boards" onclick="setPlatformsGroupFilter('boards')">Bolsas y Redes Globales</button>
+          <button type="button" class="btn-tab" data-plat-group="custom" onclick="setPlatformsGroupFilter('custom')">Agregadas por Usuarios</button>
         </div>
         <div id="platformsGridContainer" class="radar-grid"></div>
       </div>
@@ -4749,18 +4802,80 @@ ${LEGAL_TAX_GUIDE_HTML}
     }
     window.initCardScrollReveal = initCardScrollReveal;
 
+    let currentPlatformsGroupFilter = 'all';
+
+    function setPlatformsGroupFilter(group) {
+      currentPlatformsGroupFilter = group || 'all';
+      const bar = document.getElementById('platformsFilterBar');
+      if (bar && typeof bar.querySelectorAll === 'function') {
+        bar.querySelectorAll('.btn-tab').forEach(btn => {
+          btn.classList.toggle('active', btn.getAttribute('data-plat-group') === currentPlatformsGroupFilter);
+        });
+      }
+      renderPlatformsDirectory();
+    }
+    window.setPlatformsGroupFilter = setPlatformsGroupFilter;
+
+    function formatPlatformTypeLabel(p) {
+      const providerNames = {
+        greenhouse: 'Greenhouse',
+        lever: 'Lever',
+        ashby: 'Ashby',
+        workable: 'Workable',
+        smartrecruiters: 'SmartRecruiters',
+        recruitee: 'Recruitee',
+        breezy: 'Breezy HR'
+      };
+      if (p.type === 'ats_json') {
+        const prov = providerNames[p.ats_provider] || p.ats_provider || 'ATS';
+        return 'ATS Directo · ' + prov;
+      }
+      if (p.type === 'json_api') return 'API JSON';
+      if (p.type === 'rss_feed') return 'Feed RSS';
+      if (p.type === 'html_board') return 'Portal Web';
+      return 'Portal Monitoreado';
+    }
+
     function renderPlatformsDirectory() {
       const t = I18N[userFilters.ui_lang] || I18N.es;
       const container = document.getElementById('platformsGridContainer');
       if (!container) return;
 
-      container.innerHTML = platformsState.map(p => {
+      const activePlatforms = (platformsState || []).filter(p => p && p.enabled !== false);
+      const filtered = activePlatforms.filter(p => {
+        if (currentPlatformsGroupFilter === 'ats') return p.type === 'ats_json' || String(p.id || '').startsWith('ats_');
+        if (currentPlatformsGroupFilter === 'custom') return String(p.id || '').startsWith('custom_');
+        if (currentPlatformsGroupFilter === 'boards') return p.type !== 'ats_json' && !String(p.id || '').startsWith('ats_') && !String(p.id || '').startsWith('custom_');
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = '<div class="radar-box"><p style="margin:0;">No hay plataformas en esta categoría por el momento. El motor autónomo de IA evalúa y promueve nuevas empresas directas automáticamente cada 15 minutos.</p></div>';
+        return;
+      }
+
+      container.innerHTML = filtered.map(p => {
+        const isAts = p.type === 'ats_json' || String(p.id || '').startsWith('ats_');
+        const scanUrl = p.feed_url || p.url;
+        const typeLabel = formatPlatformTypeLabel(p);
+        const pills = ['<span class="plat-badge' + (isAts ? ' ats' : '') + '">' + escapeHtml(typeLabel) + '</span>'];
+        if (p.discovered_by === 'ai_autonomous') {
+          pills.push('<span class="plat-badge ai">Promovida por IA</span>');
+        }
+        if (Number(p.active_bolivia_jobs) > 0) {
+          pills.push('<span class="plat-badge ats">' + Number(p.active_bolivia_jobs) + ' vacantes Bolivia</span>');
+        }
+        if (Number(p.spanish_jobs) > 0) {
+          pills.push('<span class="plat-badge">Español disponible</span>');
+        }
+
         return '<div class="radar-box">' +
-          '<h4>' + escapeHtml(p.name) + ' <span style="font-size:0.76em;color:#0284c7;">(' + escapeHtml(p.type || 'portal') + ')</span></h4>' +
+          '<h4>' + escapeHtml(p.name) + '</h4>' +
+          '<div class="plat-meta-pills">' + pills.join('') + '</div>' +
           '<p style="margin-bottom:6px;"><strong>' + escapeHtml(t.categoryLabel || 'Categoría') + ':</strong> ' + escapeHtml(cleanTrackName(p.track || '')) + '</p>' +
           '<p style="margin-bottom:10px;">' + escapeHtml(p.notes || p.url) + '</p>' +
           '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
-            '<button type="button" class="btn-action btn-primary" style="padding:4px 10px;font-size:0.78em;" onclick="scanExistingPlatform(\\'' + escapeHtml(p.url) + '\\', \\'' + escapeHtml(p.name) + '\\', \\'' + escapeHtml(p.type || 'auto') + '\\', \\'' + escapeHtml(p.track || '') + '\\')">' +
+            '<button type="button" class="btn-action btn-primary" style="padding:4px 10px;font-size:0.78em;" onclick="scanExistingPlatform(\\'' + escapeHtml(scanUrl) + '\\', \\'' + escapeHtml(p.name) + '\\', \\'' + escapeHtml(p.type || 'auto') + '\\', \\'' + escapeHtml(p.track || '') + '\\')">' +
               escapeHtml(t.scanPlatformBtn) + '</button>' +
             '<a class="btn-action btn-secondary" style="padding:4px 10px;font-size:0.78em;" href="' + escapeHtml(p.url) + '" target="_blank" rel="noopener">' +
               escapeHtml(t.openPlatformBtn) + '</a>' +

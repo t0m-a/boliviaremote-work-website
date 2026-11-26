@@ -8,7 +8,7 @@
 
 **Plataforma pública, autónoma y auto-contenida para Cloudflare Workers diseñada para encontrar, filtrar, analizar con IA y evaluar ofertas laborales internacionales 100% remotas elegibles para trabajar desde Bolivia (UTC-4).**
 
-[![Versión](https://img.shields.io/badge/Versi%C3%B3n-v6.0.0%20Producci%C3%B3n-0284c7?style=for-the-badge&logo=cloudflare&logoColor=white)](src/worker.js)
+[![Versión](https://img.shields.io/badge/Versi%C3%B3n-v6.1.0%20Producci%C3%B3n-0284c7?style=for-the-badge&logo=cloudflare&logoColor=white)](src/worker.js)
 [![Plataforma](https://img.shields.io/badge/Runtime-Cloudflare%20Workers-f38020?style=for-the-badge&logo=cloudflareworkers&logoColor=white)](wrangler.toml)
 [![IA y Memoria](https://img.shields.io/badge/IA-Llama%203.3%20%2B%20BGE--M3%20%2B%20DO%20SQLite-0d9488?style=for-the-badge&logo=cloudflare&logoColor=white)](src/career_brain_do.js)
 [![Automatización](https://img.shields.io/badge/Frecuencia-Cada%2015%20min%20%2B%20Bajo%20Demanda-10b981?style=for-the-badge&logo=clockify&logoColor=white)](wrangler.toml)
@@ -51,7 +51,7 @@
    - [Ciclo de ejecución bajo demanda y cron cada 15 minutos](#ciclo-de-ejecución-bajo-demanda-y-cron-cada-15-minutos)
 5. [Guía de Instalación y Auto-Alojamiento (Self-Hosting)](#guía-de-instalación-y-auto-alojamiento-self-hosting)
    - [Requisitos previos](#requisitos-previos)
-   - [Instalación local y pruebas (9 suites automatizadas)](#instalación-local-y-pruebas-9-suites-automatizadas)
+   - [Instalación local y pruebas (10 suites automatizadas)](#instalación-local-y-pruebas-10-suites-automatizadas)
    - [Despliegue público en Cloudflare Workers](#despliegue-público-en-cloudflare-workers)
    - [Generación de HTML autónomo (Standalone)](#generación-de-html-autónomo-standalone)
 6. [Referencia de la API REST y MCP](#referencia-de-la-api-rest-y-mcp)
@@ -65,9 +65,10 @@ Buscar trabajo remoto internacional desde Bolivia suele ser frustrante: la mayor
 
 **Bolivia Remote Work** (`https://boliviaremote.work`) es una **solución pública, gratuita y de código abierto (GPL-3.0)** en **Español (Bolivia)** que centraliza **86 plataformas globales y regionales**, garantiza desde la ingesta que todas las ofertas sean **100% remotas elegibles desde Bolivia**, y potencia cada búsqueda y análisis mediante **Inteligencia Artificial conectada a una arquitectura de memoria en 3 capas** (Cloudflare D1 + Durable Object SQLite + Vectorize 1024d + Workers AI).
 
-### Resumen de Capacidades y Mejoras (v6.0.0)
+### Resumen de Capacidades y Mejoras (v6.1.0)
 
-- **Memoria en 3 Capas + IA Contextual:** Combina persistencia relacional con BM25 FTS5 y detector de vacantes fantasma (`bolivia-remote-jobs-db`), un grafo de conocimiento sobre empleadores, cobros y guías para Bolivia (`BoliviaCareerBrainDO`), y búsqueda híbrida semántica de 3 canales con re-ordenamiento neuronal (`bge-m3` + `bge-reranker-base`) y análisis fundamentado con `@cf/meta/llama-3.3-70b-instruct-fp8-fast`.
+- **Descubrimiento Autónomo de Tableros Directos ATS Gestionado por IA (v6.1.0):** En cada ciclo cron de 15 minutos, el Worker extrae URLs y empresas recurrentes desde los agregadores ampliados (Remotive, Himalayas, Jobicy, RemoteOK, We Work Remotely y la API nativa JSON:API de GetOnBoard), sondea en modo seguro (lista blanca SSRF estricta) sus endpoints públicos de **7 sistemas ATS** (`Greenhouse`, `Lever`, `Ashby`, `Workable`, `SmartRecruiters`, `Recruitee`, `Breezy HR`), puntúa el rendimiento real para Bolivia (con bonificación a vacantes en español y áreas no-DevOps) y delega a **`@cf/meta/llama-3.3-70b-instruct-fp8-fast`** —respaldado por la memoria en 3 capas y guardrails determinísticos— la promoción automática en segundo plano hacia **Plataformas Monitoreadas** (`ats_*`), con precedencia directo-sobre-agregador al deduplicar y auto-saneamiento (`COOLDOWN`) ante caídas o rendimiento nulo.
+- **Memoria en 3 Capas + IA Contextual:** Combina persistencia relacional con BM25 FTS5, detector de vacantes fantasma y registro `discovered_sources` (`bolivia-remote-jobs-db`), un grafo de conocimiento sobre empleadores, cobros y guías para Bolivia (`BoliviaCareerBrainDO`), y búsqueda híbrida semántica de 3 canales con re-ordenamiento neuronal (`bge-m3` + `bge-reranker-base`) y análisis fundamentado con `@cf/meta/llama-3.3-70b-instruct-fp8-fast`.
 - **Tarjetas Enriquecidas con Cápsulas de Realidad:** Cada oferta muestra en tiempo real etiquetas verificadas de **canales de cobro compatibles en Bolivia** (`Cobro verificado: AirTM / Payoneer / Deel`), advertencias de fricción local, distintivo **Nueva hoy** o alerta **Re-publicada** cuando se detectan señales de vacante fantasma.
 - **Panel Contextual `Más información con IA` v2 (5 Bloques):** Desplegado justo debajo de cada oferta (con encabezado rectangular ajustado al contenido y bordes suavemente redondeados en móvil y escritorio), compila un bloque `<bolivia_context>` (~1200 tokens) y entrega resumen, **Requisitos**, **Experiencia y habilidades útiles**, **Compatibilidad horaria con Bolivia (UTC-4)**, **Consejos para el candidato** y el 5to bloque fundamentado **Realidad desde Bolivia: Contrato, Cobro e Historial**.
 - **Guía Legal y Fiscal (EE. UU. y Bolivia) (`/guia-legal-fiscal`):** Página dedicada renderizada en servidor ([`src/legal_tax_guide.js`](src/legal_tax_guide.js)) y en Markdown ([`docs/guia-legal-fiscal-contratistas-bolivia.md`](docs/guia-legal-fiscal-contratistas-bolivia.md)) con normativa verificada para contratistas independientes remotos desde Bolivia (IRC § 862(a)(3), W-8BEN/W-8BEN-E, visas B-1/B-2, SIN/SIAT, RC-IVA Form. 610 bajo Ley N° 1448 / DS N° 4850, Gestora Pública y cláusulas contractuales).
@@ -208,10 +209,11 @@ flowchart TD
         URLScan["Formulario de Escaneo de URLs"]
     end
 
-    subgraph CFWorker ["Cloudflare Worker (scout-analyst-pipeline v6.0.0)"]
-        WorkerEntry["src/worker.js (Router, Sightings, Cron 15m)"]
+    subgraph CFWorker ["Cloudflare Worker (scout-analyst-pipeline v6.1.0)"]
+        WorkerEntry["src/worker.js (Router, Sightings, Dedup Directo, Cron 15m)"]
         PrivacyGuard["src/privacy_guard.js (PII RAM Scrubber + URL Sanitizer)"]
-        ScannerEng["src/scanner.js (Parser JSON/RSS/HTML + Filtro Bolivia)"]
+        ScannerEng["src/scanner.js + src/ats_adapters.js (7 ATS JSON + GetOnBoard + RSS/HTML)"]
+        AtsDiscovery["src/ats_discovery.js (Descubrimiento y Promoción Autónoma IA)"]
         EvaluatorEng["src/evaluator.js (Rúbrica 4 Ejes & Filtro Estricto ES/EN)"]
         HybridSearch["src/hybrid_search.js (RRF 3 Canales + bge-reranker-base)"]
         AiEnricher["src/ai_enricher.js (Llama 3.3 70B + <bolivia_context>)"]
@@ -220,15 +222,15 @@ flowchart TD
     end
 
     subgraph StorageCF ["Recursos Dedicados Cloudflare"]
-        D1DB[("D1: bolivia-remote-jobs-db<br/>opportunities + opportunities_fts + job_sightings")]
+        D1DB[("D1: bolivia-remote-jobs-db<br/>opportunities + opportunities_fts + job_sightings + discovered_sources")]
         VecJobs[("Vectorize: bolivia-remote-jobs-m3 (1024d bge-m3)")]
         VecIntel[("Vectorize: bolivia-remote-intel-m3 (1024d bge-m3)")]
         WorkersAI["Workers AI (bge-m3 + bge-reranker-base + Llama 3.3 70B)"]
     end
 
-    subgraph Fuentes ["86 Fuentes Globales de Empleo"]
-        APIs["APIs REST Públicas (Torre, GetOnBoard, Remotive, etc.)"]
-        RSS["Feeds RSS / Atom (Himalayas, WWR, NoDesk, DailyRemote, etc.)"]
+    subgraph Fuentes ["86+ Fuentes Globales y Tableros Directos ATS"]
+        APIs["7 ATS Directos (Greenhouse, Lever, Ashby, Workable, etc.) + GetOnBoard JSON"]
+        RSS["Feeds Ampliados Multi-Categoría (Himalayas, Remotive, Jobicy, WWR, RemoteOK)"]
         HTMLPages["Bolsas Web LATAM & Globales (Workana, Virtual Latinos, RemoteYeah, etc.)"]
     end
 
@@ -238,6 +240,10 @@ flowchart TD
     URLScan -->|POST /api/platforms/scan-url| WorkerEntry
     WorkerEntry --> PrivacyGuard
     WorkerEntry --> ScannerEng
+    WorkerEntry --> AtsDiscovery
+    AtsDiscovery <--> CareerBrain
+    AtsDiscovery <--> D1DB
+    AtsDiscovery <--> WorkersAI
     ScannerEng -->|Fetch con Timeout| Fuentes
     ScannerEng --> EvaluatorEng
     WorkerEntry --> HybridSearch
@@ -267,10 +273,12 @@ flowchart TD
 | [`src/vector_store.js`](src/vector_store.js) | Embeddings `@cf/baai/bge-m3` en lotes de 25 (1024d con guardia de dimensión), vectores semánticos locales de 128d, sinónimos cruzados ES/EN, deduplicación semántica e indexación Vectorize/Qdrant. |
 | [`src/ai_enricher.js`](src/ai_enricher.js) | Enriquecimiento y analizador contextual de posiciones con `@cf/meta/llama-3.3-70b-instruct-fp8-fast`, extracción de compensación USD y construcción estructurada de `bolivia_reality`. |
 | [`src/evaluator.js`](src/evaluator.js) | Rúbrica dinámica de 100 puntos, filtro obligatorio 100% remoto Bolivia, 25 categorías profesionales y generador Markdown de resultados. |
-| [`src/scanner.js`](src/scanner.js) | Escáner multi-formato (JSON API, RSS/Atom, HTML y dorks) con timeout, limpieza de HTML y deduplicación por hash. |
-| [`src/mcp.js`](src/mcp.js) | Servidor MCP fail-closed sobre Streamable HTTP (`/mcp`, `/.well-known/mcp.json`) con 8 herramientas, 2 recursos y 1 prompt guiado. |
-| [`src/ui.js`](src/ui.js) & [`src/legal_tax_guide.js`](src/legal_tax_guide.js) | Interfaz web responsiva completa en Español (Bolivia), modo claro/oscuro, cápsulas de realidad/ghost, panel IA de 5 bloques, Guía del Usuario y página dedicada `/guia-legal-fiscal`. |
-| [`schema.sql`](schema.sql) | Esquema D1 `v6.0.0`: `opportunities`, `opportunities_fts` + triggers, `job_sightings`, `custom_platforms`, `career_brain_fallback` y `evaluations`. |
+| [`src/scanner.js`](src/scanner.js) | Escáner multi-formato (7 ATS JSON directos, GetOnBoard JSON:API, RSS/Atom, HTML y dorks) con separación `url` humana vs `feed_url`, limpieza de HTML y deduplicación por hash. |
+| [`src/ats_adapters.js`](src/ats_adapters.js) | Lista blanca SSRF estricta para 7 proveedores ATS (`Greenhouse`, `Lever`, `Ashby`, `Workable`, `SmartRecruiters`, `Recruitee`, `Breezy HR`), extractor de candidatos desde agregadores y parser nativo de GetOnBoard JSON:API. |
+| [`src/ats_discovery.js`](src/ats_discovery.js) | Ciclo autónomo en segundo plano (`v6.1.0`): sondeo de tableros directos ATS, puntuación con bono de español y escasez multi-categoría, decisión de promoción por Llama 3.3 70B + memoria en 3 capas, enriquecimiento bidireccional del grafo KG y auto-saneamiento (`COOLDOWN`). |
+| [`src/mcp.js`](src/mcp.js) | Servidor MCP fail-closed sobre Streamable HTTP (`/mcp`, `/.well-known/mcp.json`) con 8 herramientas (incluyendo telemetría y disparo opcional del ciclo de descubrimiento en `inspect_career_brain_status`), 2 recursos y 1 prompt guiado. |
+| [`src/ui.js`](src/ui.js) & [`src/legal_tax_guide.js`](src/legal_tax_guide.js) | Interfaz web responsiva completa en Español (Bolivia), modo claro/oscuro, pestañas en **Plataformas Monitoreadas** (`Todas`, `Empresas Directas (ATS)`, `Bolsas y Redes Globales`, `Agregadas por Usuarios`), cápsulas de realidad/ghost, panel IA de 5 bloques, Guía del Usuario y `/guia-legal-fiscal`. |
+| [`schema.sql`](schema.sql) | Esquema D1 `v6.1.0`: `opportunities`, `opportunities_fts` + triggers, `job_sightings`, `custom_platforms` (con metadatos ATS), `discovered_sources`, `career_brain_fallback` y `evaluations`. |
 
 ---
 
@@ -338,7 +346,7 @@ node sync_platforms.mjs --add-url https://remoteyeah.com --name "RemoteYeah" --t
 - **Cuenta de Cloudflare** ([dash.cloudflare.com](https://dash.cloudflare.com/)).
 - **Git** instalado en tu sistema.
 
-### Instalación local y pruebas (9 suites automatizadas)
+### Instalación local y pruebas (10 suites automatizadas)
 
 1. **Clonar el repositorio:**
    ```bash
@@ -350,13 +358,14 @@ node sync_platforms.mjs --add-url https://remoteyeah.com --name "RemoteYeah" --t
    ```bash
    npm run build-html && npm test
    ```
-   *Ejecuta 9 suites automáticas (`1` + `1b` a `9`) que validan:*
-   - Interfaz web en Español (Bolivia), menú **Información Útil**, página dedicada `/guia-legal-fiscal`, modo oscuro, encabezado rectangular móvil `#ai-target-job-pill`, panel `#ai-position-details` (5 bloques) y ejecución en sandbox VM del cambio en vivo de vistas e idiomas.
-   - Estado general con 86 plataformas y elegibilidad 100% remota Bolivia.
+   *Ejecuta 10 suites automáticas (`1` + `1b` a `10`) que validan:*
+   - Interfaz web en Español (Bolivia), menú **Información Útil**, página dedicada `/guia-legal-fiscal`, modo oscuro, encabezado rectangular móvil `#ai-target-job-pill`, pestañas ATS en `#view-platforms`, panel `#ai-position-details` (5 bloques) y ejecución en sandbox VM del cambio en vivo de vistas e idiomas.
+   - Estado general con 86+ plataformas y elegibilidad 100% remota Bolivia.
    - Evaluación simétrica de idiomas (`['es']`, `['en']`, `['es', 'en']`) y cobertura de las 25 categorías profesionales.
    - Reportes Markdown (`/api/results.md`), escaneo de URLs (`/api/platforms/scan-url`), enriquecimiento exclusivo con `@cf/meta/llama-3.3-70b-instruct-fp8-fast`, búsqueda híbrida (`/api/search/semantic`) y servidor MCP fail-closed (`/mcp`).
    - Favicon vectorial, `sitemap.xml` (incluyendo `/guia-legal-fiscal`), `robots.txt` y auditoría de cero datos privados y cero emojis.
    - Suite cognitiva `v6.0.0`: limpieza Zero-PII, sanitización de URLs, clasificador de vacantes fantasma, fusión RRF de 3 canales + cross-encoder `bge-reranker-base`, compilador `<bolivia_context>` de `BoliviaCareerBrainDO` y las 3 herramientas administrativas MCP.
+   - Suite autónoma `v6.1.0`: lista blanca SSRF de 7 proveedores ATS, parsers Ashby/GetOnBoard, puntuación con bonos de español y escasez multi-categoría, ciclo autónomo de promoción gestionado por Llama 3.3 + memoria en 3 capas y auto-saneamiento (`COOLDOWN`).
 
 3. **Servidor local de desarrollo:**
    ```bash
@@ -411,7 +420,7 @@ Empaqueta los datos semilla, el evaluador, las guías y el analizador determiní
 | :--- | :--- | :--- | :--- |
 | `GET` | `/` | Ninguno | Aplicación web completa en Español (Bolivia) con cápsulas `employer_reality`, frescura y alertas de re-publicación. |
 | `GET` | `/guia-legal-fiscal` (`/legal-fiscal`) | Ninguno | Página SSR dedicada **Guía Legal y Fiscal (EE. UU. y Bolivia)** ([`src/legal_tax_guide.js`](src/legal_tax_guide.js)). |
-| `GET` | `/api/state` | Ninguno | Estado `v6.0.0`, enlaces activos (`ai`, `d1`, `vectorize`, `intel_vectorize`, `career_brain`), 86 plataformas y vacantes con `employer_reality`. |
+| `GET` | `/api/state` | Ninguno | Estado `v6.1.0`, enlaces activos (`ai`, `d1`, `vectorize`, `intel_vectorize`, `career_brain`), telemetría `autonomous_discovery_enabled` / `direct_ats_platforms_count`, 86+ plataformas y vacantes con `employer_reality`. |
 | `POST` | `/api/evaluate` | JSON `{ filters: { languages, position_types, experience_levels, contract_types, strict_position_match } }` | Evalúa dinámicamente el catálogo frente a tus filtros y retorna resultados ordenados + Markdown. |
 | `POST` | `/api/scan` | JSON opcional `{ track, platform }` | Dispara un escaneo bajo demanda, registra `job_sightings`, enriquece e indexa nuevas vacantes. |
 | `POST` | `/api/platforms/scan-url` | JSON `{ url, name, type, track, filters }` | Sanitiza la URL, extrae vacantes elegibles para Bolivia, actualiza `job_sightings` y guarda la plataforma. |

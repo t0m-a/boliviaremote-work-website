@@ -21,10 +21,11 @@ import { indexOpportunitiesInVectorStore } from './vector_store.js';
 import { hybridSearchOpportunities } from './hybrid_search.js';
 import { getCareerBrainClient } from './career_brain_do.js';
 import { sanitizePlatformUrl } from './privacy_guard.js';
+import { listDiscoveredSources, runAutonomousDiscoveryCycle } from './ats_discovery.js';
 
 export const MCP_SERVER_INFO = {
   name: 'bolivia-remote-mcp-server',
-  version: '6.0.0',
+  version: '6.1.0',
   description: 'Isolated Model Context Protocol (MCP) server for finding, evaluating, and governing 100% remote job intelligence for Bolivia (UTC-4).'
 };
 
@@ -259,10 +260,19 @@ export const MCP_TOOLS = [
   {
     name: 'inspect_career_brain_status',
     description:
-      'Operator governance tool: inspect D1/in-memory job counts, ghost-job flags, BoliviaCareerBrainDO KG entity/edge/playbook counts, and open policy conflicts.',
+      'Operator governance tool: inspect D1/in-memory job counts, ghost-job flags, BoliviaCareerBrainDO KG entity/edge/playbook counts, open policy conflicts, and AI-managed autonomous ATS discovery telemetry (with optional background discovery cycle trigger).',
     inputSchema: {
       type: 'object',
-      properties: {}
+      properties: {
+        run_discovery_cycle: {
+          type: 'boolean',
+          description: 'Optional: trigger one bounded AI-managed background ATS discovery & promotion cycle (default: false).'
+        },
+        max_probes: {
+          type: 'number',
+          description: 'Optional max allowlisted ATS probes when run_discovery_cycle=true (default: 3, max: 6).'
+        }
+      }
     }
   }
 ];
@@ -606,8 +616,24 @@ async function executeMcpRpcObject(rpc, state, env, saveStateFn) {
 
       // Isolated Governance Tool 3: inspect_career_brain_status
       if (toolName === 'inspect_career_brain_status') {
+        let discoveryCycleResult = null;
+        if (args && args.run_discovery_cycle === true) {
+          discoveryCycleResult = await runAutonomousDiscoveryCycle(state, env, {
+            maxProbes: Number(args.max_probes) || 3,
+            rawScannedItems: (state.opportunities || []).slice(0, 80)
+          });
+          if (discoveryCycleResult.discovered_opportunities && discoveryCycleResult.discovered_opportunities.length > 0) {
+            state.opportunities = [...discoveryCycleResult.discovered_opportunities, ...state.opportunities];
+            await indexOpportunitiesInVectorStore(discoveryCycleResult.discovered_opportunities, env, 25);
+          }
+          if (typeof saveStateFn === 'function') {
+            await saveStateFn();
+          }
+        }
+
         const brain = getCareerBrainClient(env);
         const brainStatus = await brain.inspectStatus();
+        const discoveredRows = await listDiscoveredSources(env, { limit: 100 });
         const ghostHighCount = (state.opportunities || []).filter(o => o.ghost_risk === 'high').length;
         const ghostWatchCount = (state.opportunities || []).filter(o => o.ghost_risk === 'watch').length;
 
@@ -625,10 +651,11 @@ async function executeMcpRpcObject(rpc, state, env, saveStateFn) {
 
         const payload = {
           ok: true,
-          version: '6.0.0',
+          version: '6.1.0',
           air_gapped_isolation: true,
           state_opportunities_count: (state.opportunities || []).length,
           platforms_count: (state.platforms || []).length,
+          direct_ats_platforms_count: (state.platforms || []).filter(p => p && p.type === 'ats_json' && p.enabled !== false).length,
           ghost_job_flags: {
             high: ghostHighCount,
             watch: ghostWatchCount
@@ -637,6 +664,23 @@ async function executeMcpRpcObject(rpc, state, env, saveStateFn) {
           vectorize: {
             jobs_index_bound: Boolean(env && env.VECTORIZE),
             intel_index_bound: Boolean(env && env.INTEL_VECTORIZE)
+          },
+          autonomous_discovery: {
+            total_tracked: discoveredRows.length,
+            promoted_count: discoveredRows.filter(r => r.status === 'PROMOTED').length,
+            staged_count: discoveredRows.filter(r => r.status === 'STAGED').length,
+            cooldown_count: discoveredRows.filter(r => r.status === 'COOLDOWN').length,
+            last_cycle: discoveryCycleResult,
+            top_sources: discoveredRows.slice(0, 12).map(r => ({
+              candidate_id: r.candidate_id,
+              company: r.company_name,
+              provider: r.ats_provider,
+              status: r.status,
+              bolivia_eligible_jobs: r.bolivia_eligible_jobs,
+              spanish_jobs: r.spanish_jobs,
+              yield_score: r.yield_score,
+              ai_decision: r.ai_decision
+            }))
           },
           career_brain: brainStatus
         };

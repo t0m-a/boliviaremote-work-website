@@ -49,10 +49,14 @@ import {
   parseDateToEpochSeconds,
   computeGhostJobMetrics
 } from './privacy_guard.js';
+import {
+  runAutonomousDiscoveryCycle,
+  applyPromotedSourceHealth
+} from './ats_discovery.js';
 
 export { BoliviaCareerBrainDO };
 
-const CACHE_KEY_URL = 'https://bolivia-remote-scout.internal/state-v6.0';
+const CACHE_KEY_URL = 'https://bolivia-remote-scout.internal/state-v6.1';
 const EMOJI_STRIP_RE = /[\uD83C-\uDBFF\uDC00-\uDFFF\u2600-\u27BF]/g;
 const STALE_THRESHOLD_SECONDS = 30 * 86400; // 30 days unseen -> STALE
 
@@ -210,13 +214,79 @@ async function ensureD1Tables(db) {
     CREATE TABLE IF NOT EXISTS custom_platforms (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
+      category TEXT DEFAULT '',
       track TEXT DEFAULT 'Custom',
+      type TEXT DEFAULT 'auto',
+      enabled INTEGER DEFAULT 1,
+      domain TEXT DEFAULT '',
       url TEXT NOT NULL,
+      feed_url TEXT DEFAULT '',
       rss_url TEXT DEFAULT '',
+      ats_provider TEXT DEFAULT '',
+      ats_slug TEXT DEFAULT '',
+      discovered_by TEXT DEFAULT 'user',
+      active_bolivia_jobs INTEGER DEFAULT 0,
+      spanish_jobs INTEGER DEFAULT 0,
+      consecutive_zero_yield INTEGER DEFAULT 0,
+      last_yield_at TEXT DEFAULT '',
       contract_caveat TEXT DEFAULT 'fractional_or_fulltime',
       bolivia_avenue TEXT DEFAULT '',
       notes TEXT DEFAULT '',
       created_at TEXT
+    )
+  `).run();
+
+  const customPlatAlterCols = [
+    "ALTER TABLE custom_platforms ADD COLUMN category TEXT DEFAULT ''",
+    "ALTER TABLE custom_platforms ADD COLUMN type TEXT DEFAULT 'auto'",
+    'ALTER TABLE custom_platforms ADD COLUMN enabled INTEGER DEFAULT 1',
+    "ALTER TABLE custom_platforms ADD COLUMN domain TEXT DEFAULT ''",
+    "ALTER TABLE custom_platforms ADD COLUMN feed_url TEXT DEFAULT ''",
+    "ALTER TABLE custom_platforms ADD COLUMN ats_provider TEXT DEFAULT ''",
+    "ALTER TABLE custom_platforms ADD COLUMN ats_slug TEXT DEFAULT ''",
+    "ALTER TABLE custom_platforms ADD COLUMN discovered_by TEXT DEFAULT 'user'",
+    'ALTER TABLE custom_platforms ADD COLUMN active_bolivia_jobs INTEGER DEFAULT 0',
+    'ALTER TABLE custom_platforms ADD COLUMN spanish_jobs INTEGER DEFAULT 0',
+    'ALTER TABLE custom_platforms ADD COLUMN consecutive_zero_yield INTEGER DEFAULT 0',
+    "ALTER TABLE custom_platforms ADD COLUMN last_yield_at TEXT DEFAULT ''"
+  ];
+  for (const sql of customPlatAlterCols) {
+    try {
+      await db.prepare(sql).run();
+    } catch {
+      // Column already exists
+    }
+  }
+
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS discovered_sources (
+      candidate_id TEXT PRIMARY KEY,
+      company_slug TEXT NOT NULL,
+      company_name TEXT NOT NULL,
+      domain TEXT DEFAULT '',
+      ats_provider TEXT NOT NULL,
+      ats_slug TEXT NOT NULL,
+      board_url TEXT NOT NULL,
+      api_url TEXT NOT NULL,
+      discovered_from TEXT DEFAULT '',
+      status TEXT DEFAULT 'CANDIDATE',
+      total_jobs INTEGER DEFAULT 0,
+      bolivia_eligible_jobs INTEGER DEFAULT 0,
+      spanish_jobs INTEGER DEFAULT 0,
+      bolivia_yield_ratio REAL DEFAULT 0,
+      categories_csv TEXT DEFAULT '',
+      category_diversity INTEGER DEFAULT 0,
+      yield_score REAL DEFAULT 0,
+      ai_decision TEXT DEFAULT '',
+      ai_confidence REAL DEFAULT 0,
+      ai_rationale TEXT DEFAULT '',
+      sample_titles_json TEXT DEFAULT '[]',
+      consecutive_zero_yield INTEGER DEFAULT 0,
+      last_probed_epoch INTEGER DEFAULT 0,
+      cooldown_until_epoch INTEGER DEFAULT 0,
+      promoted_at TEXT DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
     )
   `).run();
 
@@ -454,9 +524,11 @@ function normalizeAndMergeState(rawState) {
   }
 
   const existingHashes = new Set();
-  const existingKeys = new Set();
-  const existingUrls = new Set();
+  const keyToIndex = new Map();
+  const urlToIndex = new Map();
   const mergedOpportunities = [];
+
+  const isDirectAtsOpp = (o) => Boolean(o && (o.source_type === 'direct_ats' || String(o.platform_id || '').startsWith('ats_')));
 
   const allCandidates = [...(rawState.opportunities || []), ...INITIAL_OPPORTUNITIES];
   for (const rawOpp of allCandidates) {
@@ -469,13 +541,35 @@ function normalizeAndMergeState(rawState) {
     const normUrl = opp.url.toLowerCase().replace(/\/+$/, '');
     const isGenericUrl = /^https?:\/\/[^/]+\/?(?:jobs\/?|careers\/?|work\/?|remote\/?|apply\/?)?$/i.test(normUrl);
 
-    if (existingHashes.has(opp.job_hash) || existingKeys.has(key) || (!isGenericUrl && normUrl && existingUrls.has(normUrl))) {
+    if (existingHashes.has(opp.job_hash)) {
       continue;
     }
+
+    // Direct-over-Aggregator precedence: a Direct ATS posting supersedes an aggregator duplicate for the same role
+    if (keyToIndex.has(key)) {
+      const existingIdx = keyToIndex.get(key);
+      const existingOpp = mergedOpportunities[existingIdx];
+      if (isDirectAtsOpp(opp) && !isDirectAtsOpp(existingOpp)) {
+        mergedOpportunities[existingIdx] = {
+          ...opp,
+          first_seen_epoch: Math.min(existingOpp.first_seen_epoch || opp.first_seen_epoch, opp.first_seen_epoch),
+          sighting_count: Math.max(existingOpp.sighting_count || 1, opp.sighting_count || 1)
+        };
+        existingHashes.add(opp.job_hash);
+        if (!isGenericUrl && normUrl) urlToIndex.set(normUrl, existingIdx);
+      }
+      continue;
+    }
+
+    if (!isGenericUrl && normUrl && urlToIndex.has(normUrl)) {
+      continue;
+    }
+
+    const newIdx = mergedOpportunities.length;
     existingHashes.add(opp.job_hash);
-    existingKeys.add(key);
+    keyToIndex.set(key, newIdx);
     if (!isGenericUrl && normUrl) {
-      existingUrls.add(normUrl);
+      urlToIndex.set(normUrl, newIdx);
     }
     mergedOpportunities.push(opp);
   }
@@ -630,21 +724,35 @@ async function saveState(state, env) {
 
       const seedIds = new Set(INITIAL_PLATFORMS.map(p => p.id));
       for (const p of MEMORY_STATE.platforms) {
-        if (p && p.id && (!seedIds.has(p.id) || String(p.id).startsWith('custom_'))) {
+        if (p && p.id && (!seedIds.has(p.id) || String(p.id).startsWith('custom_') || String(p.id).startsWith('ats_'))) {
           await env.DB.prepare(
             `INSERT OR REPLACE INTO custom_platforms (
-              id, name, track, url, rss_url, contract_caveat, bolivia_avenue, notes, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+              id, name, category, track, type, enabled, domain, url, feed_url, rss_url,
+              ats_provider, ats_slug, discovered_by, active_bolivia_jobs, spanish_jobs,
+              consecutive_zero_yield, last_yield_at, contract_caveat, bolivia_avenue, notes, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
           ).bind(
             p.id,
             p.name || p.id,
+            p.category || '',
             p.track || 'Custom',
+            p.type || 'auto',
+            p.enabled === false ? 0 : 1,
+            p.domain || '',
             sanitizePlatformUrl(p.url || ''),
+            sanitizePlatformUrl(p.feed_url || ''),
             sanitizePlatformUrl(p.rss_url || ''),
+            p.ats_provider || '',
+            p.ats_slug || '',
+            p.discovered_by || (String(p.id).startsWith('ats_') ? 'ai_autonomous' : 'user'),
+            Number(p.active_bolivia_jobs || 0),
+            Number(p.spanish_jobs || 0),
+            Number(p.consecutive_zero_yield || 0),
+            p.last_yield_at || '',
             p.contract_caveat || 'fractional_or_fulltime',
             p.bolivia_avenue || '',
             p.notes || '',
-            new Date().toISOString()
+            p.added_at || new Date().toISOString()
           ).run();
         }
       }
@@ -807,13 +915,15 @@ Sitemap: https://boliviaremote.work/sitemap.xml
     if (request.method === 'GET' && path === '/api/state') {
       const enrichedOpps = await attachEmployerReality(state.opportunities, env);
       return jsonResponse({
-        version: '6.0.0',
+        version: '6.1.0',
         schedule: '*/15 * * * *',
         ai_enabled: Boolean(env && env.AI),
         d1_enabled: Boolean(env && env.DB),
         vectorize_enabled: Boolean(env && env.VECTORIZE),
         intel_vectorize_enabled: Boolean(env && env.INTEL_VECTORIZE),
         career_brain_enabled: Boolean(env && env.CAREER_BRAIN),
+        autonomous_discovery_enabled: true,
+        direct_ats_platforms_count: state.platforms.filter(p => p && p.type === 'ats_json' && p.enabled !== false).length,
         qdrant_enabled: Boolean(env && env.QDRANT_URL),
         mcp_endpoint: '/mcp',
         mcp_auth_enabled: !(env && String(env.MCP_PUBLIC_ACCESS).toLowerCase() === 'true'),
@@ -1164,6 +1274,7 @@ Sitemap: https://boliviaremote.work/sitemap.xml
 
   /**
    * Cloudflare Cron Trigger Handler — Runs automatically every 15 minutes
+   * Includes self-healing promoted ATS health checks + AI-managed autonomous ATS discovery
    */
   async scheduled(event, env, ctx) {
     const task = (async () => {
@@ -1173,10 +1284,25 @@ Sitemap: https://boliviaremote.work/sitemap.xml
         maxFeeds: 8,
         maxDorkClusters: 2
       });
-      if (scanRes.new_opportunities.length > 0) {
-        const enrichedNew = await enrichBatchWithAI(scanRes.new_opportunities, env, 5);
+
+      // Self-healing health check for previously promoted direct ATS boards
+      await applyPromotedSourceHealth(state, scanRes.platform_yields || [], env);
+
+      // AI-managed background Autonomous Source Discovery & Promotion (2-3 allowlisted ATS probes per cycle)
+      const discoveryRes = await runAutonomousDiscoveryCycle(state, env, {
+        maxProbes: 3,
+        rawScannedItems: scanRes.raw_scanned_items || []
+      }).catch(() => ({ discovered_opportunities: [] }));
+
+      const combinedNew = [
+        ...(discoveryRes.discovered_opportunities || []),
+        ...(scanRes.new_opportunities || [])
+      ];
+
+      if (combinedNew.length > 0) {
+        const enrichedNew = await enrichBatchWithAI(combinedNew, env, 5);
         const withSightings = await recordJobSightings(enrichedNew, env);
-        await indexOpportunitiesInVectorStore(withSightings, env, 15);
+        await indexOpportunitiesInVectorStore(withSightings, env, 25);
         state.opportunities = [...withSightings, ...state.opportunities];
       }
       await expireStaleOpportunities(env);
