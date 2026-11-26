@@ -7,7 +7,7 @@
 export const LEGAL_TAX_GUIDE_HTML = `
       <div class="manual-container">
         <article class="manual-card">
-          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:14px;border-bottom:1px solid #f1f5f9;padding-bottom:12px;">
+          <div class="doc-view-header">
             <h3 id="legal-h-intro" style="margin:0;">Guía Legal y Fiscal: Contratistas Remotos desde Bolivia (Clientes en EE. UU.)</h3>
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
               <button type="button" class="btn-action btn-primary" onclick="switchMainView('results')"><span id="legal-btn-back">Volver a la Página Principal</span></button>

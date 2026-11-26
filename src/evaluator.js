@@ -360,6 +360,24 @@ export function checkBoliviaRemoteEligibility(item) {
   const titleLow = String(item.title || '').toLowerCase();
   const descLow = String(item.description || '').toLowerCase();
   const tagsLow = String(item.tags || '').toLowerCase();
+
+  if (!checkBoliviaRemoteEligibility._cache && typeof WeakMap === 'function') {
+    checkBoliviaRemoteEligibility._cache = new WeakMap();
+  }
+  const cacheSig = `${titleLow}\0${locLow}\0${descLow}\0${tagsLow}`;
+  if (item && typeof item === 'object' && checkBoliviaRemoteEligibility._cache) {
+    const cached = checkBoliviaRemoteEligibility._cache.get(item);
+    if (cached && cached.sig === cacheSig) {
+      return cached.res;
+    }
+  }
+  const cacheReturn = (res) => {
+    if (item && typeof item === 'object' && checkBoliviaRemoteEligibility._cache) {
+      checkBoliviaRemoteEligibility._cache.set(item, { sig: cacheSig, res });
+    }
+    return res;
+  };
+
   const blob = `${titleLow} ${locLow} ${descLow} ${tagsLow}`;
 
   const hardExclusions = [
@@ -385,7 +403,7 @@ export function checkBoliviaRemoteEligibility(item) {
 
   for (const rule of hardExclusions) {
     if (rule.re.test(titleLow) || rule.re.test(locLow) || rule.re.test(descLow)) {
-      return {
+      return cacheReturn({
         eligible: false,
         score: 0,
         tier: 'restricted',
@@ -393,7 +411,7 @@ export function checkBoliviaRemoteEligibility(item) {
         badge_en: 'Geo-Restricted',
         reason_es: rule.es,
         reason_en: rule.en
-      };
+      });
     }
   }
 
@@ -402,7 +420,7 @@ export function checkBoliviaRemoteEligibility(item) {
     'canada', 'mexico', 'méxico', 'spain', 'france', 'australia', 'germany', 'india'
   ]);
   if (strictBlockedLocations.has(locLow)) {
-    return {
+    return cacheReturn({
       eligible: false,
       score: 0,
       tier: 'restricted',
@@ -410,7 +428,7 @@ export function checkBoliviaRemoteEligibility(item) {
       badge_en: `${loc} Only`,
       reason_es: `Ubicación restringida a ${loc} (no disponible desde Bolivia).`,
       reason_en: `Location restricted to ${loc} (not available from Bolivia).`
-    };
+    });
   }
 
   const hasInclusiveRegion = /\b(?:bolivia|latam|latin america|south america|sudam[eé]rica|latinoam[eé]rica|americas|all americas|worldwide|anywhere|global|international)\b/i.test(locLow);
@@ -418,7 +436,7 @@ export function checkBoliviaRemoteEligibility(item) {
 
   if (hasForeignCountryList && !hasInclusiveRegion) {
     if (locLow.includes('argentina') || locLow.includes('brazil') || locLow.includes('colombia') || locLow.includes('chile') || locLow.includes('peru')) {
-      return {
+      return cacheReturn({
         eligible: true,
         score: 21,
         tier: 'worldwide',
@@ -426,9 +444,9 @@ export function checkBoliviaRemoteEligibility(item) {
         badge_en: 'Multi-Country / South America',
         reason_es: 'Abierto a múltiples países incluyendo Sudamérica / contratistas internacionales.',
         reason_en: 'Open across multiple countries including South America / international contractors.'
-      };
+      });
     }
-    return {
+    return cacheReturn({
       eligible: false,
       score: 0,
       tier: 'restricted',
@@ -436,13 +454,13 @@ export function checkBoliviaRemoteEligibility(item) {
       badge_en: 'Region Restricted',
       reason_es: `Ubicación limitada a países específicos fuera de Bolivia (${loc}).`,
       reason_en: `Location restricted to specific countries outside Bolivia (${loc}).`
-    };
+    });
   }
 
   if (
     /\b(?:bolivia|latam|latin america|south america|americas|andean|utc-4|est|edt|w-8ben|hispano|latinoam[eé]rica|sudam[eé]rica)\b/i.test(blob)
   ) {
-    return {
+    return cacheReturn({
       eligible: true,
       score: 25,
       tier: 'bolivia_latam',
@@ -450,14 +468,14 @@ export function checkBoliviaRemoteEligibility(item) {
       badge_en: 'Ideal from Bolivia / LATAM (UTC-4)',
       reason_es: '100% remoto con alineación directa para Bolivia, Latinoamérica o zona horaria UTC-4.',
       reason_en: '100% remote with direct eligibility for Bolivia, LATAM, or UTC-4 timezone.'
-    };
+    });
   }
 
   if (
     /\b(?:worldwide|anywhere|global|international|remote)\b/i.test(locLow) ||
     /\b(?:work from anywhere|anywhere in the world|remote worldwide|global remote|100% remoto|remoto)\b/i.test(blob)
   ) {
-    return {
+    return cacheReturn({
       eligible: true,
       score: 23,
       tier: 'worldwide',
@@ -465,10 +483,10 @@ export function checkBoliviaRemoteEligibility(item) {
       badge_en: '100% Global Remote (Bolivia Eligible)',
       reason_es: 'Posición 100% remota global ("Work From Anywhere"), apta para postular desde Bolivia.',
       reason_en: '100% global remote ("Work From Anywhere") position, open to applicants from Bolivia.'
-    };
+    });
   }
 
-  return {
+  return cacheReturn({
     eligible: true,
     score: 19,
     tier: 'timezone_overlap',
@@ -476,7 +494,7 @@ export function checkBoliviaRemoteEligibility(item) {
     badge_en: 'International Remote (Timezone Overlap)',
     reason_es: `100% remoto internacional con requisito de traslape horario (${loc}).`,
     reason_en: `100% international remote with timezone overlap requirement (${loc}).`
-  };
+  });
 }
 
 /**
@@ -491,6 +509,18 @@ export function detectOfferAttributes(item) {
   const caveat = String(item.contract_caveat || 'fractional_or_fulltime');
 
   const blob = `${title} ${desc} ${tags} ${loc} ${track}`.toLowerCase();
+
+  if (!detectOfferAttributes._cache && typeof WeakMap === 'function') {
+    detectOfferAttributes._cache = new WeakMap();
+  }
+  const cacheSig = `${blob}\0${caveat}`;
+  if (item && typeof item === 'object' && detectOfferAttributes._cache) {
+    const cached = detectOfferAttributes._cache.get(item);
+    if (cached && cached.sig === cacheSig) {
+      return cached.res;
+    }
+  }
+
   const textSample = `${title} ${desc}`.toLowerCase();
 
   // 1. Language Detection
@@ -569,18 +599,32 @@ export function detectOfferAttributes(item) {
     experience = 'entry';
   }
 
-  // 4. Position Categories
+  // 4. Position Categories (compile keyword regexes once across calls for zero-stall recomputation)
+  if (!detectOfferAttributes._compiledCategories || detectOfferAttributes._compiledCategories.length !== POSITION_CATEGORIES.length) {
+    detectOfferAttributes._compiledCategories = POSITION_CATEGORIES.map(cat => ({
+      id: cat.id,
+      label_es: cat.label_es,
+      label_en: cat.label_en,
+      regexes: cat.keywords.map(kw => {
+        const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return {
+          kw,
+          kwLow: kw.toLowerCase(),
+          re: new RegExp(`(?:^|[^a-z0-9])${escaped}(?:$|[^a-z0-9])`, 'i')
+        };
+      })
+    }));
+  }
+
   const matchedCategories = [];
   const matchedKeywords = new Set();
 
-  for (const cat of POSITION_CATEGORIES) {
+  for (const cat of detectOfferAttributes._compiledCategories) {
     let catHits = 0;
-    for (const kw of cat.keywords) {
-      const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const re = new RegExp(`(?:^|[^a-z0-9])${escaped}(?:$|[^a-z0-9])`, 'i');
-      if (re.test(blob)) {
+    for (const entry of cat.regexes) {
+      if (blob.indexOf(entry.kwLow) !== -1 && entry.re.test(blob)) {
         catHits++;
-        matchedKeywords.add(kw);
+        matchedKeywords.add(entry.kw);
       }
     }
     if (catHits > 0) {
@@ -590,7 +634,7 @@ export function detectOfferAttributes(item) {
 
   matchedCategories.sort((a, b) => b.hits - a.hits);
 
-  return {
+  const result = {
     languages: Array.from(langs),
     primaryLanguage,
     contracts: Array.from(contracts),
@@ -598,6 +642,10 @@ export function detectOfferAttributes(item) {
     categories: matchedCategories.map(c => c.id),
     matchedKeywords: Array.from(matchedKeywords).slice(0, 12)
   };
+  if (item && typeof item === 'object' && detectOfferAttributes._cache) {
+    detectOfferAttributes._cache.set(item, { sig: cacheSig, res: result });
+  }
+  return result;
 }
 
 /**
