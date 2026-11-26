@@ -1,6 +1,6 @@
 {
   "name": "boliviaremote-work-website",
-  "version": "6.1.0",
+  "version": "6.2.0",
   "private": true,
   "type": "module",
   "description": "Public self-contained Cloudflare Worker to filter, scan, and evaluate 100% remote job opportunities from Bolivia (Spanish Bolivia first + English)",

@@ -42,6 +42,12 @@ import {
   getCareerBrainClient
 } from './career_brain_do.js';
 import {
+  computeMarketPulseMetrics,
+  buildDeterministicPulseNarrative,
+  extractEmployerGeoSnapshots,
+  runNightlySleepCycle
+} from './nightly_sleep.js';
+import {
   sanitizePlatformUrl,
   normalizeCompanySlug,
   parseDateToEpochSeconds,
@@ -808,10 +814,26 @@ export default {
 
     const state = await loadState(env);
 
-    // 1. Main Web Interface (Spanish Bolivia first, with Employer Reality & Ghost-Job badges)
+    // Helper: resolve latest nightly Market Pulse from BoliviaCareerBrainDO (or compute deterministic fallback)
+    const resolveMarketPulse = async () => {
+      try {
+        const brain = getCareerBrainClient(env);
+        const stored = await brain.getLatestMarketPulse();
+        if (stored && stored.pulse_date) return stored;
+      } catch {
+        // Fall through to deterministic live calculation
+      }
+      const metrics = computeMarketPulseMetrics(state.opportunities, state.platforms);
+      return { ...metrics, ...buildDeterministicPulseNarrative(metrics) };
+    };
+
+    // 1. Main Web Interface (Spanish Bolivia first, with Employer Reality, Ghost-Job badges & Market Pulse)
     if (request.method === 'GET' && (path === '/' || path === '/index.html')) {
-      const enrichedOpps = await attachEmployerReality(state.opportunities, env);
-      const html = renderAppHtml({ ...state, opportunities: enrichedOpps });
+      const [enrichedOpps, marketPulse] = await Promise.all([
+        attachEmployerReality(state.opportunities, env),
+        resolveMarketPulse()
+      ]);
+      const html = renderAppHtml({ ...state, opportunities: enrichedOpps, marketPulse });
       return new Response(html, {
         status: 200,
         headers: {
@@ -823,8 +845,27 @@ export default {
 
     // 1a. Dedicated Spanish Legal & Tax Guide Page (Bolivia Remote Independent Contractors)
     if (request.method === 'GET' && (path === '/guia-legal-fiscal' || path === '/guia-legal-fiscal/' || path === '/legal-fiscal' || path === '/legal-fiscal/')) {
-      const enrichedOpps = await attachEmployerReality(state.opportunities, env);
-      const html = renderAppHtml({ ...state, opportunities: enrichedOpps }, { initialView: 'legal-tax' });
+      const [enrichedOpps, marketPulse] = await Promise.all([
+        attachEmployerReality(state.opportunities, env),
+        resolveMarketPulse()
+      ]);
+      const html = renderAppHtml({ ...state, opportunities: enrichedOpps, marketPulse }, { initialView: 'legal-tax' });
+      return new Response(html, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0'
+        }
+      });
+    }
+
+    // 1a2. Dedicated Market Pulse Page ("Pulso del Mercado Remoto desde Bolivia")
+    if (request.method === 'GET' && (path === '/pulso' || path === '/pulso/')) {
+      const [enrichedOpps, marketPulse] = await Promise.all([
+        attachEmployerReality(state.opportunities, env),
+        resolveMarketPulse()
+      ]);
+      const html = renderAppHtml({ ...state, opportunities: enrichedOpps, marketPulse }, { initialView: 'pulse' });
       return new Response(html, {
         status: 200,
         headers: {
@@ -870,6 +911,14 @@ export default {
     <priority>0.9</priority>
   </url>
   <url>
+    <loc>https://boliviaremote.work/pulso</loc>
+    <xhtml:link rel="alternate" hreflang="es-BO" href="https://boliviaremote.work/pulso" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://boliviaremote.work/pulso" />
+    <lastmod>${lastModDate}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
     <loc>https://boliviaremote.work/api/results.md?lang=es</loc>
     <lastmod>${lastModDate}</lastmod>
     <changefreq>hourly</changefreq>
@@ -911,11 +960,15 @@ Sitemap: https://boliviaremote.work/sitemap.xml
 
     // 2. Get Current State API
     if (request.method === 'GET' && path === '/api/state') {
-      const enrichedOpps = await attachEmployerReality(state.opportunities, env);
+      const [enrichedOpps, marketPulse] = await Promise.all([
+        attachEmployerReality(state.opportunities, env),
+        resolveMarketPulse()
+      ]);
       const activePlatforms = state.platforms.filter(p => p && p.enabled !== false);
       return jsonResponse({
-        version: '6.1.0',
+        version: '6.2.0',
         schedule: '*/15 * * * *',
+        nightly_sleep_schedule: '0 7 * * *',
         ai_enabled: Boolean(env && env.AI),
         d1_enabled: Boolean(env && env.DB),
         vectorize_enabled: Boolean(env && env.VECTORIZE),
@@ -929,8 +982,20 @@ Sitemap: https://boliviaremote.work/sitemap.xml
         lastScanAt: state.lastScanAt,
         platforms_count: activePlatforms.length,
         opportunities_count: enrichedOpps.length,
+        market_pulse: marketPulse,
         platforms: activePlatforms,
         opportunities: enrichedOpps
+      });
+    }
+
+    // 2b. Read-Only Market Pulse API ("Pulso del Mercado Remoto desde Bolivia")
+    if (request.method === 'GET' && path === '/api/pulse') {
+      const marketPulse = await resolveMarketPulse();
+      return jsonResponse({
+        ok: true,
+        version: '6.2.0',
+        schedule: '0 7 * * *',
+        pulse: marketPulse
       });
     }
 
@@ -1117,12 +1182,22 @@ Sitemap: https://boliviaremote.work/sitemap.xml
   },
 
   /**
-   * Cloudflare Cron Trigger Handler — Runs automatically every 15 minutes
-   * Includes self-healing promoted ATS health checks + AI-managed autonomous ATS discovery
+   * Cloudflare Cron Trigger Handler:
+   *   - Every 15 minutes: Ingestion scan, self-healing ATS checks, autonomous ATS discovery & geo-observation logging
+   *   - 07:00 UTC (03:00 AM America/La_Paz): Nightly Sleep Cycle (Market Pulse Synthesis + 30d/60d Policy Watchdog)
    */
   async scheduled(event, env, ctx) {
     const task = (async () => {
       const state = await loadState(env);
+
+      // Nightly Sleep Cycle at 03:00 AM America/La_Paz (07:00 UTC)
+      if (event && event.cron === '0 7 * * *') {
+        await expireStaleOpportunities(env);
+        await runNightlySleepCycle(state, env);
+        await saveState(state, env);
+        return;
+      }
+
       const existingHashes = new Set(state.opportunities.map(o => o.job_hash));
       const scanRes = await runIngestionScan(state.platforms, existingHashes, {
         maxFeeds: 8,
@@ -1131,6 +1206,18 @@ Sitemap: https://boliviaremote.work/sitemap.xml
 
       // Self-healing health check for previously promoted direct ATS boards
       await applyPromotedSourceHealth(state, scanRes.platform_yields || [], env);
+
+      // Record per-employer geo-eligibility snapshots into BoliviaCareerBrainDO for 30d/60d Watchdog
+      const geoSnapshots = extractEmployerGeoSnapshots(
+        scanRes.raw_scanned_items || [],
+        scanRes.platform_yields || []
+      );
+      if (geoSnapshots.length > 0) {
+        const brain = getCareerBrainClient(env);
+        if (typeof brain.recordEmployerGeoObservations === 'function') {
+          await brain.recordEmployerGeoObservations(geoSnapshots).catch(() => {});
+        }
+      }
 
       // AI-managed background Autonomous Source Discovery & Promotion (2-3 allowlisted ATS probes per cycle)
       const discoveryRes = await runAutonomousDiscoveryCycle(state, env, {

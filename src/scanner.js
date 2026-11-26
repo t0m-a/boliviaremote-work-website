@@ -654,7 +654,7 @@ export async function runIngestionScan(platforms, existingHashesSet, options = {
     try {
       const resp = await fetchWithTimeout(fetchUrl, 8000);
       if (!resp.ok || !resp.text) {
-        platformYields.push({ platform_id: p.id, ats_provider: p.ats_provider || '', http_status: resp.status || 0, total: 0, eligible: 0 });
+        platformYields.push({ platform_id: p.id, company_name: p.name || '', ats_provider: p.ats_provider || '', http_status: resp.status || 0, total: 0, eligible: 0 });
         return [];
       }
       scannedPlatforms.push(p.name);
@@ -662,10 +662,10 @@ export async function runIngestionScan(platforms, existingHashesSet, options = {
         ? parseAtsResponse(p.ats_provider, resp.text, p)
         : (p.type === 'json_api' ? parseJsonFeed(resp.text, p) : parseRssFeed(resp.text, p));
       const eligibleCount = parsed.filter(item => checkBoliviaRemoteEligibility(item).eligible).length;
-      platformYields.push({ platform_id: p.id, ats_provider: p.ats_provider || '', http_status: resp.status, total: parsed.length, eligible: eligibleCount });
+      platformYields.push({ platform_id: p.id, company_name: p.name || '', ats_provider: p.ats_provider || '', http_status: resp.status, total: parsed.length, eligible: eligibleCount });
       return parsed;
     } catch {
-      platformYields.push({ platform_id: p.id, ats_provider: p.ats_provider || '', http_status: 0, total: 0, eligible: 0 });
+      platformYields.push({ platform_id: p.id, company_name: p.name || '', ats_provider: p.ats_provider || '', http_status: 0, total: 0, eligible: 0 });
       return [];
     }
   });

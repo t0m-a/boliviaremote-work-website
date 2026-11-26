@@ -18,30 +18,41 @@ import {
 } from './evaluator.js';
 import { FAVICON_DATA_URI } from './favicon.js';
 import { LEGAL_TAX_GUIDE_HTML } from './legal_tax_guide.js';
+import { computeMarketPulseMetrics, buildDeterministicPulseNarrative } from './nightly_sleep.js';
 
 export function renderAppHtml(initialState, options = {}) {
   const {
     opportunities = [],
     platforms = [],
-    lastScanAt = new Date().toISOString()
+    lastScanAt = new Date().toISOString(),
+    marketPulse: providedMarketPulse = null
   } = initialState;
-  const initialView = options && options.initialView === 'legal-tax' ? 'legal-tax' : 'results';
+  const rawInitView = options && options.initialView ? String(options.initialView) : 'results';
+  const initialView = rawInitView === 'legal-tax' ? 'legal-tax' : (rawInitView === 'pulse' ? 'pulse' : 'results');
   const isInitialLegalTax = initialView === 'legal-tax';
+  const isInitialPulse = initialView === 'pulse';
   const pageTitle = isInitialLegalTax
     ? 'Guía Legal y Fiscal (EE. UU. y Bolivia) — Bolivia Remote Work'
-    : 'Empleos Remotos desde Bolivia — Buscador y Evaluador en Vivo';
+    : (isInitialPulse
+      ? 'Pulso del Mercado Remoto desde Bolivia — Bolivia Remote Work'
+      : 'Empleos Remotos desde Bolivia — Buscador y Evaluador en Vivo');
   const pageDescription = isInitialLegalTax
     ? 'Guía legal y fiscal actualizada para contratistas independientes y trabajadores remotos en Bolivia que prestan servicios a empresas de Estados Unidos (W-8BEN, IRC 862, SIN/SIAT, RC-IVA y visa B-1).'
-    : 'Herramienta pública para filtrar y evaluar ofertas de trabajo remotas elegibles desde Bolivia según tus idiomas, área profesional, experiencia y tipo de contrato.';
+    : (isInitialPulse
+      ? 'Síntesis nocturna del mercado laboral remoto elegible desde Bolivia: categorías más demandadas en español e inglés, tarifas USD observadas y empresas directas ATS verificadas.'
+      : 'Herramienta pública para filtrar y evaluar ofertas de trabajo remotas elegibles desde Bolivia según tus idiomas, área profesional, experiencia y tipo de contrato.');
 
   const eligibleOpportunities = (opportunities || []).filter(o => checkBoliviaRemoteEligibility(o).eligible);
   const activePlatforms = (platforms || []).filter(p => p && p.enabled !== false);
   const activePlatformsCount = activePlatforms.length;
+  const fallbackMetrics = providedMarketPulse ? null : computeMarketPulseMetrics(eligibleOpportunities, platforms);
+  const marketPulse = providedMarketPulse || { ...fallbackMetrics, ...buildDeterministicPulseNarrative(fallbackMetrics) };
 
   const clientPayload = JSON.stringify({
     opportunities: eligibleOpportunities,
     platforms,
     lastScanAt,
+    marketPulse,
     initialView,
     POSITION_CATEGORIES,
     LANGUAGE_OPTIONS,
@@ -441,6 +452,7 @@ export function renderAppHtml(initialState, options = {}) {
     body.sidebar-collapsed #view-legal-tax,
     body.sidebar-collapsed #view-report,
     body.sidebar-collapsed #view-platforms,
+    body.sidebar-collapsed #view-pulse,
     body.sidebar-collapsed .manual-container,
     body.sidebar-collapsed .manual-card,
     body.sidebar-collapsed .report-box,
@@ -1240,6 +1252,124 @@ export function renderAppHtml(initialState, options = {}) {
       background: rgba(91, 33, 182, 0.08);
       color: #5b21b6;
       border-color: rgba(91, 33, 182, 0.25);
+    }
+    /* MARKET PULSE VIEW (SWISS MINIMALIST) */
+    .pulse-summary-card {
+      background: var(--bg-well);
+      border: 1px solid var(--border-hairline);
+      border-left: 3px solid var(--accent-primary);
+      border-radius: 10px;
+      padding: 16px 18px;
+      margin-bottom: 16px;
+    }
+    .pulse-summary-card h4 {
+      margin: 0 0 8px 0;
+      font-family: var(--font-head);
+      font-size: 1.04em;
+      color: var(--text-main);
+    }
+    .pulse-summary-card p {
+      margin: 0 0 10px 0;
+      font-size: 0.92em;
+      line-height: 1.6;
+      color: var(--text-secondary);
+    }
+    .pulse-highlights {
+      margin: 0;
+      padding-left: 18px;
+      font-size: 0.88em;
+      color: var(--text-secondary);
+      line-height: 1.55;
+    }
+    .pulse-highlights li {
+      margin-bottom: 4px;
+    }
+    .pulse-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .pulse-kpi {
+      background: var(--bg-card);
+      border: 1px solid var(--border-hairline);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .pulse-kpi-val {
+      font-family: var(--font-head);
+      font-size: 1.45em;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 4px;
+    }
+    .pulse-kpi-lbl {
+      font-size: 0.82em;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+    .pulse-split-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    .pulse-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-hairline);
+      border-radius: 10px;
+      padding: 16px;
+    }
+    .pulse-panel h4 {
+      margin: 0 0 12px 0;
+      font-family: var(--font-head);
+      font-size: 0.96em;
+      color: var(--text-main);
+    }
+    .pulse-bar-row {
+      margin-bottom: 10px;
+    }
+    .pulse-bar-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 0.84em;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+    .pulse-bar-track {
+      width: 100%;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--bg-well);
+      overflow: hidden;
+    }
+    .pulse-bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: var(--accent-primary);
+    }
+    .pulse-companies-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .pulse-company-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 8px;
+      font-size: 0.82em;
+      font-weight: 500;
+      background: var(--bg-well);
+      border: 1px solid var(--border-control);
+      color: var(--text-main);
+      text-decoration: none;
+    }
+    .pulse-company-pill:hover {
+      border-color: var(--border-strong);
+      background: var(--bg-well-hover);
     }
     .opp-tag-group {
       display: inline-flex;
@@ -2646,7 +2776,7 @@ export function renderAppHtml(initialState, options = {}) {
     </section>
 
     <!-- VIEW 1: LIVE RESULTS -->
-    <section id="view-results"${isInitialLegalTax ? ' style="display:none;"' : ''}>
+    <section id="view-results"${(isInitialLegalTax || isInitialPulse) ? ' style="display:none;"' : ''}>
       <div id="semantic-status-bar" class="scan-alert success" style="display:none;margin-top:0;margin-bottom:14px;"></div>
       <div id="resultsCardsContainer"></div>
     </section>
@@ -2870,6 +3000,20 @@ ${LEGAL_TAX_GUIDE_HTML}
       </div>
     </section>
 
+    <!-- VIEW 5: NIGHTLY MARKET PULSE SYNTHESIS ("Pulso del Mercado Remoto desde Bolivia") -->
+    <section id="view-pulse"${isInitialPulse ? '' : ' style="display:none;"'}>
+      <div class="panel-card">
+        <div class="panel-header">
+          <div>
+            <h3 class="panel-title"><span id="lbl-pulse-heading">Pulso del Mercado Remoto desde Bolivia</span></h3>
+            <span class="meta-hint-sub" id="lbl-pulse-sub">Síntesis nocturna automática · 03:00 AM Bolivia (UTC-4)</span>
+          </div>
+          <button type="button" class="btn-action btn-primary" onclick="switchMainView('results')"><span id="pulse-btn-back">Volver a la Página Principal</span></button>
+        </div>
+        <div id="pulseViewContainer"></div>
+      </div>
+    </section>
+
     <footer id="footer-text">
       <div class="footer-status-pills">
         <span class="banner-pill" id="pill-schedule">Actualización automática cada 15 min</span>
@@ -2877,6 +3021,9 @@ ${LEGAL_TAX_GUIDE_HTML}
         <span class="banner-pill"><span id="lbl-monitored-count">Plataformas activas:</span> <span id="val-platforms-count">${activePlatformsCount}</span></span>
         <button type="button" class="banner-pill footer-pill-btn" id="nav-platforms" onclick="switchMainView('platforms')">
           <span id="nav-lbl-platforms">Plataformas Monitoreadas</span>
+        </button>
+        <button type="button" class="banner-pill footer-pill-btn${isInitialPulse ? ' active-nav' : ''}" id="nav-pulse" onclick="switchMainView('pulse')">
+          <span id="nav-lbl-pulse">Pulso del Mercado</span>
         </button>
         <span id="footer-credit" class="banner-pill footer-credit">Designed, engineered and hosted by <a href="mailto:contact@tsimon.me">Thomas Simon</a> · <a href="https://tsimon.me" title="Thomas Mathieu Simon  · Cloud Systems Architect · NOC &amp; AI Engineer" target="_blank" rel="noopener noreferrer">tsimon.me</a></span>
       </div>
@@ -2894,6 +3041,7 @@ ${LEGAL_TAX_GUIDE_HTML}
     let opportunitiesState = PAYLOAD.opportunities || [];
     let platformsState = PAYLOAD.platforms || [];
     let lastScanAtState = PAYLOAD.lastScanAt || new Date().toISOString();
+    let marketPulseState = PAYLOAD.marketPulse || null;
 
     const POSITION_CATEGORIES = PAYLOAD.POSITION_CATEGORIES;
     const LANGUAGE_OPTIONS = PAYLOAD.LANGUAGE_OPTIONS;
@@ -4120,14 +4268,16 @@ ${LEGAL_TAX_GUIDE_HTML}
       const vLegalTax = document.getElementById('view-legal-tax');
       const vReport = document.getElementById('view-report');
       const vPlatforms = document.getElementById('view-platforms');
+      const vPulse = document.getElementById('view-pulse');
 
       if (vResults) vResults.style.display = viewName === 'results' ? '' : 'none';
       if (vManual) vManual.style.display = viewName === 'manual' ? '' : 'none';
       if (vLegalTax) vLegalTax.style.display = viewName === 'legal-tax' ? '' : 'none';
       if (vReport) vReport.style.display = viewName === 'report' ? '' : 'none';
       if (vPlatforms) vPlatforms.style.display = viewName === 'platforms' ? '' : 'none';
+      if (vPulse) vPulse.style.display = viewName === 'pulse' ? '' : 'none';
 
-      const isDedicatedPage = viewName === 'manual' || viewName === 'legal-tax' || viewName === 'platforms';
+      const isDedicatedPage = viewName === 'manual' || viewName === 'legal-tax' || viewName === 'platforms' || viewName === 'pulse';
       document.body.classList.toggle('view-manual-active', isDedicatedPage);
 
       const banner = document.querySelector('.top-banner');
@@ -4147,6 +4297,8 @@ ${LEGAL_TAX_GUIDE_HTML}
       const t = I18N[userFilters.ui_lang] || I18N.es;
       if (viewName === 'legal-tax') {
         document.title = 'Guía Legal y Fiscal (EE. UU. y Bolivia) — Bolivia Remote Work';
+      } else if (viewName === 'pulse') {
+        document.title = 'Pulso del Mercado Remoto desde Bolivia — Bolivia Remote Work';
       } else {
         document.title = t.pageTitle;
       }
@@ -4155,9 +4307,12 @@ ${LEGAL_TAX_GUIDE_HTML}
         try {
           const curPath = String(window.location.pathname || '').toLowerCase();
           const isLegalPath = curPath === '/guia-legal-fiscal' || curPath === '/guia-legal-fiscal/' || curPath === '/legal-fiscal' || curPath === '/legal-fiscal/';
+          const isPulsePath = curPath === '/pulso' || curPath === '/pulso/';
           if (viewName === 'legal-tax' && curPath !== '/guia-legal-fiscal') {
             window.history.replaceState({ view: 'legal-tax' }, '', '/guia-legal-fiscal');
-          } else if (viewName === 'results' && isLegalPath) {
+          } else if (viewName === 'pulse' && curPath !== '/pulso') {
+            window.history.replaceState({ view: 'pulse' }, '', '/pulso');
+          } else if (viewName === 'results' && (isLegalPath || isPulsePath)) {
             window.history.replaceState({ view: 'results' }, '', '/');
           }
         } catch (e) {}
@@ -4174,6 +4329,8 @@ ${LEGAL_TAX_GUIDE_HTML}
         initCardScrollReveal(vLegalTax);
       } else if (viewName === 'platforms' && vPlatforms) {
         initCardScrollReveal(vPlatforms);
+      } else if (viewName === 'pulse' && vPulse) {
+        renderMarketPulseView();
       } else if (viewName === 'report') {
         ensureReportMarkdownUpdated();
       }
@@ -4193,13 +4350,89 @@ ${LEGAL_TAX_GUIDE_HTML}
       const navManual = document.getElementById('nav-manual');
       const navLegalTax = document.getElementById('nav-legal-tax');
       const navPlatforms = document.getElementById('nav-platforms');
+      const navPulse = document.getElementById('nav-pulse');
 
       if (navResults) navResults.classList.toggle('active-nav', viewName === 'results');
       if (navManual) navManual.classList.toggle('active-nav', viewName === 'manual');
       if (navLegalTax) navLegalTax.classList.toggle('active-nav', viewName === 'legal-tax');
       if (navPlatforms) navPlatforms.classList.toggle('active-nav', viewName === 'platforms');
+      if (navPulse) navPulse.classList.toggle('active-nav', viewName === 'pulse');
     }
     window.switchMainView = switchMainView;
+
+    function renderMarketPulseView() {
+      const container = document.getElementById('pulseViewContainer');
+      const subEl = document.getElementById('lbl-pulse-sub');
+      if (!container) return;
+      const p = marketPulseState;
+      if (!p) {
+        container.innerHTML = '<div class="pulse-summary-card"><p style="margin:0;">El primer pulso nocturno se sintetizará automáticamente a las 03:00 AM hora de Bolivia (UTC-4).</p></div>';
+        return;
+      }
+
+      if (subEl) {
+        subEl.textContent = (p.schedule_label_es || 'Síntesis nocturna · 03:00 AM Bolivia (UTC-4)') + (p.pulse_date ? ' · ' + p.pulse_date : '');
+      }
+
+      const ls = p.language_split || { es_count: 0, en_count: 0, es_share_pct: 0, en_share_pct: 0 };
+      const comp = p.compensation_usd_monthly || {};
+      const compVal = comp.sufficient_sample
+        ? ('$' + Number(comp.median_monthly_usd || 0).toLocaleString('en-US') + '/mes')
+        : 'Muestra insuficiente';
+      const compSub = comp.sufficient_sample
+        ? ('Mediana USD (IQR $' + Number(comp.p25_monthly_usd || 0).toLocaleString('en-US') + '–$' + Number(comp.p75_monthly_usd || 0).toLocaleString('en-US') + ' · n=' + Number(comp.sample_size || 0) + ')')
+        : ('Solo ' + Number(comp.sample_size || 0) + ' ofertas con tarifa USD explícita (mín. 5)');
+
+      const renderCatBars = (list) => {
+        if (!Array.isArray(list) || list.length === 0) {
+          return '<p style="margin:0;font-size:0.86em;color:var(--text-muted);">Sin datos suficientes en este ciclo.</p>';
+        }
+        const maxCount = Math.max(1, ...list.map(c => Number(c.count || 0)));
+        return list.map(c => {
+          const widthPct = Math.max(8, Math.round((Number(c.count || 0) / maxCount) * 100));
+          return '<div class="pulse-bar-row">' +
+            '<div class="pulse-bar-meta"><span>' + escapeHtml(c.label_es || c.id) + '</span><strong>' + Number(c.count || 0) + ' (' + Number(c.share_pct || 0) + '%)</strong></div>' +
+            '<div class="pulse-bar-track"><div class="pulse-bar-fill" style="width:' + widthPct + '%;"></div></div>' +
+          '</div>';
+        }).join('');
+      };
+
+      const highlightsHtml = Array.isArray(p.highlights_es) && p.highlights_es.length > 0
+        ? '<ul class="pulse-highlights">' + p.highlights_es.map(h => '<li>' + escapeHtml(h) + '</li>').join('') + '</ul>'
+        : '';
+
+      const atsCompanies = Array.isArray(p.newly_promoted_companies) ? p.newly_promoted_companies : [];
+      const companiesHtml = atsCompanies.length > 0
+        ? '<div class="pulse-companies-list">' + atsCompanies.map(c =>
+            '<a class="pulse-company-pill" href="' + escapeHtml(c.url || '#') + '" target="_blank" rel="noopener noreferrer">' +
+              '<span>' + escapeHtml(c.name) + '</span>' +
+              (c.active_bolivia_jobs > 0 ? '<span class="plat-badge ats">' + Number(c.active_bolivia_jobs) + '</span>' : '') +
+            '</a>'
+          ).join('') + '</div>'
+        : '<p style="margin:0;font-size:0.86em;color:var(--text-muted);">El motor autónomo evalúa y promueve nuevas empresas directas ATS cada 15 minutos.</p>';
+
+      const ghostWatch = Number((p.ghost_job_health && p.ghost_job_health.watch_count) || 0);
+      const ghostHigh = Number((p.ghost_job_health && p.ghost_job_health.high_count) || 0);
+
+      container.innerHTML =
+        '<div class="pulse-summary-card" id="pulse-summary-card">' +
+          '<h4>' + escapeHtml(p.headline_es || 'Pulso del Mercado Remoto desde Bolivia') + '</h4>' +
+          '<p>' + escapeHtml(p.summary_es || '') + '</p>' +
+          highlightsHtml +
+        '</div>' +
+        '<div class="pulse-kpi-grid">' +
+          '<div class="pulse-kpi"><div class="pulse-kpi-val">' + Number(p.total_active_eligible || 0) + '</div><div class="pulse-kpi-lbl">Vacantes 100% elegibles Bolivia (' + Number(p.new_last_24h || 0) + ' en últimas 24h)</div></div>' +
+          '<div class="pulse-kpi"><div class="pulse-kpi-val">' + Number(ls.es_share_pct || 0) + '% ES / ' + Number(ls.en_share_pct || 0) + '% EN</div><div class="pulse-kpi-lbl">' + Number(ls.es_count || 0) + ' en español · ' + Number(ls.en_count || 0) + ' en inglés</div></div>' +
+          '<div class="pulse-kpi"><div class="pulse-kpi-val">' + escapeHtml(compVal) + '</div><div class="pulse-kpi-lbl">' + escapeHtml(compSub) + '</div></div>' +
+          '<div class="pulse-kpi"><div class="pulse-kpi-val">' + Number(p.direct_ats_platforms_count || 0) + ' ATS / ' + Number(p.active_platforms_count || 0) + ' total</div><div class="pulse-kpi-lbl">Empresas directas ATS promovidas por IA · ' + (ghostWatch + ghostHigh) + ' alertas fantasma</div></div>' +
+        '</div>' +
+        '<div class="pulse-split-grid">' +
+          '<div class="pulse-panel"><h4>Categorías más activas en Español (ES)</h4>' + renderCatBars(p.top_categories_es) + '</div>' +
+          '<div class="pulse-panel"><h4>Categorías más activas en Inglés (EN)</h4>' + renderCatBars(p.top_categories_en) + '</div>' +
+        '</div>' +
+        '<div class="pulse-panel"><h4>Empresas Directas (ATS) Promovidas Recientemente</h4>' + companiesHtml + '</div>';
+    }
+    window.renderMarketPulseView = renderMarketPulseView;
 
     if (typeof document.addEventListener === 'function') {
       document.addEventListener('keydown', function (e) {
@@ -4435,8 +4668,12 @@ ${LEGAL_TAX_GUIDE_HTML}
         if (data.lastScanAt) {
           lastScanAtState = data.lastScanAt;
         }
+        if (data.market_pulse) {
+          marketPulseState = data.market_pulse;
+        }
         recomputeAndRender();
         renderPlatformsDirectory();
+        renderMarketPulseView();
       } catch (e) {
         // Ignore network errors when opened offline as standalone index.html
       }
@@ -4802,6 +5039,14 @@ ${LEGAL_TAX_GUIDE_HTML}
       initPath === '/legal-fiscal/'
     ) {
       switchMainView('legal-tax', { skipScroll: true });
+    } else if (
+      PAYLOAD.initialView === 'pulse' ||
+      initPath === '/pulso' ||
+      initPath === '/pulso/'
+    ) {
+      switchMainView('pulse', { skipScroll: true });
+    } else {
+      renderMarketPulseView();
     }
     updateBackToTopPosition();
     updateNavbarStickyState();

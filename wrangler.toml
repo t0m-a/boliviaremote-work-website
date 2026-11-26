@@ -3,9 +3,11 @@ main = "src/worker.js"
 compatibility_date = "2025-01-01"
 workers_dev = true
 
-# Scheduled execution every 15 minutes + on-demand via /api/scan and /api/platforms/scan-url
+# Scheduled execution:
+#   - */15 * * * *  : Ingestion scan + AI-managed Direct ATS discovery every 15 minutes
+#   - 0 7 * * *     : Nightly Sleep Cycle at 03:00 AM America/La_Paz (07:00 UTC) — Market Pulse + 30d/60d Policy Watchdog
 [triggers]
-crons = ["*/15 * * * *"]
+crons = ["*/15 * * * *", "0 7 * * *"]
 
 # Cloudflare Workers AI binding (bge-m3 embeddings, bge-reranker-base, Llama 3.3 70B & Llama 3.1 8B)
 [ai]

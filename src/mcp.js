@@ -22,10 +22,11 @@ import { hybridSearchOpportunities } from './hybrid_search.js';
 import { getCareerBrainClient } from './career_brain_do.js';
 import { sanitizePlatformUrl } from './privacy_guard.js';
 import { listDiscoveredSources, runAutonomousDiscoveryCycle } from './ats_discovery.js';
+import { runNightlySleepCycle } from './nightly_sleep.js';
 
 export const MCP_SERVER_INFO = {
   name: 'bolivia-remote-mcp-server',
-  version: '6.1.0',
+  version: '6.2.0',
   description: 'Isolated Model Context Protocol (MCP) server for finding, evaluating, and governing 100% remote job intelligence for Bolivia (UTC-4).'
 };
 
@@ -271,6 +272,10 @@ export const MCP_TOOLS = [
         max_probes: {
           type: 'number',
           description: 'Optional max allowlisted ATS probes when run_discovery_cycle=true (default: 3, max: 6).'
+        },
+        run_nightly_sleep: {
+          type: 'boolean',
+          description: 'Optional: trigger the 03:00 AM America/La_Paz sleep cycle (Market Pulse Synthesis + 30d/60d Policy Contradiction Watchdog) on demand.'
         }
       }
     }
@@ -631,8 +636,14 @@ async function executeMcpRpcObject(rpc, state, env, saveStateFn) {
           }
         }
 
+        let nightlySleepResult = null;
+        if (args && args.run_nightly_sleep === true) {
+          nightlySleepResult = await runNightlySleepCycle(state, env);
+        }
+
         const brain = getCareerBrainClient(env);
         const brainStatus = await brain.inspectStatus();
+        const latestPulse = await brain.getLatestMarketPulse().catch(() => null);
         const discoveredRows = await listDiscoveredSources(env, { limit: 100 });
         const ghostHighCount = (state.opportunities || []).filter(o => o.ghost_risk === 'high').length;
         const ghostWatchCount = (state.opportunities || []).filter(o => o.ghost_risk === 'watch').length;
@@ -651,7 +662,7 @@ async function executeMcpRpcObject(rpc, state, env, saveStateFn) {
 
         const payload = {
           ok: true,
-          version: '6.1.0',
+          version: '6.2.0',
           air_gapped_isolation: true,
           state_opportunities_count: (state.opportunities || []).length,
           platforms_count: (state.platforms || []).length,
@@ -659,6 +670,12 @@ async function executeMcpRpcObject(rpc, state, env, saveStateFn) {
           ghost_job_flags: {
             high: ghostHighCount,
             watch: ghostWatchCount
+          },
+          nightly_sleep: {
+            schedule: '0 7 * * *',
+            latest_pulse_date: latestPulse ? latestPulse.pulse_date : null,
+            latest_synthesis_mode: latestPulse ? latestPulse.synthesis_mode : null,
+            last_run: nightlySleepResult
           },
           d1: d1Stats,
           vectorize: {

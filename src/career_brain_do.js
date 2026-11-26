@@ -148,6 +148,8 @@ export class BoliviaCareerBrainDO {
       playbooks: new Map(),
       validations: [],
       conflicts: [],
+      geoObservations: [],
+      marketPulses: new Map(),
       meta: new Map()
     };
 
@@ -244,6 +246,25 @@ export class BoliviaCareerBrainDO {
         conflict_type TEXT NOT NULL,
         evidence TEXT NOT NULL,
         status TEXT DEFAULT 'open',
+        created_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS employer_geo_observations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        entity_id TEXT NOT NULL,
+        source_kind TEXT NOT NULL DEFAULT 'aggregator',
+        eligible_count INTEGER NOT NULL DEFAULT 0,
+        geo_blocked_count INTEGER NOT NULL DEFAULT 0,
+        observed_at_epoch INTEGER NOT NULL,
+        created_at TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_cb_geo_obs_entity_time ON employer_geo_observations(entity_id, observed_at_epoch);
+
+      CREATE TABLE IF NOT EXISTS market_pulses (
+        pulse_date TEXT PRIMARY KEY,
+        window_type TEXT NOT NULL DEFAULT 'daily',
+        payload_json TEXT NOT NULL,
         created_at TEXT NOT NULL
       );
     `);
@@ -549,8 +570,10 @@ export class BoliviaCareerBrainDO {
       realityBadgeEn = `Contract: ${eorOptions.slice(0, 2).join(' / ')}`;
     }
 
-    const cautionEs = attrs.caution_es || (tier === 'caution_friction' ? attrs.note_es : '');
-    const cautionEn = attrs.caution_en || (tier === 'caution_friction' ? attrs.note_en : '');
+    const driftNoteEs = Number(attrs.policy_drift_stage || 0) >= 2 ? (attrs.policy_drift_note_es || '') : '';
+    const driftNoteEn = Number(attrs.policy_drift_stage || 0) >= 2 ? (attrs.policy_drift_note_en || '') : '';
+    const cautionEs = attrs.caution_es || driftNoteEs || (tier === 'caution_friction' ? attrs.note_es : '');
+    const cautionEn = attrs.caution_en || driftNoteEn || (tier === 'caution_friction' ? attrs.note_en : '');
 
     return {
       matched: true,
@@ -1041,6 +1064,380 @@ export class BoliviaCareerBrainDO {
   }
 
   /**
+   * Appends per-employer geo-eligibility observations from 15-min scans & Direct ATS probes.
+   * Prunes observations older than 120 days to keep DO SQLite compact.
+   */
+  recordEmployerGeoObservations(records = []) {
+    const nowIso = new Date().toISOString();
+    const nowEpoch = Math.floor(Date.now() / 1000);
+    const pruneBefore = nowEpoch - 120 * 86400;
+    let inserted = 0;
+
+    for (const rec of records || []) {
+      if (!rec || !rec.entity_id) continue;
+      const entityId = String(rec.entity_id).toLowerCase().trim();
+      const sourceKind = rec.source_kind === 'direct_ats' ? 'direct_ats' : 'aggregator';
+      const eligible = Math.max(0, Math.floor(Number(rec.eligible_count || 0)));
+      const blocked = Math.max(0, Math.floor(Number(rec.geo_blocked_count || 0)));
+      if (eligible + blocked <= 0) continue;
+      const obsEpoch = Number(rec.observed_at_epoch || nowEpoch);
+
+      if (this.sql) {
+        this.sql.exec(
+          `INSERT INTO employer_geo_observations (entity_id, source_kind, eligible_count, geo_blocked_count, observed_at_epoch, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          entityId,
+          sourceKind,
+          eligible,
+          blocked,
+          obsEpoch,
+          nowIso
+        );
+      } else {
+        this.mem.geoObservations.push({
+          id: this.mem.geoObservations.length + 1,
+          entity_id: entityId,
+          source_kind: sourceKind,
+          eligible_count: eligible,
+          geo_blocked_count: blocked,
+          observed_at_epoch: obsEpoch,
+          created_at: nowIso
+        });
+      }
+      inserted++;
+    }
+
+    if (inserted > 0) {
+      if (this.sql) {
+        this.sql.exec('DELETE FROM employer_geo_observations WHERE observed_at_epoch < ?', pruneBefore);
+      } else {
+        this.mem.geoObservations = this.mem.geoObservations.filter(r => r.observed_at_epoch >= pruneBefore);
+      }
+    }
+
+    return { ok: true, inserted };
+  }
+
+  /**
+   * Two-Stage, Windowed, Auto-Healing Policy Contradiction Watchdog:
+   *   - Stage 1 (30+ days sustained drift): logs/maintains internal `intel_conflicts` + mild confidence decay (no harsh public badge)
+   *   - Stage 2 (60+ days sustained drift): attaches neutral observational note in `attributes_json` (never auto-blocks valid postings)
+   *   - Auto-Healing: resolves open conflicts and restores confidence when >= 2 verified Bolivia/LATAM-eligible roles reappear.
+   */
+  runPolicyWatchdog(opts = {}) {
+    const nowEpoch = Number(opts.nowEpoch || Math.floor(Date.now() / 1000));
+    const nowIso = new Date(nowEpoch * 1000).toISOString();
+    const stage1Days = Number(opts.stage1Days || 30);
+    const stage2Days = Number(opts.stage2Days || 60);
+    const minSample = Number(opts.minSample || 5);
+    const stage2MinAgg = Number(opts.stage2MinAggregatorSample || 10);
+    const maxEligibleRatio = Number(opts.maxEligibleRatio ?? 0.10);
+    const minGeoBlockedRatio = Number(opts.minGeoBlockedRatio ?? 0.80);
+    const autoHealEligible = Number(opts.autoHealEligibleCount || 2);
+    const autoHealWindowSec = Number(opts.autoHealWindowDays || 30) * 86400;
+    const maxWindowSec = Math.max(stage2Days, 90) * 86400;
+
+    const allEntities = this._getAllEntities().filter(e => e.entity_type === 'company');
+    const allObs = this.sql
+      ? this.sql.exec('SELECT * FROM employer_geo_observations WHERE observed_at_epoch >= ?', nowEpoch - maxWindowSec).toArray()
+      : this.mem.geoObservations.filter(r => r.observed_at_epoch >= nowEpoch - maxWindowSec);
+
+    const obsByEntity = new Map();
+    for (const row of allObs) {
+      if (!obsByEntity.has(row.entity_id)) obsByEntity.set(row.entity_id, []);
+      obsByEntity.get(row.entity_id).push(row);
+    }
+
+    const stage1Flagged = [];
+    const stage2Flagged = [];
+    const autoHealed = [];
+    let evaluated = 0;
+
+    const updateEntityState = (entity, newConfidence, newAttrs) => {
+      const attrsJson = JSON.stringify(newAttrs);
+      if (this.sql) {
+        this.sql.exec(
+          'UPDATE entities SET confidence = ?, attributes_json = ?, updated_at = ? WHERE entity_id = ?',
+          newConfidence,
+          attrsJson,
+          nowIso,
+          entity.entity_id
+        );
+      } else {
+        this.mem.entities.set(entity.entity_id, {
+          ...entity,
+          confidence: newConfidence,
+          attributes_json: attrsJson,
+          updated_at: nowIso
+        });
+      }
+    };
+
+    const upsertOpenPolicyConflict = (entityId, conflictType, evidence) => {
+      if (this.sql) {
+        const existing = this.sql
+          .exec(
+            "SELECT id FROM intel_conflicts WHERE entity_id = ? AND status = 'open' AND conflict_type LIKE 'policy_drift_%' ORDER BY id DESC LIMIT 1",
+            entityId
+          )
+          .toArray();
+        if (existing.length > 0) {
+          this.sql.exec(
+            'UPDATE intel_conflicts SET conflict_type = ?, evidence = ? WHERE id = ?',
+            conflictType,
+            stripHtml(evidence),
+            existing[0].id
+          );
+        } else {
+          this.sql.exec(
+            'INSERT INTO intel_conflicts (entity_id, conflict_type, evidence, status, created_at) VALUES (?, ?, ?, ?, ?)',
+            entityId,
+            conflictType,
+            stripHtml(evidence),
+            'open',
+            nowIso
+          );
+        }
+      } else {
+        const existing = this.mem.conflicts.find(
+          c => c.entity_id === entityId && c.status === 'open' && String(c.conflict_type || '').startsWith('policy_drift_')
+        );
+        if (existing) {
+          existing.conflict_type = conflictType;
+          existing.evidence = stripHtml(evidence);
+        } else {
+          this.mem.conflicts.push({
+            id: this.mem.conflicts.length + 1,
+            entity_id: entityId,
+            conflict_type: conflictType,
+            evidence: stripHtml(evidence),
+            status: 'open',
+            created_at: nowIso
+          });
+        }
+      }
+    };
+
+    const resolvePolicyConflicts = (entityId) => {
+      let resolvedAny = false;
+      if (this.sql) {
+        const openRows = this.sql
+          .exec(
+            "SELECT id FROM intel_conflicts WHERE entity_id = ? AND status = 'open' AND (conflict_type LIKE 'policy_drift_%' OR conflict_type = 'ats_geo_restriction_drift')",
+            entityId
+          )
+          .toArray();
+        if (openRows.length > 0) {
+          this.sql.exec(
+            "UPDATE intel_conflicts SET status = 'resolved' WHERE entity_id = ? AND status = 'open' AND (conflict_type LIKE 'policy_drift_%' OR conflict_type = 'ats_geo_restriction_drift')",
+            entityId
+          );
+          resolvedAny = true;
+        }
+      } else {
+        for (const c of this.mem.conflicts) {
+          if (
+            c.entity_id === entityId &&
+            c.status === 'open' &&
+            (String(c.conflict_type || '').startsWith('policy_drift_') || c.conflict_type === 'ats_geo_restriction_drift')
+          ) {
+            c.status = 'resolved';
+            resolvedAny = true;
+          }
+        }
+      }
+      return resolvedAny;
+    };
+
+    for (const entity of allEntities) {
+      const edges = this._getActiveEdgesForSource(entity.entity_id);
+      const hasHiresLatam = edges.some(
+        e => e.relation === 'HIRES_IN' && ['region:latam', 'region:bolivia', 'region:global_wfa'].includes(e.target_id)
+      );
+      if (!hasHiresLatam && entity.bolivia_tier !== 'verified_friendly') continue;
+
+      const rows = obsByEntity.get(entity.entity_id) || [];
+      if (rows.length === 0) continue;
+      evaluated++;
+
+      const attrs = safeJsonParse(entity.attributes_json, {});
+      const recentCutoff = nowEpoch - autoHealWindowSec;
+      const recentEligible = rows
+        .filter(r => r.observed_at_epoch >= recentCutoff)
+        .reduce((sum, r) => sum + Number(r.eligible_count || 0), 0);
+
+      // 1. Auto-Healing check first: >= 2 verified Bolivia/LATAM-eligible postings in last 30d
+      if (recentEligible >= autoHealEligible) {
+        const hadDrift = Number(attrs.policy_drift_stage || 0) > 0 || Boolean(attrs.policy_drift_started_epoch);
+        const closedConflict = resolvePolicyConflicts(entity.entity_id);
+        if (hadDrift || closedConflict) {
+          const restoredConf = Math.max(Number(attrs.pre_drift_confidence || 0.85), Number(entity.confidence || 0.85));
+          const cleanAttrs = { ...attrs };
+          delete cleanAttrs.policy_drift_stage;
+          delete cleanAttrs.policy_drift_started_epoch;
+          delete cleanAttrs.policy_drift_note_es;
+          delete cleanAttrs.policy_drift_note_en;
+          delete cleanAttrs.pre_drift_confidence;
+          updateEntityState(entity, Number(restoredConf.toFixed(2)), cleanAttrs);
+          autoHealed.push({
+            entity_id: entity.entity_id,
+            canonical_name: entity.canonical_name,
+            recent_eligible: recentEligible
+          });
+        }
+        continue;
+      }
+
+      // 2. Evaluate drift ratios (prefer Direct ATS observations when available)
+      const directRows = rows.filter(r => r.source_kind === 'direct_ats');
+      const primaryRows = directRows.length > 0 ? directRows : rows;
+      const anchoredOnDirectAts = directRows.length > 0;
+
+      const totalEligible = primaryRows.reduce((s, r) => s + Number(r.eligible_count || 0), 0);
+      const totalBlocked = primaryRows.reduce((s, r) => s + Number(r.geo_blocked_count || 0), 0);
+      const totalObserved = totalEligible + totalBlocked;
+      if (totalObserved < minSample) continue;
+
+      const eligibleRatio = totalEligible / totalObserved;
+      const blockedRatio = totalBlocked / totalObserved;
+      if (eligibleRatio >= maxEligibleRatio || blockedRatio < minGeoBlockedRatio) {
+        continue;
+      }
+
+      const earliestDriftEpoch = Math.min(
+        Number(attrs.policy_drift_started_epoch || nowEpoch),
+        ...primaryRows.map(r => Number(r.observed_at_epoch || nowEpoch))
+      );
+      const driftSpanDays = Math.floor((nowEpoch - earliestDriftEpoch) / 86400);
+
+      const preConf = Number(attrs.pre_drift_confidence || entity.confidence || 0.85);
+      const baseAttrs = {
+        ...attrs,
+        pre_drift_confidence: preConf,
+        policy_drift_started_epoch: earliestDriftEpoch
+      };
+
+      // Stage 2: 60+ days sustained drift (anchored on Direct ATS or >= 10 aggregator observations)
+      if (driftSpanDays >= stage2Days && (anchoredOnDirectAts || totalObserved >= stage2MinAgg)) {
+        const evidence =
+          `Stage 2 (${driftSpanDays}d sustained drift via ${anchoredOnDirectAts ? 'direct_ats' : 'aggregator'}): ` +
+          `${totalEligible}/${totalObserved} Bolivia-eligible (${Math.round(eligibleRatio * 100)}%), ` +
+          `${totalBlocked} geo-restricted (${Math.round(blockedRatio * 100)}%).`;
+        upsertOpenPolicyConflict(entity.entity_id, 'policy_drift_stage2_60d', evidence);
+        const stage2Attrs = {
+          ...baseAttrs,
+          policy_drift_stage: 2,
+          policy_drift_note_es:
+            'Tendencia reciente (60+ días): las vacantes observadas presentan restricciones regionales; verifica ubicación antes de postular.',
+          policy_drift_note_en:
+            'Recent trend (60+ days): observed postings show regional restrictions; confirm location eligibility before applying.'
+        };
+        updateEntityState(entity, Number(Math.min(preConf, 0.62).toFixed(2)), stage2Attrs);
+        stage2Flagged.push({
+          entity_id: entity.entity_id,
+          canonical_name: entity.canonical_name,
+          drift_days: driftSpanDays,
+          source_kind: anchoredOnDirectAts ? 'direct_ats' : 'aggregator',
+          total_observed: totalObserved,
+          eligible_count: totalEligible,
+          geo_blocked_count: totalBlocked
+        });
+      } else if (driftSpanDays >= stage1Days) {
+        // Stage 1: 30+ days sustained drift (internal conflict + mild confidence decay only; no public caution badge)
+        const evidence =
+          `Stage 1 (${driftSpanDays}d drift via ${anchoredOnDirectAts ? 'direct_ats' : 'aggregator'}): ` +
+          `${totalEligible}/${totalObserved} Bolivia-eligible (${Math.round(eligibleRatio * 100)}%), ` +
+          `${totalBlocked} geo-restricted (${Math.round(blockedRatio * 100)}%).`;
+        upsertOpenPolicyConflict(entity.entity_id, 'policy_drift_stage1_30d', evidence);
+        const stage1Attrs = {
+          ...baseAttrs,
+          policy_drift_stage: 1
+        };
+        delete stage1Attrs.policy_drift_note_es;
+        delete stage1Attrs.policy_drift_note_en;
+        updateEntityState(entity, Number(Math.min(preConf, 0.72).toFixed(2)), stage1Attrs);
+        stage1Flagged.push({
+          entity_id: entity.entity_id,
+          canonical_name: entity.canonical_name,
+          drift_days: driftSpanDays,
+          source_kind: anchoredOnDirectAts ? 'direct_ats' : 'aggregator',
+          total_observed: totalObserved,
+          eligible_count: totalEligible,
+          geo_blocked_count: totalBlocked
+        });
+      } else {
+        // < 30 days: track drift_started_epoch silently without flagging or penalizing
+        updateEntityState(entity, Number(entity.confidence || 0.8), baseAttrs);
+      }
+    }
+
+    this._setMeta('last_watchdog_run_at', nowIso);
+    return {
+      ok: true,
+      evaluated_employers: evaluated,
+      stage1_days: stage1Days,
+      stage2_days: stage2Days,
+      stage1_flagged: stage1Flagged,
+      stage2_flagged: stage2Flagged,
+      auto_healed: autoHealed,
+      ran_at: nowIso
+    };
+  }
+
+  /**
+   * Persists a nightly Market Pulse synthesis snapshot in DO SQLite (retaining latest 90 days).
+   */
+  saveMarketPulse(pulse = {}) {
+    const pulseDate = String(pulse.pulse_date || new Date().toISOString().slice(0, 10));
+    const windowType = String(pulse.window_type || 'daily');
+    const nowIso = new Date().toISOString();
+    const payloadJson = JSON.stringify(pulse);
+
+    if (this.sql) {
+      this.sql.exec(
+        `INSERT OR REPLACE INTO market_pulses (pulse_date, window_type, payload_json, created_at)
+         VALUES (?, ?, ?, ?)`,
+        pulseDate,
+        windowType,
+        payloadJson,
+        nowIso
+      );
+      this.sql.exec(
+        `DELETE FROM market_pulses WHERE pulse_date NOT IN (
+           SELECT pulse_date FROM market_pulses ORDER BY pulse_date DESC LIMIT 90
+         )`
+      );
+    } else {
+      this.mem.marketPulses.set(pulseDate, {
+        pulse_date: pulseDate,
+        window_type: windowType,
+        payload_json: payloadJson,
+        created_at: nowIso
+      });
+    }
+    this._setMeta('latest_pulse_date', pulseDate);
+    return { ok: true, pulse_date: pulseDate, saved_at: nowIso };
+  }
+
+  /**
+   * Returns the latest stored Market Pulse snapshot, or null if none persisted yet.
+   */
+  getLatestMarketPulse() {
+    if (this.sql) {
+      const rows = this.sql
+        .exec('SELECT payload_json, pulse_date, created_at FROM market_pulses ORDER BY pulse_date DESC LIMIT 1')
+        .toArray();
+      if (rows.length === 0) return null;
+      return safeJsonParse(rows[0].payload_json, null);
+    }
+
+    const sorted = Array.from(this.mem.marketPulses.values())
+      .sort((a, b) => String(b.pulse_date).localeCompare(String(a.pulse_date)));
+    if (sorted.length === 0) return null;
+    return safeJsonParse(sorted[0].payload_json, null);
+  }
+
+  /**
    * Returns operational diagnostics for `inspect_career_brain_status`.
    */
   inspectStatus() {
@@ -1052,6 +1449,8 @@ export class BoliviaCareerBrainDO {
       const openConflicts = this.sql
         .exec("SELECT * FROM intel_conflicts WHERE status = 'open' ORDER BY created_at DESC LIMIT 20")
         .toArray();
+      const pulsesCount = this.sql.exec('SELECT COUNT(*) AS c FROM market_pulses').one().c;
+      const geoObsCount = this.sql.exec('SELECT COUNT(*) AS c FROM employer_geo_observations').one().c;
       return {
         ok: true,
         storage_backend: 'cloudflare-do-sqlite',
@@ -1060,6 +1459,10 @@ export class BoliviaCareerBrainDO {
         edges_count: edgesCount,
         playbooks_count: playbooksCount,
         validations_count: validationsCount,
+        market_pulses_count: pulsesCount,
+        latest_pulse_date: this._getMeta('latest_pulse_date') || null,
+        geo_observations_count: geoObsCount,
+        last_watchdog_run_at: this._getMeta('last_watchdog_run_at') || null,
         open_conflicts_count: openConflicts.length,
         open_conflicts: openConflicts
       };
@@ -1074,6 +1477,10 @@ export class BoliviaCareerBrainDO {
       edges_count: this.mem.edges.filter(e => !e.valid_until).length,
       playbooks_count: this.mem.playbooks.size,
       validations_count: this.mem.validations.length,
+      market_pulses_count: this.mem.marketPulses.size,
+      latest_pulse_date: this._getMeta('latest_pulse_date') || null,
+      geo_observations_count: this.mem.geoObservations.length,
+      last_watchdog_run_at: this._getMeta('last_watchdog_run_at') || null,
       open_conflicts_count: openConflicts.length,
       open_conflicts: openConflicts
     };
@@ -1089,6 +1496,9 @@ export class BoliviaCareerBrainDO {
     try {
       if (request.method === 'GET' && path === '/internal/status') {
         return Response.json(this.inspectStatus());
+      }
+      if (request.method === 'GET' && path === '/internal/market-pulse') {
+        return Response.json({ ok: true, pulse: this.getLatestMarketPulse() });
       }
       if (request.method === 'POST') {
         const body = await request.json().catch(() => ({}));
@@ -1109,6 +1519,15 @@ export class BoliviaCareerBrainDO {
         }
         if (path === '/internal/record-conflict') {
           return Response.json(this.recordIntelConflict(body));
+        }
+        if (path === '/internal/record-geo-observations') {
+          return Response.json(this.recordEmployerGeoObservations(body.records || []));
+        }
+        if (path === '/internal/run-policy-watchdog') {
+          return Response.json(this.runPolicyWatchdog(body || {}));
+        }
+        if (path === '/internal/save-market-pulse') {
+          return Response.json(this.saveMarketPulse(body.pulse || body));
         }
       }
       return Response.json({ ok: false, error: 'Not Found' }, { status: 404 });
@@ -1224,6 +1643,41 @@ export function getCareerBrainClient(env = {}) {
         return await callDO('/internal/record-conflict', 'POST', payload);
       }
       return getLocalFallbackInstance(env).recordIntelConflict(payload);
+    },
+
+    async recordEmployerGeoObservations(records) {
+      if (hasDO) {
+        return await callDO('/internal/record-geo-observations', 'POST', { records });
+      }
+      return getLocalFallbackInstance(env).recordEmployerGeoObservations(records);
+    },
+
+    async runPolicyWatchdog(opts = {}) {
+      if (hasDO) {
+        return await callDO('/internal/run-policy-watchdog', 'POST', opts);
+      }
+      return getLocalFallbackInstance(env).runPolicyWatchdog(opts);
+    },
+
+    async saveMarketPulse(pulse) {
+      if (hasDO) {
+        return await callDO('/internal/save-market-pulse', 'POST', { pulse });
+      }
+      const res = getLocalFallbackInstance(env).saveMarketPulse(pulse);
+      await mirrorToD1Fallback(env, `pulse:${res.pulse_date}`, 'market_pulse', pulse);
+      return res;
+    },
+
+    async getLatestMarketPulse() {
+      if (hasDO) {
+        try {
+          const res = await callDO('/internal/market-pulse', 'GET');
+          return res.pulse || null;
+        } catch {
+          // Fall back cleanly
+        }
+      }
+      return getLocalFallbackInstance(env).getLatestMarketPulse();
     },
 
     async inspectStatus() {

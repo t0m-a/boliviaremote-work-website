@@ -20,6 +20,13 @@ import {
   runAutonomousDiscoveryCycle,
   applyPromotedSourceHealth
 } from './src/ats_discovery.js';
+import {
+  WATCHDOG_CONFIG,
+  parseMonthlyUsdMidpoint,
+  computeMarketPulseMetrics,
+  synthesizeMarketPulseWithAI,
+  runNightlySleepCycle
+} from './src/nightly_sleep.js';
 
 const EMOJI_REGEX = /(?:[\u2700-\u27bf]|(?:\ud83c[\udde6-\uddff]){2}|[\ud800-\udbff][\udc00-\udfff]|[\u0023-\u0039]\ufe0f?\u20e3|\u3299|\u3297|\u303d|\u3030|\u24c2|\ud83c[\udd70-\udd71]|\ud83c[\udd7e-\udd7f]|\ud83c\udd8e|\ud83c[\udd91-\udd9a]|\ud83c[\udde6-\uddff]|[\ud83d\ud83e][\ud000-\udfff]|[\u200d\u20e3\ufe0f]|[\u2600-\u26ff])/g;
 
@@ -1187,6 +1194,7 @@ async function runTests() {
   assert.ok(sitemapText.includes('<urlset'), 'sitemap.xml must include <urlset');
   assert.ok(sitemapText.includes('https://boliviaremote.work/'), 'sitemap.xml must include canonical domain');
   assert.ok(sitemapText.includes('https://boliviaremote.work/guia-legal-fiscal'), 'sitemap.xml must include /guia-legal-fiscal guide URL');
+  assert.ok(sitemapText.includes('https://boliviaremote.work/pulso'), 'sitemap.xml must include /pulso Market Pulse URL');
 
   const respRobots = await worker.fetch(new Request('https://boliviaremote.work/robots.txt'), {}, {});
   assert.equal(respRobots.status, 200);
@@ -1217,6 +1225,7 @@ async function runTests() {
     'src/career_brain_do.js',
     'src/ats_adapters.js',
     'src/ats_discovery.js',
+    'src/nightly_sleep.js',
     'src/mcp.js',
     'src/ui.js',
     'src/legal_tax_guide.js',
@@ -1486,8 +1495,9 @@ async function runTests() {
   assert.equal(mcpStatusData.result.isError, false);
   const statusOut = JSON.parse(mcpStatusData.result.content[0].text);
   assert.equal(statusOut.ok, true);
-  assert.equal(statusOut.version, '6.1.0');
+  assert.equal(statusOut.version, '6.2.0');
   assert.equal(statusOut.air_gapped_isolation, true);
+  assert.ok(statusOut.nightly_sleep && statusOut.nightly_sleep.schedule === '0 7 * * *', 'MCP status must expose nightly_sleep schedule telemetry');
   assert.ok(statusOut.autonomous_discovery && typeof statusOut.autonomous_discovery.promoted_count === 'number', 'MCP status must expose autonomous_discovery telemetry');
   assert.ok(statusOut.career_brain.entities_count >= 100);
   assert.ok(statusOut.career_brain.playbooks_count >= 13, 'Must reflect newly upserted playbook');
@@ -1625,6 +1635,120 @@ async function runTests() {
     !html.includes('scanExistingPlatform'),
     'UI must include Monitored Platforms filter tabs (ATS & Global Boards) without user-added tab or manual scan button'
   );
+
+  console.log('11. Testing v6.2.0 Nightly Sleep Cycle (03:00 AM Market Pulse Synthesis + Two-Stage 30d/60d Auto-Healing Watchdog)...');
+
+  // 11a. USD compensation midpoint parsing
+  assert.equal(parseMonthlyUsdMidpoint('$3,500 - $5,500/mo'), 4500);
+  assert.equal(parseMonthlyUsdMidpoint('$60,000 - $90,000/yr'), 6250);
+  assert.equal(parseMonthlyUsdMidpoint('$25 - $35/hr'), 4800);
+  assert.equal(parseMonthlyUsdMidpoint('competitive'), null);
+
+  // 11b. Deterministic Market Pulse metrics (including n >= 5 salary sample guard)
+  const sampleOpps = [
+    { job_hash: 'p1', title: 'Soporte al Cliente Remoto', company: 'Deel', location: 'LATAM Remote', description: 'Atención al cliente en español', compensation_usd: '$2,000/mo', discovered_at: new Date().toISOString() },
+    { job_hash: 'p2', title: 'Asistente Virtual Bilingüe', company: 'Ontop', location: 'Bolivia / LATAM', description: 'Asistencia virtual español e inglés', compensation_usd: '$1,500/mo', discovered_at: new Date().toISOString() },
+    { job_hash: 'p3', title: 'Senior Python Developer', company: 'GitLab', location: 'Worldwide Remote', description: 'Python cloud backend engineering', compensation_usd: '$6,000/mo', discovered_at: new Date().toISOString() },
+    { job_hash: 'p4', title: 'DevOps Cloud Engineer', company: 'Cloudflare', location: 'Remote Americas', description: 'Kubernetes terraform AWS', compensation_usd: '$5,000/mo', discovered_at: new Date().toISOString() },
+    { job_hash: 'p5', title: 'Data Analyst', company: 'Zapier', location: 'Work From Anywhere', description: 'SQL BI analytics', compensation_usd: '$4,000/mo', discovered_at: new Date().toISOString() }
+  ];
+  const pulseMetrics = computeMarketPulseMetrics(sampleOpps, [
+    { id: 'ats_ashby_deel', name: 'Deel', type: 'ats_json', ats_provider: 'ashby', enabled: true, url: 'https://jobs.ashbyhq.com/deel', active_bolivia_jobs: 4, spanish_jobs: 1 }
+  ]);
+  assert.equal(pulseMetrics.total_active_eligible, 5);
+  assert.equal(pulseMetrics.compensation_usd_monthly.sufficient_sample, true);
+  assert.equal(pulseMetrics.compensation_usd_monthly.median_monthly_usd, 4000);
+  assert.equal(pulseMetrics.direct_ats_platforms_count, 1);
+  assert.ok(pulseMetrics.top_categories_es.length >= 1 && pulseMetrics.top_categories_en.length >= 1);
+
+  const smallSampleMetrics = computeMarketPulseMetrics(sampleOpps.slice(0, 3), []);
+  assert.equal(smallSampleMetrics.compensation_usd_monthly.sufficient_sample, false, 'Must refuse to report median USD when sample size < 5');
+
+  // 11c. Grounded Llama 3.3 70B Market Pulse synthesis
+  const pulseAiRes = await synthesizeMarketPulseWithAI(pulseMetrics, {
+    AI: {
+      async run(model) {
+        assert.equal(model, '@cf/meta/llama-3.3-70b-instruct-fp8-fast');
+        return {
+          response: JSON.stringify({
+            headline_es: 'Pulso Remoto Bolivia: 5 vacantes activas y mediana de $4,000 USD',
+            summary_es: 'El monitoreo nocturno detectó 5 vacantes elegibles para Bolivia con 1 tablero directo ATS activo.',
+            highlights_es: ['Mediana salarial observada: $4,000 USD/mes (n=5).', 'Deel activo como tablero directo ATS.']
+          })
+        };
+      }
+    }
+  });
+  assert.equal(pulseAiRes.synthesis_mode, 'workers-ai-llama-3.3');
+  assert.ok(pulseAiRes.summary_es.includes('5 vacantes'));
+
+  // 11d. Two-Stage (30d Stage 1 / 60d Stage 2) Auto-Healing Policy Contradiction Watchdog
+  assert.equal(WATCHDOG_CONFIG.STAGE1_DRIFT_DAYS, 30);
+  assert.equal(WATCHDOG_CONFIG.STAGE2_DRIFT_DAYS, 60);
+
+  const wdBrain = new BoliviaCareerBrainDO(null, {});
+  const baseEpoch = Math.floor(Date.now() / 1000);
+
+  // Under 30 days (15 days): silent tracking only — ZERO conflict, ZERO confidence penalty, ZERO public note
+  wdBrain.recordEmployerGeoObservations([
+    { entity_id: 'company:gitlab', source_kind: 'direct_ats', eligible_count: 0, geo_blocked_count: 6, observed_at_epoch: baseEpoch - 15 * 86400 }
+  ]);
+  const wd15 = wdBrain.runPolicyWatchdog({ nowEpoch: baseEpoch });
+  assert.equal(wd15.stage1_flagged.length, 0, 'Must NOT flag Stage 1 before 30 days');
+  assert.equal(wd15.stage2_flagged.length, 0, 'Must NOT flag Stage 2 before 60 days');
+  assert.equal(wdBrain.lookupEmployerReality({ company: 'GitLab' }).caution_note_es, '', 'Must NOT attach public caution note under 30d');
+
+  // 35 days (>= 30d): Stage 1 internal conflict + mild confidence decay (<= 0.72), still NO public caution badge
+  wdBrain.recordEmployerGeoObservations([
+    { entity_id: 'company:gitlab', source_kind: 'direct_ats', eligible_count: 0, geo_blocked_count: 5, observed_at_epoch: baseEpoch - 35 * 86400 }
+  ]);
+  const wd35 = wdBrain.runPolicyWatchdog({ nowEpoch: baseEpoch });
+  assert.equal(wd35.stage1_flagged.length, 1, 'Must flag Stage 1 at 35 days (>= 30d)');
+  assert.equal(wd35.stage2_flagged.length, 0, 'Must NOT escalate to Stage 2 before 60 days');
+  const gitlabStage1 = wdBrain.lookupEmployerReality({ company: 'GitLab' });
+  assert.ok(gitlabStage1.confidence <= 0.72, 'Stage 1 must apply mild confidence decay');
+  assert.equal(gitlabStage1.bolivia_tier, 'verified_friendly', 'Stage 1 must NOT flip bolivia_tier');
+  assert.equal(gitlabStage1.caution_note_es, '', 'Stage 1 must remain internal with zero public caution note');
+
+  // 65 days (>= 60d): Stage 2 escalation — neutral observational note surfaced, still never flips to geo_blocked
+  wdBrain.recordEmployerGeoObservations([
+    { entity_id: 'company:gitlab', source_kind: 'direct_ats', eligible_count: 0, geo_blocked_count: 6, observed_at_epoch: baseEpoch - 65 * 86400 }
+  ]);
+  const wd65 = wdBrain.runPolicyWatchdog({ nowEpoch: baseEpoch });
+  assert.equal(wd65.stage2_flagged.length, 1, 'Must escalate to Stage 2 at 65 days (>= 60d)');
+  const gitlabStage2 = wdBrain.lookupEmployerReality({ company: 'GitLab' });
+  assert.ok(gitlabStage2.caution_note_es.includes('Tendencia reciente (60+ días)'), 'Stage 2 must surface neutral observational telemetry note');
+  assert.notEqual(gitlabStage2.bolivia_tier, 'geo_blocked', 'Stage 2 must never hard-flip employer to geo_blocked');
+
+  // Auto-Healing: >= 2 verified Bolivia-eligible postings reappear -> conflict resolved, note cleared, confidence restored
+  wdBrain.recordEmployerGeoObservations([
+    { entity_id: 'company:gitlab', source_kind: 'direct_ats', eligible_count: 3, geo_blocked_count: 2, observed_at_epoch: baseEpoch - 2 * 86400 }
+  ]);
+  const wdHealed = wdBrain.runPolicyWatchdog({ nowEpoch: baseEpoch });
+  assert.equal(wdHealed.auto_healed.length, 1, 'Must auto-heal once >= 2 Bolivia-eligible postings reappear');
+  const gitlabHealed = wdBrain.lookupEmployerReality({ company: 'GitLab' });
+  assert.equal(gitlabHealed.caution_note_es, '', 'Auto-healing must clear Stage 2 observational note');
+  assert.ok(gitlabHealed.confidence >= 0.85, 'Auto-healing must restore employer confidence');
+  assert.equal(wdBrain.inspectStatus().open_conflicts_count, 0, 'Auto-healing must resolve open policy conflict');
+
+  // 11e. Full nightly sleep cycle, GET /api/pulse, GET /pulso SSR & footer UI
+  const sleepOut = await runNightlySleepCycle({ opportunities: sampleOpps, platforms: [] }, {});
+  assert.equal(sleepOut.ok, true);
+  assert.ok(sleepOut.pulse && sleepOut.pulse.pulse_date);
+
+  const respPulseApi = await worker.fetch(new Request('https://boliviaremote.work/api/pulse'), {}, {});
+  assert.equal(respPulseApi.status, 200);
+  const pulseApiJson = await respPulseApi.json();
+  assert.equal(pulseApiJson.ok, true);
+  assert.equal(pulseApiJson.schedule, '0 7 * * *');
+  assert.ok(pulseApiJson.pulse && typeof pulseApiJson.pulse.total_active_eligible === 'number');
+
+  const respPulsePage = await worker.fetch(new Request('https://boliviaremote.work/pulso'), {}, {});
+  assert.equal(respPulsePage.status, 200);
+  const pulsePageHtml = await respPulsePage.text();
+  assert.ok(pulsePageHtml.includes('<section id="view-pulse">'), '/pulso must render #view-pulse visible by default');
+  assert.ok(html.includes('id="nav-pulse"') && html.includes('Pulso del Mercado'), 'Main page footer must include Pulso del Mercado button');
+  assert.ok(html.includes('id="view-pulse"'), 'Main page must include #view-pulse section');
 
   console.log('ALL TESTS PASSED SUCCESSFULLY!');
 }

@@ -8,7 +8,7 @@
 
 **Public, autonomous, self-contained Cloudflare Workers platform designed to discover, filter, analyze with AI, and evaluate 100% remote international job opportunities eligible from Bolivia (UTC-4).**
 
-[![Version](https://img.shields.io/badge/Version-v6.1.0%20Production-0284c7?style=for-the-badge&logo=cloudflare&logoColor=white)](src/worker.js)
+[![Version](https://img.shields.io/badge/Version-v6.2.0%20Production-0284c7?style=for-the-badge&logo=cloudflare&logoColor=white)](src/worker.js)
 [![Runtime](https://img.shields.io/badge/Runtime-Cloudflare%20Workers-f38020?style=for-the-badge&logo=cloudflareworkers&logoColor=white)](wrangler.toml)
 [![AI & Memory](https://img.shields.io/badge/AI-Llama%203.3%20%2B%20BGE--M3%20%2B%20DO%20SQLite-0d9488?style=for-the-badge&logo=cloudflare&logoColor=white)](src/career_brain_do.js)
 [![Automation](https://img.shields.io/badge/Schedule-Auto%20Every%2015%20min-10b981?style=for-the-badge&logo=clockify&logoColor=white)](wrangler.toml)
@@ -65,8 +65,9 @@ Searching for legitimate international remote jobs from Bolivia is often frustra
 
 **Bolivia Remote Work** (`https://boliviaremote.work`) is a **free, public, open-source (GPL-3.0)** Spanish (Bolivia) platform that monitors **86 global and regional job sources**, strictly filters every ingested listing for **100% remote eligibility from Bolivia**, and augments discovery and job analysis through **Artificial Intelligence backed by a 3-layer memory architecture** (Cloudflare D1 + SQLite Durable Object + 1024d Vectorize + Workers AI).
 
-### Key Capabilities and Enhancements (v6.1.0)
+### Key Capabilities and Enhancements (v6.2.0)
 
+- **03:00 AM Bolivia Nightly Sleep Cycle (`0 7 * * *`) — Market Pulse & 30d/60d Policy Watchdog (v6.2.0):** Every night, `src/nightly_sleep.js` compiles a grounded **Bolivia Remote Market Pulse** (`/pulso` and `GET /api/pulse`: ES vs. EN top hiring categories, median/IQR monthly USD rates with `n >= 5` sample guard, newly promoted Direct ATS employers, and ghost-job health) synthesized on `@cf/meta/llama-3.3-70b-instruct-fp8-fast`, and runs the **Two-Stage Auto-Healing Policy Contradiction Watchdog** (**Stage 1: 30 days** internal conflict + mild confidence decay; **Stage 2: 60 days** neutral observational note without auto-blocking valid jobs; **Auto-Healing** once `>= 2` eligible roles reappear).
 - **AI-Managed Autonomous Direct ATS Source Discovery (v6.1.0):** Every 15-minute cron cycle extracts recurring company career links from broadened multi-category aggregators (Remotive, Himalayas, Jobicy, RemoteOK, We Work Remotely, and GetOnBoard's native JSON:API), safely probes public endpoints across **7 SSRF-allowlisted ATS providers** (`Greenhouse`, `Lever`, `Ashby`, `Workable`, `SmartRecruiters`, `Recruitee`, `Breezy HR`), scores real Bolivia-eligible yield (with Spanish-role and non-DevOps scarcity bonuses), and delegates background promotion into **Monitored Platforms** (`ats_*`) to **`@cf/meta/llama-3.3-70b-instruct-fp8-fast`** backed by the 3-layer memory stack and deterministic safety guardrails — complete with Direct-Over-Aggregator deduplication precedence and self-healing `COOLDOWN` demotion.
 - **3-Layer Memory + Grounded AI:** Combines relational persistence with BM25 FTS5, ghost-job repost tracking, and `discovered_sources` (`bolivia-remote-jobs-db`), an embedded employer/payout/playbook knowledge graph (`BoliviaCareerBrainDO`), and 3-channel hybrid semantic search with neural reranking (`bge-m3` + `bge-reranker-base`) plus context-compiled position analysis on `@cf/meta/llama-3.3-70b-instruct-fp8-fast`.
 - **Job Cards with Live Reality Pills:** Every job card surfaces verified **Bolivia payout rail badges** (e.g., `Cobro verificado: AirTM / Payoneer / Deel`), local caution flags, **Nueva hoy** freshness tags, and **Re-publicada** ghost-job warnings.
