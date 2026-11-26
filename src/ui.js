@@ -158,7 +158,7 @@ export function renderAppHtml(initialState, options = {}) {
       justify-content: space-between;
       flex-wrap: wrap;
       gap: 8px;
-      max-width: 1128px;
+      max-width: 1360px;
       margin: 0 auto;
       padding: 13px 24px;
       background: transparent;
@@ -278,7 +278,7 @@ export function renderAppHtml(initialState, options = {}) {
     #navbar ul {
       position: absolute;
       top: calc(100% + 6px);
-      right: max(24px, calc((100vw - 1128px) / 2 + 24px));
+      right: max(24px, calc((100vw - 1360px) / 2 + 24px));
       width: min(310px, calc(100vw - 32px));
       max-height: calc(100vh - 76px);
       margin: 0;
@@ -424,7 +424,7 @@ export function renderAppHtml(initialState, options = {}) {
     #main-doc,
     body.sidebar-collapsed #main-doc {
       margin: 0 auto;
-      max-width: 1128px;
+      max-width: 1360px;
       width: 100%;
       box-sizing: border-box;
       padding: 24px 24px 64px 24px;
@@ -3202,7 +3202,8 @@ ${LEGAL_TAX_GUIDE_HTML}
       }
     };
 
-    // Bring evaluation functions into client scope
+    // Bring evaluation functions into client scope (with esbuild __name no-op shim for Cloudflare Workers bundles)
+    const __name = (target) => target;
     const checkBoliviaRemoteEligibility = ${checkBoliviaRemoteEligibility.toString()};
     const detectOfferAttributes = ${detectOfferAttributes.toString()};
     const evaluateOpportunity = ${evaluateOpportunity.toString()};

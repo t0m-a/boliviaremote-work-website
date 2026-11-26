@@ -281,6 +281,9 @@ async function runTests() {
   assert.ok(!html.includes("semanticBtn: 'AI Vector Search'"), 'Must replace AI Vector Search button label');
   assert.ok(html.includes('https://tsimon.me'), 'Must include footer attribution link to tsimon.me');
   assert.ok(html.includes('title="Thomas Mathieu Simon  · Cloud Systems Architect · NOC &amp; AI Engineer"'), 'Must include title attribute on tsimon.me link');
+  assert.ok(html.includes('const __name = (target) => target;'), 'Client script must define __name shim so Wrangler esbuild keepNames helpers never throw ReferenceError in production');
+  assert.ok(!checkBoliviaRemoteEligibility.toString().includes('cacheReturn'), 'checkBoliviaRemoteEligibility must avoid inner named arrow functions that trigger esbuild __name wrapping');
+  assert.ok(html.includes('max-width: 1360px;'), 'Desktop layout measure must use wider 1360px container');
   assert.ok(html.includes('body.sidebar-collapsed #main-doc'), 'Must expand main-doc when collapsed');
   assert.ok(html.includes('body.sidebar-collapsed .top-banner'), 'Must expand sections to full width when collapsed');
   assert.ok(html.includes('body.view-manual-active .top-banner'), 'Must have CSS hiding preliminary sections when manual view is active');

@@ -371,14 +371,9 @@ export function checkBoliviaRemoteEligibility(item) {
       return cached.res;
     }
   }
-  const cacheReturn = (res) => {
-    if (item && typeof item === 'object' && checkBoliviaRemoteEligibility._cache) {
-      checkBoliviaRemoteEligibility._cache.set(item, { sig: cacheSig, res });
-    }
-    return res;
-  };
 
   const blob = `${titleLow} ${locLow} ${descLow} ${tagsLow}`;
+  let result = null;
 
   const hardExclusions = [
     { re: /\b(?:us|usa|united states)\s+only\b/i, es: 'Solo residentes en EE. UU.', en: 'US residents only' },
@@ -403,7 +398,7 @@ export function checkBoliviaRemoteEligibility(item) {
 
   for (const rule of hardExclusions) {
     if (rule.re.test(titleLow) || rule.re.test(locLow) || rule.re.test(descLow)) {
-      return cacheReturn({
+      result = {
         eligible: false,
         score: 0,
         tier: 'restricted',
@@ -411,90 +406,99 @@ export function checkBoliviaRemoteEligibility(item) {
         badge_en: 'Geo-Restricted',
         reason_es: rule.es,
         reason_en: rule.en
-      });
+      };
+      break;
     }
   }
 
-  const strictBlockedLocations = new Set([
-    'united states', 'usa', 'u.s.', 'europe', 'eu', 'emea', 'apac', 'uk', 'united kingdom',
-    'canada', 'mexico', 'méxico', 'spain', 'france', 'australia', 'germany', 'india'
-  ]);
-  if (strictBlockedLocations.has(locLow)) {
-    return cacheReturn({
-      eligible: false,
-      score: 0,
-      tier: 'restricted',
-      badge_es: `Solo ${loc}`,
-      badge_en: `${loc} Only`,
-      reason_es: `Ubicación restringida a ${loc} (no disponible desde Bolivia).`,
-      reason_en: `Location restricted to ${loc} (not available from Bolivia).`
-    });
+  if (!result) {
+    const strictBlockedLocations = new Set([
+      'united states', 'usa', 'u.s.', 'europe', 'eu', 'emea', 'apac', 'uk', 'united kingdom',
+      'canada', 'mexico', 'méxico', 'spain', 'france', 'australia', 'germany', 'india'
+    ]);
+    if (strictBlockedLocations.has(locLow)) {
+      result = {
+        eligible: false,
+        score: 0,
+        tier: 'restricted',
+        badge_es: `Solo ${loc}`,
+        badge_en: `${loc} Only`,
+        reason_es: `Ubicación restringida a ${loc} (no disponible desde Bolivia).`,
+        reason_en: `Location restricted to ${loc} (not available from Bolivia).`
+      };
+    }
   }
 
-  const hasInclusiveRegion = /\b(?:bolivia|latam|latin america|south america|sudam[eé]rica|latinoam[eé]rica|americas|all americas|worldwide|anywhere|global|international)\b/i.test(locLow);
-  const hasForeignCountryList = /\b(?:united states|usa|u\.s\.|canada|europe|eu|emea|apac|uk|united kingdom|australia|new zealand|singapore|saudi arabia|india|germany|spain|mexico|méxico|ireland|switzerland|iceland|norway|israel|japan|africa|asia)\b/i.test(locLow);
+  if (!result) {
+    const hasInclusiveRegion = /\b(?:bolivia|latam|latin america|south america|sudam[eé]rica|latinoam[eé]rica|americas|all americas|worldwide|anywhere|global|international)\b/i.test(locLow);
+    const hasForeignCountryList = /\b(?:united states|usa|u\.s\.|canada|europe|eu|emea|apac|uk|united kingdom|australia|new zealand|singapore|saudi arabia|india|germany|spain|mexico|méxico|ireland|switzerland|iceland|norway|israel|japan|africa|asia)\b/i.test(locLow);
 
-  if (hasForeignCountryList && !hasInclusiveRegion) {
-    if (locLow.includes('argentina') || locLow.includes('brazil') || locLow.includes('colombia') || locLow.includes('chile') || locLow.includes('peru')) {
-      return cacheReturn({
+    if (hasForeignCountryList && !hasInclusiveRegion) {
+      if (locLow.includes('argentina') || locLow.includes('brazil') || locLow.includes('colombia') || locLow.includes('chile') || locLow.includes('peru')) {
+        result = {
+          eligible: true,
+          score: 21,
+          tier: 'worldwide',
+          badge_es: 'Multi-País / Sudamérica',
+          badge_en: 'Multi-Country / South America',
+          reason_es: 'Abierto a múltiples países incluyendo Sudamérica / contratistas internacionales.',
+          reason_en: 'Open across multiple countries including South America / international contractors.'
+        };
+      } else {
+        result = {
+          eligible: false,
+          score: 0,
+          tier: 'restricted',
+          badge_es: 'Restringido por Región',
+          badge_en: 'Region Restricted',
+          reason_es: `Ubicación limitada a países específicos fuera de Bolivia (${loc}).`,
+          reason_en: `Location restricted to specific countries outside Bolivia (${loc}).`
+        };
+      }
+    }
+  }
+
+  if (!result) {
+    if (/\b(?:bolivia|latam|latin america|south america|americas|andean|utc-4|est|edt|w-8ben|hispano|latinoam[eé]rica|sudam[eé]rica)\b/i.test(blob)) {
+      result = {
         eligible: true,
-        score: 21,
+        score: 25,
+        tier: 'bolivia_latam',
+        badge_es: 'Ideal desde Bolivia / LATAM (UTC-4)',
+        badge_en: 'Ideal from Bolivia / LATAM (UTC-4)',
+        reason_es: '100% remoto con alineación directa para Bolivia, Latinoamérica o zona horaria UTC-4.',
+        reason_en: '100% remote with direct eligibility for Bolivia, LATAM, or UTC-4 timezone.'
+      };
+    } else if (
+      /\b(?:worldwide|anywhere|global|international|remote)\b/i.test(locLow) ||
+      /\b(?:work from anywhere|anywhere in the world|remote worldwide|global remote|100% remoto|remoto)\b/i.test(blob)
+    ) {
+      result = {
+        eligible: true,
+        score: 23,
         tier: 'worldwide',
-        badge_es: 'Multi-País / Sudamérica',
-        badge_en: 'Multi-Country / South America',
-        reason_es: 'Abierto a múltiples países incluyendo Sudamérica / contratistas internacionales.',
-        reason_en: 'Open across multiple countries including South America / international contractors.'
-      });
+        badge_es: '100% Remoto Global (Apto Bolivia)',
+        badge_en: '100% Global Remote (Bolivia Eligible)',
+        reason_es: 'Posición 100% remota global ("Work From Anywhere"), apta para postular desde Bolivia.',
+        reason_en: '100% global remote ("Work From Anywhere") position, open to applicants from Bolivia.'
+      };
+    } else {
+      result = {
+        eligible: true,
+        score: 19,
+        tier: 'timezone_overlap',
+        badge_es: 'Remoto Internacional (Huso Horario)',
+        badge_en: 'International Remote (Timezone Overlap)',
+        reason_es: `100% remoto internacional con requisito de traslape horario (${loc}).`,
+        reason_en: `100% international remote with timezone overlap requirement (${loc}).`
+      };
     }
-    return cacheReturn({
-      eligible: false,
-      score: 0,
-      tier: 'restricted',
-      badge_es: 'Restringido por Región',
-      badge_en: 'Region Restricted',
-      reason_es: `Ubicación limitada a países específicos fuera de Bolivia (${loc}).`,
-      reason_en: `Location restricted to specific countries outside Bolivia (${loc}).`
-    });
   }
 
-  if (
-    /\b(?:bolivia|latam|latin america|south america|americas|andean|utc-4|est|edt|w-8ben|hispano|latinoam[eé]rica|sudam[eé]rica)\b/i.test(blob)
-  ) {
-    return cacheReturn({
-      eligible: true,
-      score: 25,
-      tier: 'bolivia_latam',
-      badge_es: 'Ideal desde Bolivia / LATAM (UTC-4)',
-      badge_en: 'Ideal from Bolivia / LATAM (UTC-4)',
-      reason_es: '100% remoto con alineación directa para Bolivia, Latinoamérica o zona horaria UTC-4.',
-      reason_en: '100% remote with direct eligibility for Bolivia, LATAM, or UTC-4 timezone.'
-    });
+  if (item && typeof item === 'object' && checkBoliviaRemoteEligibility._cache) {
+    checkBoliviaRemoteEligibility._cache.set(item, { sig: cacheSig, res: result });
   }
-
-  if (
-    /\b(?:worldwide|anywhere|global|international|remote)\b/i.test(locLow) ||
-    /\b(?:work from anywhere|anywhere in the world|remote worldwide|global remote|100% remoto|remoto)\b/i.test(blob)
-  ) {
-    return cacheReturn({
-      eligible: true,
-      score: 23,
-      tier: 'worldwide',
-      badge_es: '100% Remoto Global (Apto Bolivia)',
-      badge_en: '100% Global Remote (Bolivia Eligible)',
-      reason_es: 'Posición 100% remota global ("Work From Anywhere"), apta para postular desde Bolivia.',
-      reason_en: '100% global remote ("Work From Anywhere") position, open to applicants from Bolivia.'
-    });
-  }
-
-  return cacheReturn({
-    eligible: true,
-    score: 19,
-    tier: 'timezone_overlap',
-    badge_es: 'Remoto Internacional (Huso Horario)',
-    badge_en: 'International Remote (Timezone Overlap)',
-    reason_es: `100% remoto internacional con requisito de traslape horario (${loc}).`,
-    reason_en: `100% international remote with timezone overlap requirement (${loc}).`
-  });
+  return result;
 }
 
 /**
