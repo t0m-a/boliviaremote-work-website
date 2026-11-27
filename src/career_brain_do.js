@@ -1623,6 +1623,186 @@ export class BoliviaCareerBrainDO {
   }
 
   /**
+   * Disaster Recovery 1: Capture 30-day Durable Object SQLite PITR Bookmark + Table Row Counts.
+   */
+  async getPitrBookmark(atTimestampMs = null) {
+    const storage = this.ctx && this.ctx.storage ? this.ctx.storage : null;
+    let bookmark = null;
+    let pitrSupported = false;
+
+    if (storage) {
+      if (typeof atTimestampMs === 'number' && Number.isFinite(atTimestampMs)) {
+        if (typeof storage.getBookmarkForTime === 'function') {
+          pitrSupported = true;
+          bookmark = await storage.getBookmarkForTime(atTimestampMs);
+        }
+      } else if (typeof storage.getCurrentBookmark === 'function') {
+        pitrSupported = true;
+        bookmark = await storage.getCurrentBookmark();
+      }
+    }
+
+    const coreTables = [
+      'meta',
+      'entities',
+      'edges',
+      'playbooks',
+      'intel_validations',
+      'intel_conflicts',
+      'employer_geo_observations',
+      'market_pulses'
+    ];
+    const tableCounts = {};
+    if (this.sql) {
+      for (const tbl of coreTables) {
+        tableCounts[tbl] = this.sql.exec(`SELECT COUNT(*) AS c FROM ${tbl}`).one().c;
+      }
+    } else {
+      tableCounts.meta = this.mem.meta.size;
+      tableCounts.entities = this.mem.entities.size;
+      tableCounts.edges = this.mem.edges.length;
+      tableCounts.playbooks = this.mem.playbooks.size;
+      tableCounts.intel_validations = this.mem.validations.length;
+      tableCounts.intel_conflicts = this.mem.conflicts.length;
+      tableCounts.employer_geo_observations = this.mem.geoObservations.length;
+      tableCounts.market_pulses = this.mem.marketPulses.size;
+    }
+
+    return {
+      ok: true,
+      objectName: DEFAULT_DO_INSTANCE_NAME,
+      capturedAtIso: new Date().toISOString(),
+      pitrSupported,
+      bookmark,
+      tableCounts
+    };
+  }
+
+  /**
+   * Disaster Recovery 2: Schedule 30-day In-Place SQLite PITR Rollback.
+   */
+  async restorePitrBookmark({ bookmark = '', confirm = '', abortNow = false } = {}) {
+    if (confirm !== 'CONFIRM_PITR_RESTORE') {
+      return { ok: false, error: "Confirmation required: pass confirm='CONFIRM_PITR_RESTORE'." };
+    }
+    const targetBookmark = String(bookmark || '').trim();
+    if (!targetBookmark || targetBookmark.length > 256 || !/^[A-Za-z0-9._-]+$/.test(targetBookmark)) {
+      return { ok: false, error: 'Invalid or missing PITR bookmark.' };
+    }
+
+    const storage = this.ctx && this.ctx.storage ? this.ctx.storage : null;
+    if (!storage || typeof storage.onNextSessionRestoreBookmark !== 'function') {
+      return { ok: false, error: 'Durable Object PITR restore API is unavailable in this runtime.' };
+    }
+
+    const preRestoreBookmark =
+      typeof storage.getCurrentBookmark === 'function'
+        ? await storage.getCurrentBookmark()
+        : null;
+
+    const scheduledBookmark = await storage.onNextSessionRestoreBookmark(targetBookmark);
+
+    if (abortNow === true && typeof this.ctx.abort === 'function') {
+      this.ctx.abort('Operator-confirmed PITR restore');
+    }
+
+    return {
+      ok: true,
+      preRestoreBookmark,
+      targetBookmark,
+      scheduledBookmark,
+      mode: abortNow === true ? 'aborted_for_immediate_restore' : 'scheduled_on_next_session'
+    };
+  }
+
+  /**
+   * Disaster Recovery 3: Idempotent Logical Batch Table Restore from Encrypted SQLite Backup.
+   */
+  restoreTableBatch({ table = '', rows = [], rebuildFts = false } = {}) {
+    const ALLOWED_TABLES = {
+      meta: ['key', 'value'],
+      entities: [
+        'entity_id', 'entity_type', 'canonical_name', 'domain', 'bolivia_tier',
+        'confidence', 'pagerank_score', 'attributes_json', 'updated_at'
+      ],
+      edges: [
+        'id', 'source_id', 'target_id', 'relation', 'weight',
+        'confidence', 'evidence_note', 'valid_from', 'valid_until'
+      ],
+      playbooks: [
+        'playbook_id', 'category', 'title_es', 'title_en', 'summary_es',
+        'summary_en', 'content_es', 'content_en', 'tags', 'updated_at'
+      ],
+      intel_validations: ['id', 'entity_id', 'validator', 'status', 'note', 'validated_at'],
+      intel_conflicts: ['id', 'entity_id', 'conflict_type', 'evidence', 'status', 'created_at'],
+      employer_geo_observations: [
+        'id', 'entity_id', 'source_kind', 'eligible_count', 'geo_blocked_count',
+        'observed_at_epoch', 'created_at'
+      ],
+      market_pulses: ['pulse_date', 'window_type', 'payload_json', 'created_at']
+    };
+
+    const tbl = String(table || '').trim();
+    const allowedCols = ALLOWED_TABLES[tbl];
+    if (!allowedCols) {
+      return { ok: false, error: `Unsupported restore table: ${tbl}` };
+    }
+    const batch = Array.isArray(rows) ? rows : [];
+    if (batch.length > 500) {
+      return { ok: false, error: 'Batch too large: maximum 500 rows per restore-batch call.' };
+    }
+
+    let restored = 0;
+    if (this.sql) {
+      const execRestore = () => {
+        for (const row of batch) {
+          if (!row || typeof row !== 'object') continue;
+          const cols = allowedCols.filter(c => Object.prototype.hasOwnProperty.call(row, c));
+          if (cols.length === 0) continue;
+          const placeholders = cols.map(() => '?').join(', ');
+          const vals = cols.map(c => (row[c] === undefined ? null : row[c]));
+          this.sql.exec(
+            `INSERT OR REPLACE INTO ${tbl} (${cols.join(', ')}) VALUES (${placeholders})`,
+            ...vals
+          );
+          restored++;
+        }
+        if (rebuildFts === true || tbl === 'playbooks') {
+          this.sql.exec('DELETE FROM playbooks_fts;');
+          this.sql.exec(
+            `INSERT INTO playbooks_fts(playbook_id, category, title_es, title_en, content_es, content_en, tags)
+             SELECT playbook_id, category, title_es, title_en, content_es, content_en, tags FROM playbooks;`
+          );
+        }
+      };
+
+      if (this.ctx && this.ctx.storage && typeof this.ctx.storage.transactionSync === 'function') {
+        this.ctx.storage.transactionSync(execRestore);
+      } else {
+        execRestore();
+      }
+      this._lookupIndex = null;
+    } else {
+      for (const row of batch) {
+        if (!row || typeof row !== 'object') continue;
+        if (tbl === 'meta' && row.key) this.mem.meta.set(row.key, String(row.value ?? ''));
+        else if (tbl === 'entities' && row.entity_id) this.mem.entities.set(row.entity_id, row);
+        else if (tbl === 'playbooks' && row.playbook_id) this.mem.playbooks.set(row.playbook_id, row);
+        else if (tbl === 'market_pulses' && row.pulse_date) this.mem.marketPulses.set(row.pulse_date, row);
+        restored++;
+      }
+      this._lookupIndex = null;
+    }
+
+    return {
+      ok: true,
+      table: tbl,
+      restoredCount: restored,
+      ftsRebuilt: rebuildFts === true || tbl === 'playbooks'
+    };
+  }
+
+  /**
    * Internal HTTP handler invoked by Worker stubs (`stub.fetch(...)`).
    */
   async fetch(request) {
@@ -1639,8 +1819,21 @@ export class BoliviaCareerBrainDO {
       if (request.method === 'GET' && path === '/internal/read-snapshot') {
         return Response.json(this.exportReadSnapshot());
       }
+      if (request.method === 'GET' && path === '/internal/pitr-bookmark') {
+        const atParam = url.searchParams.get('at');
+        const atMs = atParam ? Number(atParam) : null;
+        return Response.json(await this.getPitrBookmark(Number.isFinite(atMs) ? atMs : null));
+      }
       if (request.method === 'POST') {
         const body = await request.json().catch(() => ({}));
+        if (path === '/internal/pitr-restore') {
+          const res = await this.restorePitrBookmark(body || {});
+          return Response.json(res, { status: res.ok ? 200 : 400 });
+        }
+        if (path === '/internal/restore-batch') {
+          const res = this.restoreTableBatch(body || {});
+          return Response.json(res, { status: res.ok ? 200 : 400 });
+        }
         if (path === '/internal/lookup-batch') {
           return Response.json({
             ok: true,
@@ -1955,6 +2148,32 @@ export function getCareerBrainClient(env = {}) {
         }
       }
       return getLocalFallbackInstance(env).inspectStatus();
+    },
+
+    async getPitrBookmark(atTimestampMs = null) {
+      if (hasDO) {
+        const qs = typeof atTimestampMs === 'number' && Number.isFinite(atTimestampMs)
+          ? `?at=${encodeURIComponent(String(atTimestampMs))}`
+          : '';
+        return await callDO(`/internal/pitr-bookmark${qs}`, 'GET', null, DO_READ_TIMEOUT_MS);
+      }
+      return await getLocalFallbackInstance(env).getPitrBookmark(atTimestampMs);
+    },
+
+    async restorePitrBookmark(payload) {
+      invalidateSnapshotCache();
+      if (hasDO) {
+        return await callDO('/internal/pitr-restore', 'POST', payload, DO_WRITE_TIMEOUT_MS);
+      }
+      return await getLocalFallbackInstance(env).restorePitrBookmark(payload);
+    },
+
+    async restoreTableBatch(payload) {
+      invalidateSnapshotCache();
+      if (hasDO) {
+        return await callDO('/internal/restore-batch', 'POST', payload, DO_WRITE_TIMEOUT_MS);
+      }
+      return getLocalFallbackInstance(env).restoreTableBatch(payload);
     }
   };
 }

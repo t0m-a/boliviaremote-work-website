@@ -36,7 +36,7 @@ import {
   deduplicateSemantically
 } from './vector_store.js';
 import { hybridSearchOpportunities } from './hybrid_search.js';
-import { handleMcpRequest } from './mcp.js';
+import { handleMcpRequest, verifyMcpAuth } from './mcp.js';
 import {
   BoliviaCareerBrainDO,
   getCareerBrainClient
@@ -156,6 +156,8 @@ function canonicalEdgeCachePath(path, url = null) {
 
 function isKnownRoute(method, path) {
   if (path === '/mcp' || path === '/api/mcp' || path === '/.well-known/mcp.json') return true;
+  if (method === 'GET' && path === '/admin/pitr-bookmark') return true;
+  if (method === 'POST' && (path === '/admin/pitr-restore' || path === '/admin/restore-batch')) return true;
   if (method === 'GET') {
     return (
       path === '/' ||
@@ -1358,6 +1360,40 @@ Sitemap: https://boliviaremote.work/sitemap.xml
 
     if (!isKnownRoute(request.method, path)) {
       return jsonResponse({ error: 'Not Found' }, 404);
+    }
+
+    // 0b. Authenticated Durable Object Disaster Recovery & PITR Routes (Fail-Closed, Zero-D1 Load)
+    if (
+      (request.method === 'GET' && path === '/admin/pitr-bookmark') ||
+      (request.method === 'POST' && (path === '/admin/pitr-restore' || path === '/admin/restore-batch'))
+    ) {
+      // Force fail-closed MCP_API_KEY verification regardless of MCP_PUBLIC_ACCESS
+      const strictEnv = env ? { ...env, MCP_PUBLIC_ACCESS: 'false' } : { MCP_PUBLIC_ACCESS: 'false' };
+      const auth = verifyMcpAuth(request, strictEnv, url);
+      if (!auth.ok) {
+        return jsonResponse({ ok: false, error: 'Unauthorized: Valid MCP_API_KEY required.' }, 401);
+      }
+
+      const brain = getCareerBrainClient(env);
+      try {
+        if (request.method === 'GET' && path === '/admin/pitr-bookmark') {
+          const atParam = url.searchParams.get('at');
+          const atMs = atParam ? Number(atParam) : null;
+          const res = await brain.getPitrBookmark(Number.isFinite(atMs) ? atMs : null);
+          return jsonResponse(res, 200);
+        }
+        const body = await request.json().catch(() => ({}));
+        if (path === '/admin/pitr-restore') {
+          const res = await brain.restorePitrBookmark(body || {});
+          return jsonResponse(res, res.ok ? 200 : 400);
+        }
+        if (path === '/admin/restore-batch') {
+          const res = await brain.restoreTableBatch(body || {});
+          return jsonResponse(res, res.ok ? 200 : 400);
+        }
+      } catch (err) {
+        return jsonResponse({ ok: false, error: err && err.message ? err.message : 'Admin DR action failed' }, 500);
+      }
     }
 
     // 0b. Edge Cache lookup for public read routes BEFORE loading D1/DO state
