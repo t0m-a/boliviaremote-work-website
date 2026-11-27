@@ -172,7 +172,7 @@ async function runTests() {
     html.includes('#verdictFilterBar .btn-tab'),
     'Mobile toolbar must use responsive 2-column verdict button grid and full-width search field'
   );
-  assert.ok(html.includes('id="btn-v-all">Todas las Elegibles</button>'), 'Spanish toolbar filter must say Todas las Elegibles');
+  assert.ok(html.includes('id="btn-v-all">Todas las Elegibles</span>'), 'Spanish toolbar filter must say Todas las Elegibles');
   assert.ok(!html.includes('Todos los Elegibles'), 'Must replace Todos los Elegibles with Todas las Elegibles');
   assert.ok(/\.btn-ai-info\s*\{[\s\S]*?background:\s*var\(--bg-well\);[\s\S]*?color:\s*var\(--text-main\) !important;/.test(html), 'Más información con IA button must use calm Swiss tonal surface styling');
   assert.ok(/\.chip\.selected\s*\{[\s\S]*?background:\s*var\(--accent-primary\);[\s\S]*?color:\s*var\(--accent-fg\);/.test(html), 'Selected language chips (Español/Inglés) must use high-contrast Swiss accent styling');
@@ -456,28 +456,50 @@ async function runTests() {
   assert.ok(!domElements['chips-languages'].innerHTML.includes("toggleLanguageChip('pt')") && !domElements['chips-languages'].innerHTML.includes('Portugués'), 'Must remove Portugués from languages filter');
   assert.equal(typeof vmSandbox.window.toggleLanguageChip, 'function', 'toggleLanguageChip must be bound on window');
 
-  // Verify live language chip toggling refreshes KPI counts, surfaced totals, and 60-card paginated DOM across ES-only, Both, and EN-only
+  // Verify #verdictFilterBar default selection ("Postular" / APPLY), colored dots, and dimmed/bright styling
+  assert.ok(
+    html.includes('<button type="button" class="btn-tab" data-verdict="ALL" onclick="setVerdictFilter(\'ALL\')"><span class="verdict-dot dot-skip" aria-hidden="true"></span><span id="btn-v-all">Todas las Elegibles</span></button>') &&
+    html.includes('<button type="button" class="btn-tab active" data-verdict="APPLY" onclick="setVerdictFilter(\'APPLY\')"><span class="verdict-dot dot-apply" aria-hidden="true"></span><span id="btn-v-apply">Postular</span></button>') &&
+    html.includes('<button type="button" class="btn-tab" data-verdict="POSSIBLE" onclick="setVerdictFilter(\'POSSIBLE\')"><span class="verdict-dot dot-possible" aria-hidden="true"></span><span id="btn-v-possible">Explorar</span></button>') &&
+    html.includes('<button type="button" class="btn-tab" data-verdict="SKIP" onclick="setVerdictFilter(\'SKIP\')"><span class="verdict-dot dot-skip" aria-hidden="true"></span><span id="btn-v-skip">Baja Coincidencia</span></button>'),
+    '#verdictFilterBar must default to Postular (APPLY) active and include grey/green/orange/grey dots'
+  );
+  assert.ok(
+    html.includes('#verdictFilterBar .btn-tab {') &&
+    html.includes('opacity: 0.56;') &&
+    html.includes('#verdictFilterBar .btn-tab.active,') &&
+    html.includes('opacity: 1;'),
+    '#verdictFilterBar buttons must appear dimmed when unselected and bright when selected'
+  );
+
+  // Verify live language chip toggling refreshes KPI counts, surfaced totals, and 60-card paginated DOM across ES-only, Both, and EN-only (default verdict = APPLY)
   const countCards = () => (domElements['resultsCardsContainer'].innerHTML.match(/class="opp-card /g) || []).length;
   const countSurfaced = () => Number(domElements['nav-cnt-results'].textContent);
   const esOnlyCards = countCards();
   const esOnlyTotal = countSurfaced();
   const esOnlyApply = Number(domElements['kpi-apply-cnt'].textContent);
-  assert.ok(esOnlyCards > 0 && esOnlyCards <= 60, `Initial Spanish-only mode must render <= 60 cards (got ${esOnlyCards})`);
-  assert.ok(esOnlyTotal >= esOnlyCards, 'Surfaced count must be >= rendered card count');
+  const esOnlyPossible = Number(domElements['kpi-possible-cnt'].textContent);
+  const esOnlySkip = Number(domElements['kpi-skip-cnt'].textContent);
+  assert.equal(esOnlyCards, Math.min(60, esOnlyApply), `Default Postular (APPLY) verdict must render <= 60 APPLY cards (got ${esOnlyCards}, apply=${esOnlyApply})`);
+  assert.ok(esOnlyApply > 0, 'Initial Spanish-only mode must have APPLY offers');
+  assert.ok(esOnlyTotal >= esOnlyApply + esOnlyPossible, 'Surfaced count must cover APPLY + POSSIBLE');
 
   // Toggle English ON -> Both ['es', 'en']
   vmSandbox.window.toggleLanguageChip('en');
   const bothCards = countCards();
   const bothTotal = countSurfaced();
   const bothApply = Number(domElements['kpi-apply-cnt'].textContent);
+  const bothPossible = Number(domElements['kpi-possible-cnt'].textContent);
+  const bothSkip = Number(domElements['kpi-skip-cnt'].textContent);
   assert.ok(bothTotal > esOnlyTotal, `Selecting both ES+EN must expand surfaced results (${bothTotal} > ${esOnlyTotal})`);
-  assert.equal(bothCards, Math.min(60, bothTotal), 'Initial DOM render must cap at 60 cards before clicking Cargar más');
+  assert.equal(bothApply + bothPossible + bothSkip, esOnlyApply + esOnlyPossible + esOnlySkip, 'APPLY + POSSIBLE + SKIP KPI sum must equal total Bolivia-eligible catalog across language modes');
+  assert.equal(bothCards, Math.min(60, bothApply), 'Initial DOM render under default APPLY verdict must cap at 60 APPLY cards');
   assert.equal(typeof vmSandbox.window.loadMoreResultsCards, 'function', 'loadMoreResultsCards must be bound on window');
   assert.equal(typeof vmSandbox.window.ensureFullCatalogHydrated, 'function', 'ensureFullCatalogHydrated must be bound on window');
-  if (bothTotal > 60) {
-    assert.ok(domElements['results-load-more-wrap'].innerHTML.includes('Cargar más'), 'Load-more bar must display Cargar más button when > 60 offers match');
+  if (bothApply > 60) {
+    assert.ok(domElements['results-load-more-wrap'].innerHTML.includes('Cargar más'), 'Load-more bar must display Cargar más button when > 60 APPLY offers match');
     await vmSandbox.window.loadMoreResultsCards();
-    assert.equal(countCards(), Math.min(120, bothTotal), 'Clicking Cargar más once must append +60 cards');
+    assert.equal(countCards(), Math.min(120, bothApply), 'Clicking Cargar más once must append +60 cards');
   }
   assert.ok(bothApply >= esOnlyApply, `Selecting both ES+EN must not drop APPLY count (${bothApply} >= ${esOnlyApply})`);
 
@@ -486,8 +508,11 @@ async function runTests() {
   const enOnlyCards = countCards();
   const enOnlyTotal = countSurfaced();
   const enOnlyApply = Number(domElements['kpi-apply-cnt'].textContent);
+  const enOnlyPossible = Number(domElements['kpi-possible-cnt'].textContent);
+  const enOnlySkip = Number(domElements['kpi-skip-cnt'].textContent);
   assert.ok(enOnlyTotal > esOnlyTotal && enOnlyTotal < bothTotal, `Selecting EN-only must exclude Spanish-only offers (${esOnlyTotal} < ${enOnlyTotal} < ${bothTotal})`);
-  assert.equal(enOnlyCards, Math.min(60, enOnlyTotal), 'Changing filters must reset visible DOM limit back to 60');
+  assert.equal(enOnlyApply + enOnlyPossible + enOnlySkip, bothApply + bothPossible + bothSkip, 'EN-only KPI sum must equal total Bolivia-eligible catalog');
+  assert.equal(enOnlyCards, Math.min(60, enOnlyApply), 'Changing filters must reset visible DOM limit back to 60');
   assert.ok(enOnlyApply > 0 && enOnlyApply <= bothApply, `EN-only APPLY count (${enOnlyApply}) must be positive and <= Both (${bothApply})`);
 
   // Attempt to deselect last active language ('en') -> must keep 'en' selected
@@ -498,7 +523,7 @@ async function runTests() {
   vmSandbox.window.toggleLanguageChip('es');
   vmSandbox.window.toggleLanguageChip('en');
   assert.equal(countSurfaced(), esOnlyTotal, 'Switching back to Spanish-only must restore exact Spanish-only surfaced count');
-  assert.equal(countCards(), esOnlyCards, 'Switching back to Spanish-only must restore exact Spanish-only card count');
+  assert.equal(countCards(), esOnlyCards, 'Switching back to Spanish-only must restore exact Spanish-only APPLY card count');
   assert.equal(Number(domElements['kpi-apply-cnt'].textContent), esOnlyApply, 'Switching back to Spanish-only must restore exact APPLY count');
   assert.ok(domElements['chips-experience'].innerHTML.includes('toggleExperienceChip'), 'Must render interactive experience options on load');
   assert.ok(domElements['chips-experience'].innerHTML.includes('type="checkbox"'), 'Experience dropdown options must be multi-select checkboxes');
@@ -2499,6 +2524,63 @@ async function runTests() {
   const leanRenderedAfter = (leanDom['resultsCardsContainer'].innerHTML.match(/class="opp-card /g) || []).length;
   assert.equal(leanRenderedAfter, 70, 'Clicking Cargar más must append the remaining 10 cards to reach all 70');
   assert.equal(leanDom['results-load-more-wrap'].style.display, 'none', 'Load-more bar must hide once all matching offers are displayed');
+
+  // 13g. Exact KPI & category count parity when descriptions are trimmed (>450 chars) across ES, EN, and ES+EN + strict_position_match fix
+  const longDescOpps = [
+    {
+      job_hash: 'parity_es_legal',
+      title: 'Especialista Remoto',
+      company: 'AndesLegal',
+      platform_id: 'remotive_api',
+      platform_name: 'Remotive',
+      location: 'Remote Worldwide',
+      url: 'https://andeslegal.example/jobs/1',
+      tags: '',
+      description: 'General intro '.repeat(45) + ' Posición 100% remota en español para abogado de cumplimiento normativo (legal compliance) desde Bolivia y LATAM. Contrato tiempo completo.',
+      bolivia_eligible: 1
+    },
+    {
+      job_hash: 'parity_en_soft',
+      title: 'Remote Specialist',
+      company: 'CloudStack',
+      platform_id: 'remotive_api',
+      platform_name: 'Remotive',
+      location: 'Remote Worldwide',
+      url: 'https://cloudstack.example/jobs/2',
+      tags: '',
+      description: 'Overview text '.repeat(45) + ' We are hiring a Senior Software Engineer skilled in Python, React, TypeScript, and Node.js. Full-time contractor open to LATAM and Bolivia W-8BEN.',
+      bolivia_eligible: 1
+    },
+    {
+      job_hash: 'parity_bilingual_cs',
+      title: 'Global Operations Specialist',
+      company: 'RemoteCare',
+      platform_id: 'remotive_api',
+      platform_name: 'Remotive',
+      location: 'Americas Remote',
+      url: 'https://remotecare.example/jobs/3',
+      tags: '',
+      description: 'Company overview '.repeat(45) + ' Atención al cliente y customer support bilingüe (inglés y español) para clientes globales desde Bolivia. Full-time remote.',
+      bolivia_eligible: 1
+    }
+  ];
+  const parityHtml = renderAppHtml({ opportunities: longDescOpps, platforms: [] });
+  const parityPayloadMatch = parityHtml.match(/<script id="initial-payload" type="application\/json">([\s\S]*?)<\/script>/);
+  const parityClientOpps = JSON.parse(parityPayloadMatch[1]).opportunities;
+  for (const langs of [['es'], ['en'], ['es', 'en']]) {
+    for (const posTypes of [[], ['legal_compliance'], ['software'], ['customer_support']]) {
+      const fullEval = evaluateAllOpportunities(longDescOpps, { languages: langs, position_types: posTypes });
+      const trimmedEval = evaluateAllOpportunities(parityClientOpps, { languages: langs, position_types: posTypes });
+      assert.equal(trimmedEval.surfaced.length, fullEval.surfaced.length, `Surfaced count parity failed for langs=${langs} pos=${posTypes}`);
+      assert.equal(trimmedEval.apply.length, fullEval.apply.length, `APPLY KPI parity failed for langs=${langs} pos=${posTypes}`);
+      assert.equal(trimmedEval.possible.length, fullEval.possible.length, `POSSIBLE KPI parity failed for langs=${langs} pos=${posTypes}`);
+      assert.equal(trimmedEval.skip.length, fullEval.skip.length, `SKIP KPI parity failed for langs=${langs} pos=${posTypes}`);
+    }
+  }
+  // Verify strict_position_match=true hides offers outside selected category from surfaced
+  const strictSoft = evaluateAllOpportunities(parityClientOpps, { languages: ['es', 'en'], position_types: ['software'], strict_position_match: true });
+  assert.equal(strictSoft.surfaced.length, 1, 'strict_position_match=true must hide non-matching category offers from surfaced');
+  assert.equal(strictSoft.surfaced[0].job_hash, 'parity_en_soft');
 
   console.log('ALL TESTS PASSED SUCCESSFULLY!');
 }

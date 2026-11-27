@@ -657,14 +657,19 @@ export function detectOfferAttributes(item) {
  */
 export function evaluateOpportunity(item, rawFilters = {}) {
   const filters = { ...DEFAULT_FILTERS, ...rawFilters };
-  const bolivia = checkBoliviaRemoteEligibility(item);
-  const attrs = detectOfferAttributes(item);
+  const bolivia = (item && item._pre_bol && typeof item._pre_bol.score === 'number')
+    ? item._pre_bol
+    : checkBoliviaRemoteEligibility(item);
+  const attrs = (item && item._pre_attrs && Array.isArray(item._pre_attrs.categories))
+    ? item._pre_attrs
+    : detectOfferAttributes(item);
 
   const titleLow = String(item.title || '').toLowerCase();
   const descLow = String(item.description || '').toLowerCase();
   const tagsLow = String(item.tags || '').toLowerCase();
   const compLow = String(item.company || '').toLowerCase();
-  const blob = `${titleLow} ${compLow} ${tagsLow} ${descLow}`;
+  const preKwsLow = Array.isArray(attrs.matchedKeywords) ? attrs.matchedKeywords.join(' ').toLowerCase() : '';
+  const blob = `${titleLow} ${compLow} ${tagsLow} ${descLow} ${preKwsLow}`;
 
   // ---------------------------------------------------------------------------
   // 1. Position Type & Custom Keywords Score (0 - 35 pts)
@@ -916,6 +921,7 @@ export function evaluateOpportunity(item, rawFilters = {}) {
     detected_contracts: attrs.contracts,
     detected_experience: attrs.experience,
     detected_categories: attrs.categories,
+    matches_position_filter: matchesPositionFilter,
     matched_skills: allSkills.join(', ') || (item.tags || 'remoto'),
     notes_es: notesEsParts.join(' '),
     notes_en: notesEnParts.join(' ')
@@ -987,7 +993,7 @@ export function evaluateAllOpportunities(opportunities, filters = {}) {
     if (!isOnlySpanishSelected && !isOnlyEnglishSelected && !normalizedLangs.some(l => detLangs.includes(l))) {
       return false;
     }
-    if (strictPos && r.position_score === 0) {
+    if (strictPos && (!r.matches_position_filter || r.position_score === 0)) {
       return false;
     }
     return true;

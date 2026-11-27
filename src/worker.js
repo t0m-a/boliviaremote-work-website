@@ -71,7 +71,7 @@ const EDGE_CACHE_PURGE_PATHS = [
   '/guia-legal-fiscal',
   '/api/state',
   '/api/pulse',
-  `/api/opportunities?offset=${SSR_INITIAL_LIMIT}&limit=${MAX_CATALOG_LIMIT - SSR_INITIAL_LIMIT}`
+  `/api/opportunities?offset=${SSR_INITIAL_LIMIT}&limit=${MAX_CATALOG_LIMIT}`
 ];
 const EMOJI_STRIP_RE = /[\uD83C-\uDBFF\uDC00-\uDFFF\u2600-\u27BF]/g;
 const STALE_THRESHOLD_SECONDS = 30 * 86400; // 30 days unseen -> STALE
@@ -81,8 +81,7 @@ const MEMORY_STATE_TTL_MS = 5 * 60 * 1000; // Refresh warm isolate D1 snapshot e
 const LEAN_OPPORTUNITY_COLUMNS_SQL = `
   job_hash, title, company, company_slug, canonical_role_key,
   platform_id, platform_name, category, track, url,
-  location, contract_caveat, tags,
-  SUBSTR(COALESCE(description, ''), 1, 500) AS description,
+  location, contract_caveat, tags, description,
   lang_mask, categories_csv, experience_tier, contracts_csv,
   published_at, published_epoch, discovered_at,
   first_seen_epoch, last_seen_epoch, sighting_count, repost_span_days, ghost_risk,
@@ -104,6 +103,12 @@ function parseOpportunitiesPageParams(url) {
 
 function compactOpportunityForApi(opp) {
   if (!opp || typeof opp !== 'object') return opp;
+  const bol = (opp._pre_bol && typeof opp._pre_bol.score === 'number')
+    ? opp._pre_bol
+    : checkBoliviaRemoteEligibility(opp);
+  const attrs = (opp._pre_attrs && Array.isArray(opp._pre_attrs.categories))
+    ? opp._pre_attrs
+    : detectOfferAttributes(opp);
   const rawDesc = String(opp.description || '');
   let description = rawDesc;
   if (rawDesc.length > SSR_DESCRIPTION_LIMIT) {
@@ -112,7 +117,26 @@ function compactOpportunityForApi(opp) {
     description = (lastSpace > 260 ? cut.slice(0, lastSpace) : cut).trim() + '...';
   }
   const { embedding_id, ...rest } = opp;
-  return { ...rest, description };
+  return {
+    ...rest,
+    description,
+    _pre_bol: {
+      eligible: Boolean(bol.eligible),
+      score: Number(bol.score || 0),
+      badge_es: bol.badge_es || '',
+      badge_en: bol.badge_en || '',
+      reason_es: bol.reason_es || '',
+      reason_en: bol.reason_en || ''
+    },
+    _pre_attrs: {
+      categories: Array.isArray(attrs.categories) ? attrs.categories : [],
+      experience: attrs.experience || 'mid',
+      contracts: Array.isArray(attrs.contracts) ? attrs.contracts : [],
+      languages: Array.isArray(attrs.languages) ? attrs.languages : ['en'],
+      primaryLanguage: attrs.primaryLanguage || 'en',
+      matchedKeywords: Array.isArray(attrs.matchedKeywords) ? attrs.matchedKeywords : []
+    }
+  };
 }
 
 function canonicalEdgeCachePath(path, url = null) {
@@ -1021,15 +1045,18 @@ async function loadOpportunitiesPage(env, offset = 0, limit = 500) {
   if (hasD1) {
     try {
       await ensureD1Tables(env.DB);
+      const effectiveLimit = Math.max(0, Math.min(limit, MAX_CATALOG_LIMIT - offset));
       const [oppsRes, countRes] = await Promise.all([
-        env.DB.prepare(
-          `SELECT ${LEAN_OPPORTUNITY_COLUMNS_SQL}
-           FROM opportunities
-           WHERE (status = 'ACTIVE' OR status IS NULL)
-             AND (bolivia_eligible = 1 OR bolivia_eligible IS NULL)
-           ORDER BY published_epoch DESC, discovered_at DESC
-           LIMIT ? OFFSET ?`
-        ).bind(limit, offset).all(),
+        effectiveLimit > 0
+          ? env.DB.prepare(
+              `SELECT ${LEAN_OPPORTUNITY_COLUMNS_SQL}
+               FROM opportunities
+               WHERE (status = 'ACTIVE' OR status IS NULL)
+                 AND (bolivia_eligible = 1 OR bolivia_eligible IS NULL)
+               ORDER BY published_epoch DESC, discovered_at DESC
+               LIMIT ? OFFSET ?`
+            ).bind(effectiveLimit, offset).all()
+          : Promise.resolve({ results: [] }),
         env.DB.prepare(
           `SELECT COUNT(*) AS cnt
            FROM opportunities

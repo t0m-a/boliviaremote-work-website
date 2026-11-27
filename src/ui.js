@@ -24,12 +24,39 @@ const SSR_DESCRIPTION_MAX_CHARS = 450;
 
 function compactOpportunityForClient(opp) {
   if (!opp || typeof opp !== 'object') return opp;
+  const bol = (opp._pre_bol && typeof opp._pre_bol.score === 'number')
+    ? opp._pre_bol
+    : checkBoliviaRemoteEligibility(opp);
+  const attrs = (opp._pre_attrs && Array.isArray(opp._pre_attrs.categories))
+    ? opp._pre_attrs
+    : detectOfferAttributes(opp);
   const rawDesc = String(opp.description || '');
-  if (rawDesc.length <= SSR_DESCRIPTION_MAX_CHARS) return opp;
-  const cut = rawDesc.slice(0, SSR_DESCRIPTION_MAX_CHARS);
-  const lastSpace = cut.lastIndexOf(' ');
-  const trimmedDesc = (lastSpace > 260 ? cut.slice(0, lastSpace) : cut).trim() + '...';
-  return { ...opp, description: trimmedDesc };
+  let description = rawDesc;
+  if (rawDesc.length > SSR_DESCRIPTION_MAX_CHARS) {
+    const cut = rawDesc.slice(0, SSR_DESCRIPTION_MAX_CHARS);
+    const lastSpace = cut.lastIndexOf(' ');
+    description = (lastSpace > 260 ? cut.slice(0, lastSpace) : cut).trim() + '...';
+  }
+  return {
+    ...opp,
+    description,
+    _pre_bol: {
+      eligible: Boolean(bol.eligible),
+      score: Number(bol.score || 0),
+      badge_es: bol.badge_es || '',
+      badge_en: bol.badge_en || '',
+      reason_es: bol.reason_es || '',
+      reason_en: bol.reason_en || ''
+    },
+    _pre_attrs: {
+      categories: Array.isArray(attrs.categories) ? attrs.categories : [],
+      experience: attrs.experience || 'mid',
+      contracts: Array.isArray(attrs.contracts) ? attrs.contracts : [],
+      languages: Array.isArray(attrs.languages) ? attrs.languages : ['en'],
+      primaryLanguage: attrs.primaryLanguage || 'en',
+      matchedKeywords: Array.isArray(attrs.matchedKeywords) ? attrs.matchedKeywords : []
+    }
+  };
 }
 
 export function renderAppHtml(initialState, options = {}) {
@@ -1121,7 +1148,7 @@ export function renderAppHtml(initialState, options = {}) {
       font-size: 0.84em;
       font-weight: 500;
       cursor: pointer;
-      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+      transition: opacity 0.15s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -1142,12 +1169,57 @@ export function renderAppHtml(initialState, options = {}) {
       font-weight: 600;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
     }
+    #verdictFilterBar .btn-tab {
+      gap: 7px;
+      opacity: 0.56;
+      color: var(--text-muted);
+    }
+    #verdictFilterBar .btn-tab:hover {
+      opacity: 0.86;
+      color: var(--text-main);
+      background: rgba(24, 24, 27, 0.04);
+    }
+    #verdictFilterBar .btn-tab.active,
+    #verdictFilterBar .btn-tab.active:hover {
+      opacity: 1;
+      background: #ffffff;
+      color: var(--text-main);
+      border-color: var(--border-control);
+      font-weight: 600;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.10);
+    }
+    .verdict-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: inline-block;
+      background: var(--skip-border);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .verdict-dot.dot-apply { background: var(--apply-border); }
+    .verdict-dot.dot-possible { background: var(--possible-border); }
+    .verdict-dot.dot-skip { background: var(--skip-border); }
+    #verdictFilterBar .btn-tab.active .verdict-dot.dot-apply {
+      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.24);
+    }
+    #verdictFilterBar .btn-tab.active .verdict-dot.dot-possible {
+      box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.24);
+    }
+    #verdictFilterBar .btn-tab.active .verdict-dot.dot-skip {
+      box-shadow: 0 0 0 2px rgba(161, 161, 170, 0.26);
+    }
     @media (hover: none), (pointer: coarse) {
       .btn-tab:not(.active):hover {
         background: transparent;
         color: var(--text-secondary);
         border-color: transparent;
         font-weight: 500;
+      }
+      #verdictFilterBar .btn-tab:not(.active):hover {
+        opacity: 0.56;
+        color: var(--text-muted);
+        background: transparent;
       }
     }
 
@@ -2208,6 +2280,23 @@ export function renderAppHtml(initialState, options = {}) {
     body.dark-mode .btn-tab:hover {
       background: rgba(255, 255, 255, 0.06);
     }
+    body.dark-mode #verdictFilterBar .btn-tab {
+      opacity: 0.50;
+      color: var(--text-muted);
+    }
+    body.dark-mode #verdictFilterBar .btn-tab:hover {
+      opacity: 0.85;
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.06);
+    }
+    body.dark-mode #verdictFilterBar .btn-tab.active,
+    body.dark-mode #verdictFilterBar .btn-tab.active:hover {
+      opacity: 1;
+      background: #27272a;
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.24);
+      box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+    }
     body.dark-mode .plat-badge.ats {
       background: rgba(20, 184, 166, 0.16);
       color: #99f6e4;
@@ -2244,6 +2333,11 @@ export function renderAppHtml(initialState, options = {}) {
         color: var(--text-secondary);
         border-color: transparent;
         font-weight: 500;
+      }
+      body.dark-mode #verdictFilterBar .btn-tab:not(.active):hover {
+        opacity: 0.50;
+        color: var(--text-muted);
+        background: transparent;
       }
     }
 
@@ -2799,10 +2893,10 @@ export function renderAppHtml(initialState, options = {}) {
     <!-- TOOLBAR -->
     <section class="toolbar">
       <div class="filter-group" id="verdictFilterBar">
-        <button type="button" class="btn-tab active" data-verdict="ALL" onclick="setVerdictFilter('ALL')" id="btn-v-all">Todas las Elegibles</button>
-        <button type="button" class="btn-tab" data-verdict="APPLY" onclick="setVerdictFilter('APPLY')"><span id="btn-v-apply">Postular</span></button>
-        <button type="button" class="btn-tab" data-verdict="POSSIBLE" onclick="setVerdictFilter('POSSIBLE')"><span id="btn-v-possible">Explorar</span></button>
-        <button type="button" class="btn-tab" data-verdict="SKIP" onclick="setVerdictFilter('SKIP')"><span id="btn-v-skip">Baja Coincidencia</span></button>
+        <button type="button" class="btn-tab" data-verdict="ALL" onclick="setVerdictFilter('ALL')"><span class="verdict-dot dot-skip" aria-hidden="true"></span><span id="btn-v-all">Todas las Elegibles</span></button>
+        <button type="button" class="btn-tab active" data-verdict="APPLY" onclick="setVerdictFilter('APPLY')"><span class="verdict-dot dot-apply" aria-hidden="true"></span><span id="btn-v-apply">Postular</span></button>
+        <button type="button" class="btn-tab" data-verdict="POSSIBLE" onclick="setVerdictFilter('POSSIBLE')"><span class="verdict-dot dot-possible" aria-hidden="true"></span><span id="btn-v-possible">Explorar</span></button>
+        <button type="button" class="btn-tab" data-verdict="SKIP" onclick="setVerdictFilter('SKIP')"><span class="verdict-dot dot-skip" aria-hidden="true"></span><span id="btn-v-skip">Baja Coincidencia</span></button>
       </div>
       <div class="toolbar-search-group">
         <div class="search-input-wrap" id="search-input-wrap">
@@ -3122,7 +3216,7 @@ ${LEGAL_TAX_GUIDE_HTML}
       userFilters.languages = PAYLOAD.DEFAULT_FILTERS.languages.slice();
     }
 
-    let currentVerdictFilter = 'ALL';
+    let currentVerdictFilter = 'APPLY';
     let lastEvaluationResult = { surfaced: [], all: [], apply: [], possible: [], skip: [], geo_excluded: [] };
 
     let currentTheme = 'light';
@@ -3758,7 +3852,10 @@ ${LEGAL_TAX_GUIDE_HTML}
     function resetFilters() {
       const currentLang = userFilters.ui_lang || 'es';
       userFilters = Object.assign({}, PAYLOAD.DEFAULT_FILTERS, { ui_lang: currentLang });
-      currentVerdictFilter = 'ALL';
+      currentVerdictFilter = 'APPLY';
+      document.querySelectorAll('#verdictFilterBar .btn-tab').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-verdict') === currentVerdictFilter);
+      });
       document.getElementById('searchInput').value = '';
       syncSearchClearButton('');
       saveFilters();
@@ -3821,7 +3918,7 @@ ${LEGAL_TAX_GUIDE_HTML}
         renderLoadMoreControl(true);
         try {
           const offset = opportunitiesState.length;
-          const remaining = Math.max(500, Math.min(2000 - offset, 1700));
+          const remaining = 2000;
           const resp = await fetch('/api/opportunities?offset=' + offset + '&limit=' + remaining, {
             method: 'GET',
             cache: 'default'
