@@ -100,6 +100,260 @@ function computeEmployerMultiplier(tier, confidence) {
 }
 
 /**
+ * Builds an O(1) lookup index and pre-computed Employer Reality payloads from
+ * entity + active-edge rows so batch lookups avoid O(N*M) SQLite & JSON parsing.
+ */
+function buildEmployerRealityRecord(entity, edges = []) {
+  const attrs = safeJsonParse(entity.attributes_json, {});
+  const payoutRails = [];
+  const eorOptions = [];
+  const assessments = [];
+  let typicalComp = attrs.typical_comp || '';
+
+  for (const e of edges) {
+    if (e.relation === 'PAYS_VIA') {
+      const lbl = RAIL_LABELS[e.target_id] || e.target_id.replace(/^rail:/, '');
+      if (lbl && !payoutRails.includes(lbl)) payoutRails.push(lbl);
+    } else if (e.relation === 'USES_EOR') {
+      const lbl = EOR_LABELS[e.target_id] || e.target_id.replace(/^eor:/, '');
+      if (lbl && !eorOptions.includes(lbl)) eorOptions.push(lbl);
+    } else if (e.relation === 'REQUIRES_ASSESSMENT' && e.evidence_note) {
+      assessments.push(e.evidence_note);
+    } else if (e.relation === 'TYPICAL_COMPENSATION' && e.evidence_note && !typicalComp) {
+      typicalComp = e.evidence_note;
+    }
+  }
+
+  const tier = entity.bolivia_tier || 'open_global';
+  const conf = Number(entity.confidence ?? 0.8);
+
+  let realityBadgeEs = '';
+  let realityBadgeEn = '';
+  if (payoutRails.length > 0 && tier === 'verified_friendly') {
+    const railsShort = payoutRails.slice(0, 3).join(' / ');
+    realityBadgeEs = `Cobro verificado: ${railsShort}`;
+    realityBadgeEn = `Verified payout: ${railsShort}`;
+  } else if (payoutRails.length > 0 && tier === 'caution_friction') {
+    const railsShort = payoutRails.slice(0, 2).join(' / ');
+    realityBadgeEs = `Verificar cobro (${railsShort})`;
+    realityBadgeEn = `Verify payout (${railsShort})`;
+  } else if (eorOptions.length > 0) {
+    realityBadgeEs = `Contrato: ${eorOptions.slice(0, 2).join(' / ')}`;
+    realityBadgeEn = `Contract: ${eorOptions.slice(0, 2).join(' / ')}`;
+  }
+
+  const driftNoteEs = Number(attrs.policy_drift_stage || 0) >= 2 ? (attrs.policy_drift_note_es || '') : '';
+  const driftNoteEn = Number(attrs.policy_drift_stage || 0) >= 2 ? (attrs.policy_drift_note_en || '') : '';
+  const cautionEs = attrs.caution_es || driftNoteEs || (tier === 'caution_friction' ? attrs.note_es : '');
+  const cautionEn = attrs.caution_en || driftNoteEn || (tier === 'caution_friction' ? attrs.note_en : '');
+
+  return {
+    matched: true,
+    entity_id: entity.entity_id,
+    entity_type: entity.entity_type,
+    canonical_name: entity.canonical_name,
+    bolivia_tier: tier,
+    confidence: Number(conf.toFixed(2)),
+    payout_rails: payoutRails,
+    eor_options: eorOptions,
+    assessments,
+    typical_comp: typicalComp,
+    reality_badge_es: realityBadgeEs,
+    reality_badge_en: realityBadgeEn,
+    caution_note_es: cautionEs || '',
+    caution_note_en: cautionEn || '',
+    note_es: attrs.note_es || '',
+    note_en: attrs.note_en || '',
+    employer_multiplier: computeEmployerMultiplier(tier, conf),
+    triples: edges.map(e => ({
+      source: e.source_id,
+      relation: e.relation,
+      target: e.target_id,
+      confidence: e.confidence,
+      evidence: e.evidence_note
+    }))
+  };
+}
+
+function buildLookupIndex(entities = [], activeEdges = []) {
+  const byId = new Map();
+  const byNormName = new Map();
+  const byAlias = new Map();
+  const byDomain = new Map();
+  const edgesBySource = new Map();
+
+  for (const edge of activeEdges) {
+    if (!edge || edge.valid_until) continue;
+    let list = edgesBySource.get(edge.source_id);
+    if (!list) {
+      list = [];
+      edgesBySource.set(edge.source_id, list);
+    }
+    list.push(edge);
+  }
+
+  const realityByEntityId = new Map();
+
+  for (const ent of entities) {
+    if (!ent || !ent.entity_id) continue;
+    byId.set(ent.entity_id, ent);
+
+    if (ent.entity_type === 'company' || ent.entity_type === 'platform') {
+      const attrs = safeJsonParse(ent.attributes_json, {});
+      const entName = normalizeSearchText(ent.canonical_name || '');
+      const entDom = String(ent.domain || '').toLowerCase().replace(/^www\./, '').trim();
+
+      if (entName && !byNormName.has(entName)) {
+        byNormName.set(entName, ent);
+      }
+      if (Array.isArray(attrs.aliases)) {
+        for (const alias of attrs.aliases) {
+          if (alias && !byAlias.has(alias)) {
+            byAlias.set(alias, ent);
+          }
+        }
+      }
+      if (entDom && !byDomain.has(entDom)) {
+        byDomain.set(entDom, ent);
+      }
+    }
+
+    realityByEntityId.set(
+      ent.entity_id,
+      buildEmployerRealityRecord(ent, edgesBySource.get(ent.entity_id) || [])
+    );
+  }
+
+  return {
+    byId,
+    byNormName,
+    byAlias,
+    byDomain,
+    realityByEntityId
+  };
+}
+
+function resolveEntityFromIndex(index, { company, platform_id, platform_name, domain, url } = {}) {
+  if (!index) return null;
+
+  const compSlug = normalizeCompanySlug(company, 'company');
+  if (compSlug && index.byId.has(compSlug)) {
+    return index.byId.get(compSlug);
+  }
+
+  if (platform_id) {
+    const pidKey = `platform:${String(platform_id).toLowerCase().trim()}`;
+    if (index.byId.has(pidKey)) return index.byId.get(pidKey);
+  }
+  if (compSlug) {
+    const compAsPlat = compSlug.replace(/^company:/, 'platform:');
+    if (index.byId.has(compAsPlat)) return index.byId.get(compAsPlat);
+  }
+
+  const platSlug = normalizeCompanySlug(platform_name, 'platform');
+  if (platSlug) {
+    if (index.byId.has(platSlug)) return index.byId.get(platSlug);
+    const platAsComp = platSlug.replace(/^platform:/, 'company:');
+    if (index.byId.has(platAsComp)) return index.byId.get(platAsComp);
+  }
+
+  const normComp = normalizeSearchText(company || '');
+  if (normComp) {
+    const nameMatch = index.byNormName.get(normComp);
+    if (nameMatch) return nameMatch;
+  }
+  if (compSlug) {
+    const aliasMatch = index.byAlias.get(compSlug);
+    if (aliasMatch) return aliasMatch;
+  }
+
+  let extractedDomain = String(domain || '').toLowerCase().replace(/^www\./, '').trim();
+  if (!extractedDomain && url) {
+    try {
+      extractedDomain = new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+    } catch {
+      // ignore invalid url
+    }
+  }
+  if (extractedDomain) {
+    let candidateDom = extractedDomain;
+    while (candidateDom) {
+      const domMatch = index.byDomain.get(candidateDom);
+      if (domMatch) return domMatch;
+      const dotIdx = candidateDom.indexOf('.');
+      if (dotIdx < 0) break;
+      candidateDom = candidateDom.slice(dotIdx + 1);
+    }
+  }
+
+  const normPlat = normalizeSearchText(platform_name || '');
+  if (normPlat) {
+    const platMatch = index.byNormName.get(normPlat);
+    if (platMatch) return platMatch;
+  }
+
+  return null;
+}
+
+function lookupEmployerRealityFromIndex(index, item = {}) {
+  const entity = resolveEntityFromIndex(index, item);
+  if (!entity) {
+    return {
+      matched: false,
+      entity_id: '',
+      canonical_name: item.company || item.platform_name || '',
+      bolivia_tier: 'open_global',
+      confidence: 0.65,
+      payout_rails: [],
+      eor_options: [],
+      assessments: [],
+      typical_comp: '',
+      reality_badge_es: '',
+      reality_badge_en: '',
+      caution_note_es: '',
+      caution_note_en: '',
+      note_es: '',
+      note_en: '',
+      employer_multiplier: 1.0,
+      triples: []
+    };
+  }
+  return { ...index.realityByEntityId.get(entity.entity_id) };
+}
+
+function lookupEmployerRealityBatchFromIndex(index, items = []) {
+  const out = {};
+  const memoByTuple = new Map();
+
+  for (const item of items) {
+    if (!item) continue;
+    const key = item.job_hash || `${item.company || ''}|${item.platform_id || ''}`;
+    let host = String(item.domain || '').toLowerCase().trim();
+    if (!host && item.url) {
+      try {
+        host = new URL(item.url).hostname.toLowerCase();
+      } catch {
+        host = '';
+      }
+    }
+    const tupleKey = `${item.company || ''}|${item.platform_id || ''}|${item.platform_name || ''}|${host}`;
+    let cached = memoByTuple.get(tupleKey);
+    if (!cached) {
+      cached = lookupEmployerRealityFromIndex(index, {
+        company: item.company,
+        platform_id: item.platform_id,
+        platform_name: item.platform_name,
+        domain: host
+      });
+      memoByTuple.set(tupleKey, cached);
+    }
+    out[key] = cached;
+  }
+
+  return out;
+}
+
+/**
  * Safely calls Workers AI `@cf/baai/bge-reranker-base` to rerank candidate text passages.
  * Returns a Map<index, normalizedScore> or null if unavailable/incompatible mock.
  */
@@ -140,6 +394,7 @@ export class BoliviaCareerBrainDO {
     this.ctx = ctx || null;
     this.env = env || {};
     this.sql = (ctx && ctx.storage && ctx.storage.sql) ? ctx.storage.sql : null;
+    this._lookupIndex = null;
 
     // In-memory store mirror (authoritative only when running without SQLite storage, e.g. Node unit tests)
     this.mem = {
@@ -331,9 +586,39 @@ export class BoliviaCareerBrainDO {
 
     this._setMeta('seed_version', CAREER_INTEL_SEED_VERSION);
     this._setMeta('seeded_at', nowIso);
+    this._invalidateLookupIndex();
+  }
+
+  _invalidateLookupIndex() {
+    this._lookupIndex = null;
+  }
+
+  _getAllActiveEdges() {
+    if (this.sql) {
+      return this.sql.exec('SELECT * FROM edges WHERE valid_until IS NULL').toArray();
+    }
+    return this.mem.edges.filter(e => !e.valid_until);
+  }
+
+  _getLookupIndex() {
+    if (!this._lookupIndex) {
+      this._lookupIndex = buildLookupIndex(this._getAllEntities(), this._getAllActiveEdges());
+    }
+    return this._lookupIndex;
+  }
+
+  exportReadSnapshot() {
+    return {
+      ok: true,
+      seed_version: this._getMeta('seed_version') || CAREER_INTEL_SEED_VERSION,
+      entities: this._getAllEntities(),
+      edges: this._getAllActiveEdges(),
+      pulse: this.getLatestMarketPulse()
+    };
   }
 
   _putEntityRow(row) {
+    this._invalidateLookupIndex();
     if (this.sql) {
       this.sql.exec(
         `INSERT OR REPLACE INTO entities (
@@ -356,6 +641,7 @@ export class BoliviaCareerBrainDO {
   }
 
   _putEdgeRow(edge) {
+    this._invalidateLookupIndex();
     if (this.sql) {
       this.sql.exec(
         `INSERT OR REPLACE INTO edges (
@@ -445,175 +731,24 @@ export class BoliviaCareerBrainDO {
   }
 
   /**
-   * Resolves a company or platform name/id/domain against the KG entity index.
+   * Resolves a company or platform name/id/domain against the cached O(1) KG entity index.
    */
-  _resolveEntity({ company, platform_id, platform_name, domain, url } = {}) {
-    const all = this._getAllEntities();
-    const candidates = new Set();
-
-    if (platform_id) {
-      candidates.add(`platform:${String(platform_id).toLowerCase().trim()}`);
-    }
-    const compSlug = normalizeCompanySlug(company, 'company');
-    if (compSlug) {
-      candidates.add(compSlug);
-      candidates.add(compSlug.replace(/^company:/, 'platform:'));
-    }
-    const platSlug = normalizeCompanySlug(platform_name, 'platform');
-    if (platSlug) {
-      candidates.add(platSlug);
-      candidates.add(platSlug.replace(/^platform:/, 'company:'));
-    }
-
-    let extractedDomain = String(domain || '').toLowerCase().replace(/^www\./, '').trim();
-    if (!extractedDomain && url) {
-      try {
-        extractedDomain = new URL(url).hostname.toLowerCase().replace(/^www\./, '');
-      } catch {
-        // ignore invalid url
-      }
-    }
-
-    // 1. Exact entity_id match (prefer company over platform if company specifically matched)
-    const byId = new Map(all.map(e => [e.entity_id, e]));
-    if (compSlug && byId.has(compSlug)) return byId.get(compSlug);
-    for (const cid of candidates) {
-      if (byId.has(cid)) return byId.get(cid);
-    }
-
-    // 2. Canonical name / alias / domain match
-    const normComp = normalizeSearchText(company || '');
-    const normPlat = normalizeSearchText(platform_name || '');
-    for (const ent of all) {
-      if (ent.entity_type !== 'company' && ent.entity_type !== 'platform') continue;
-      const attrs = safeJsonParse(ent.attributes_json, {});
-      const entName = normalizeSearchText(ent.canonical_name || '');
-      const entDom = String(ent.domain || '').toLowerCase().replace(/^www\./, '');
-      if (normComp && (entName === normComp || (Array.isArray(attrs.aliases) && attrs.aliases.includes(compSlug)))) {
-        return ent;
-      }
-      if (extractedDomain && entDom && (extractedDomain === entDom || extractedDomain.endsWith('.' + entDom))) {
-        return ent;
-      }
-      if (normPlat && entName === normPlat) {
-        return ent;
-      }
-    }
-
-    return null;
+  _resolveEntity(item = {}) {
+    return resolveEntityFromIndex(this._getLookupIndex(), item);
   }
 
   /**
    * Builds a compact structured Employer Reality signal object for job cards & ranking.
    */
   lookupEmployerReality(item) {
-    const entity = this._resolveEntity(item);
-    if (!entity) {
-      return {
-        matched: false,
-        entity_id: '',
-        canonical_name: item.company || item.platform_name || '',
-        bolivia_tier: 'open_global',
-        confidence: 0.65,
-        payout_rails: [],
-        eor_options: [],
-        assessments: [],
-        typical_comp: '',
-        reality_badge_es: '',
-        reality_badge_en: '',
-        caution_note_es: '',
-        caution_note_en: '',
-        note_es: '',
-        note_en: '',
-        employer_multiplier: 1.0,
-        triples: []
-      };
-    }
-
-    const attrs = safeJsonParse(entity.attributes_json, {});
-    const edges = this._getActiveEdgesForSource(entity.entity_id);
-
-    const payoutRails = [];
-    const eorOptions = [];
-    const assessments = [];
-    let typicalComp = attrs.typical_comp || '';
-
-    for (const e of edges) {
-      if (e.relation === 'PAYS_VIA') {
-        const lbl = RAIL_LABELS[e.target_id] || e.target_id.replace(/^rail:/, '');
-        if (lbl && !payoutRails.includes(lbl)) payoutRails.push(lbl);
-      } else if (e.relation === 'USES_EOR') {
-        const lbl = EOR_LABELS[e.target_id] || e.target_id.replace(/^eor:/, '');
-        if (lbl && !eorOptions.includes(lbl)) eorOptions.push(lbl);
-      } else if (e.relation === 'REQUIRES_ASSESSMENT' && e.evidence_note) {
-        assessments.push(e.evidence_note);
-      } else if (e.relation === 'TYPICAL_COMPENSATION' && e.evidence_note && !typicalComp) {
-        typicalComp = e.evidence_note;
-      }
-    }
-
-    const tier = entity.bolivia_tier || 'open_global';
-    const conf = Number(entity.confidence ?? 0.8);
-
-    let realityBadgeEs = '';
-    let realityBadgeEn = '';
-    if (payoutRails.length > 0 && tier === 'verified_friendly') {
-      const railsShort = payoutRails.slice(0, 3).join(' / ');
-      realityBadgeEs = `Cobro verificado: ${railsShort}`;
-      realityBadgeEn = `Verified payout: ${railsShort}`;
-    } else if (payoutRails.length > 0 && tier === 'caution_friction') {
-      const railsShort = payoutRails.slice(0, 2).join(' / ');
-      realityBadgeEs = `Verificar cobro (${railsShort})`;
-      realityBadgeEn = `Verify payout (${railsShort})`;
-    } else if (eorOptions.length > 0) {
-      realityBadgeEs = `Contrato: ${eorOptions.slice(0, 2).join(' / ')}`;
-      realityBadgeEn = `Contract: ${eorOptions.slice(0, 2).join(' / ')}`;
-    }
-
-    const driftNoteEs = Number(attrs.policy_drift_stage || 0) >= 2 ? (attrs.policy_drift_note_es || '') : '';
-    const driftNoteEn = Number(attrs.policy_drift_stage || 0) >= 2 ? (attrs.policy_drift_note_en || '') : '';
-    const cautionEs = attrs.caution_es || driftNoteEs || (tier === 'caution_friction' ? attrs.note_es : '');
-    const cautionEn = attrs.caution_en || driftNoteEn || (tier === 'caution_friction' ? attrs.note_en : '');
-
-    return {
-      matched: true,
-      entity_id: entity.entity_id,
-      entity_type: entity.entity_type,
-      canonical_name: entity.canonical_name,
-      bolivia_tier: tier,
-      confidence: Number(conf.toFixed(2)),
-      payout_rails: payoutRails,
-      eor_options: eorOptions,
-      assessments,
-      typical_comp: typicalComp,
-      reality_badge_es: realityBadgeEs,
-      reality_badge_en: realityBadgeEn,
-      caution_note_es: cautionEs || '',
-      caution_note_en: cautionEn || '',
-      note_es: attrs.note_es || '',
-      note_en: attrs.note_en || '',
-      employer_multiplier: computeEmployerMultiplier(tier, conf),
-      triples: edges.map(e => ({
-        source: e.source_id,
-        relation: e.relation,
-        target: e.target_id,
-        confidence: e.confidence,
-        evidence: e.evidence_note
-      }))
-    };
+    return lookupEmployerRealityFromIndex(this._getLookupIndex(), item);
   }
 
   /**
-   * Batch employer reality lookup (1 single DO roundtrip for all job cards).
+   * Batch employer reality lookup (O(1) cached index + tuple deduplication).
    */
   lookupEmployerRealityBatch(items = []) {
-    const out = {};
-    for (const item of items) {
-      if (!item) continue;
-      const key = item.job_hash || `${item.company || ''}|${item.platform_id || ''}`;
-      out[key] = this.lookupEmployerReality(item);
-    }
-    return out;
+    return lookupEmployerRealityBatchFromIndex(this._getLookupIndex(), items);
   }
 
   /**
@@ -1154,6 +1289,7 @@ export class BoliviaCareerBrainDO {
     let evaluated = 0;
 
     const updateEntityState = (entity, newConfidence, newAttrs) => {
+      this._invalidateLookupIndex();
       const attrsJson = JSON.stringify(newAttrs);
       if (this.sql) {
         this.sql.exec(
@@ -1500,6 +1636,9 @@ export class BoliviaCareerBrainDO {
       if (request.method === 'GET' && path === '/internal/market-pulse') {
         return Response.json({ ok: true, pulse: this.getLatestMarketPulse() });
       }
+      if (request.method === 'GET' && path === '/internal/read-snapshot') {
+        return Response.json(this.exportReadSnapshot());
+      }
       if (request.method === 'POST') {
         const body = await request.json().catch(() => ({}));
         if (path === '/internal/lookup-batch') {
@@ -1566,9 +1705,59 @@ async function mirrorToD1Fallback(env, docId, docType, payload) {
   }
 }
 
+// Per-DO-namespace isolate cache for hot read paths (employer reality + latest market pulse)
+const DO_SNAPSHOT_CACHE = new WeakMap();
+const DO_SNAPSHOT_TTL_MS = 120 * 1000; // 2 minutes
+const DO_READ_TIMEOUT_MS = 3000;
+const DO_WRITE_TIMEOUT_MS = 12000;
+
+function createTimeoutSignal(timeoutMs) {
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+    return AbortSignal.timeout(timeoutMs);
+  }
+  return undefined;
+}
+
+function slimAndDeduplicateLookupItems(items = []) {
+  const uniqueItems = [];
+  const tupleToKey = new Map();
+  const itemKeyToTupleKey = [];
+
+  for (const item of items) {
+    if (!item) continue;
+    const itemKey = item.job_hash || `${item.company || ''}|${item.platform_id || ''}`;
+    let host = String(item.domain || '').toLowerCase().trim();
+    if (!host && item.url) {
+      try {
+        host = new URL(item.url).hostname.toLowerCase();
+      } catch {
+        host = '';
+      }
+    }
+    const tupleKey = `${item.company || ''}|${item.platform_id || ''}|${item.platform_name || ''}|${host}`;
+    let shortKey = tupleToKey.get(tupleKey);
+    if (!shortKey) {
+      shortKey = `k${uniqueItems.length}`;
+      tupleToKey.set(tupleKey, shortKey);
+      uniqueItems.push({
+        job_hash: shortKey,
+        company: item.company || '',
+        platform_id: item.platform_id || '',
+        platform_name: item.platform_name || '',
+        domain: host
+      });
+    }
+    itemKeyToTupleKey.push([itemKey, shortKey]);
+  }
+
+  return { uniqueItems, itemKeyToTupleKey };
+}
+
 /**
  * Unified Career Brain client:
  *   - Routes to `env.CAREER_BRAIN` SQLite Durable Object when bound on Cloudflare Workers
+ *   - Caches the compact read snapshot (entities + edges + market_pulse) per isolate (2m TTL)
+ *     so hot page loads do 0 contending DO roundtrips and never ship 2 MB payloads
  *   - Seamlessly falls back to in-process `BoliviaCareerBrainDO` (+ optional D1 mirror) otherwise.
  */
 export function getCareerBrainClient(env = {}) {
@@ -1579,31 +1768,95 @@ export function getCareerBrainClient(env = {}) {
     typeof env.CAREER_BRAIN.get === 'function'
   );
 
-  const callDO = async (path, method = 'POST', payload = null) => {
+  const invalidateSnapshotCache = () => {
+    if (hasDO) {
+      DO_SNAPSHOT_CACHE.delete(env.CAREER_BRAIN);
+    }
+  };
+
+  const callDO = async (path, method = 'POST', payload = null, timeoutMs = DO_READ_TIMEOUT_MS) => {
     const id = env.CAREER_BRAIN.idFromName(DEFAULT_DO_INSTANCE_NAME);
     const stub = env.CAREER_BRAIN.get(id);
-    const resp = await stub.fetch(`https://career-brain.internal${path}`, {
+    const fetchOpts = {
       method,
       headers: method === 'POST' ? { 'Content-Type': 'application/json' } : undefined,
       body: method === 'POST' ? JSON.stringify(payload || {}) : undefined
-    });
+    };
+    const signal = createTimeoutSignal(timeoutMs);
+    if (signal) fetchOpts.signal = signal;
+
+    const resp = await stub.fetch(`https://career-brain.internal${path}`, fetchOpts);
     const data = await resp.json();
     if (!resp.ok || data.ok === false) {
-      throw new Error(data.error || `CareerBrainDO request failed (${resp.status})`);
+      const err = new Error(data.error || `CareerBrainDO request failed (${resp.status})`);
+      err.status = resp.status;
+      throw err;
     }
     return data;
+  };
+
+  const getOrLoadReadSnapshot = async () => {
+    if (!hasDO) return null;
+    const now = Date.now();
+    const cached = DO_SNAPSHOT_CACHE.get(env.CAREER_BRAIN);
+    if (cached && cached.expiresAt > now) {
+      return cached.value || (cached.promise ? await cached.promise : null);
+    }
+
+    const loadPromise = callDO('/internal/read-snapshot', 'GET', null, DO_READ_TIMEOUT_MS)
+      .then(snap => {
+        const value = {
+          index: buildLookupIndex(snap.entities || [], snap.edges || []),
+          pulse: snap.pulse || null
+        };
+        DO_SNAPSHOT_CACHE.set(env.CAREER_BRAIN, {
+          value,
+          expiresAt: Date.now() + DO_SNAPSHOT_TTL_MS
+        });
+        return value;
+      })
+      .catch(err => {
+        DO_SNAPSHOT_CACHE.delete(env.CAREER_BRAIN);
+        throw err;
+      });
+
+    DO_SNAPSHOT_CACHE.set(env.CAREER_BRAIN, {
+      promise: loadPromise,
+      expiresAt: now + DO_SNAPSHOT_TTL_MS
+    });
+    return loadPromise;
   };
 
   return {
     isDurableObject: hasDO,
 
     async lookupEmployerRealityBatch(items) {
+      if (!Array.isArray(items) || items.length === 0) return {};
       if (hasDO) {
         try {
-          const res = await callDO('/internal/lookup-batch', 'POST', { items });
-          return res.results || {};
-        } catch {
-          // Fall back cleanly
+          const snap = await getOrLoadReadSnapshot();
+          if (snap && snap.index) {
+            return lookupEmployerRealityBatchFromIndex(snap.index, items);
+          }
+        } catch (snapErr) {
+          // If older mock DO lacks /internal/read-snapshot (404), fall back to deduplicated /internal/lookup-batch
+          if (snapErr && snapErr.status !== 404) {
+            console.error('[CareerBrainDO] read-snapshot failed for lookupEmployerRealityBatch:', snapErr.message || snapErr);
+          }
+        }
+        try {
+          const { uniqueItems, itemKeyToTupleKey } = slimAndDeduplicateLookupItems(items);
+          const res = await callDO('/internal/lookup-batch', 'POST', { items: uniqueItems }, DO_READ_TIMEOUT_MS);
+          const compactResults = res.results || {};
+          const expanded = {};
+          for (const [itemKey, shortKey] of itemKeyToTupleKey) {
+            if (compactResults[shortKey]) {
+              expanded[itemKey] = compactResults[shortKey];
+            }
+          }
+          return expanded;
+        } catch (err) {
+          console.error('[CareerBrainDO] lookup-batch failed, falling back to local KG:', err && err.message ? err.message : err);
         }
       }
       return getLocalFallbackInstance(env).lookupEmployerRealityBatch(items);
@@ -1612,17 +1865,18 @@ export function getCareerBrainClient(env = {}) {
     async compileBoliviaContext(job, options = {}) {
       if (hasDO) {
         try {
-          return await callDO('/internal/compile-context', 'POST', { job, options });
-        } catch {
-          // Fall back cleanly
+          return await callDO('/internal/compile-context', 'POST', { job, options }, DO_WRITE_TIMEOUT_MS);
+        } catch (err) {
+          console.error('[CareerBrainDO] compile-context failed, falling back to local KG:', err && err.message ? err.message : err);
         }
       }
       return getLocalFallbackInstance(env).compileBoliviaContext(job, options);
     },
 
     async upsertEmployerReality(payload) {
+      invalidateSnapshotCache();
       if (hasDO) {
-        return await callDO('/internal/upsert-employer', 'POST', payload);
+        return await callDO('/internal/upsert-employer', 'POST', payload, DO_WRITE_TIMEOUT_MS);
       }
       const res = await getLocalFallbackInstance(env).upsertEmployerReality(payload);
       await mirrorToD1Fallback(env, res.entity_id, 'entity', payload);
@@ -1630,8 +1884,9 @@ export function getCareerBrainClient(env = {}) {
     },
 
     async upsertBoliviaPlaybook(payload) {
+      invalidateSnapshotCache();
       if (hasDO) {
-        return await callDO('/internal/upsert-playbook', 'POST', payload);
+        return await callDO('/internal/upsert-playbook', 'POST', payload, DO_WRITE_TIMEOUT_MS);
       }
       const res = await getLocalFallbackInstance(env).upsertBoliviaPlaybook(payload);
       await mirrorToD1Fallback(env, res.playbook_id, 'playbook', payload);
@@ -1639,29 +1894,32 @@ export function getCareerBrainClient(env = {}) {
     },
 
     async recordIntelConflict(payload) {
+      invalidateSnapshotCache();
       if (hasDO) {
-        return await callDO('/internal/record-conflict', 'POST', payload);
+        return await callDO('/internal/record-conflict', 'POST', payload, DO_READ_TIMEOUT_MS);
       }
       return getLocalFallbackInstance(env).recordIntelConflict(payload);
     },
 
     async recordEmployerGeoObservations(records) {
       if (hasDO) {
-        return await callDO('/internal/record-geo-observations', 'POST', { records });
+        return await callDO('/internal/record-geo-observations', 'POST', { records }, DO_WRITE_TIMEOUT_MS);
       }
       return getLocalFallbackInstance(env).recordEmployerGeoObservations(records);
     },
 
     async runPolicyWatchdog(opts = {}) {
+      invalidateSnapshotCache();
       if (hasDO) {
-        return await callDO('/internal/run-policy-watchdog', 'POST', opts);
+        return await callDO('/internal/run-policy-watchdog', 'POST', opts, DO_WRITE_TIMEOUT_MS);
       }
       return getLocalFallbackInstance(env).runPolicyWatchdog(opts);
     },
 
     async saveMarketPulse(pulse) {
+      invalidateSnapshotCache();
       if (hasDO) {
-        return await callDO('/internal/save-market-pulse', 'POST', { pulse });
+        return await callDO('/internal/save-market-pulse', 'POST', { pulse }, DO_READ_TIMEOUT_MS);
       }
       const res = getLocalFallbackInstance(env).saveMarketPulse(pulse);
       await mirrorToD1Fallback(env, `pulse:${res.pulse_date}`, 'market_pulse', pulse);
@@ -1671,10 +1929,18 @@ export function getCareerBrainClient(env = {}) {
     async getLatestMarketPulse() {
       if (hasDO) {
         try {
-          const res = await callDO('/internal/market-pulse', 'GET');
+          const snap = await getOrLoadReadSnapshot();
+          if (snap) return snap.pulse || null;
+        } catch (snapErr) {
+          if (snapErr && snapErr.status !== 404) {
+            console.error('[CareerBrainDO] read-snapshot failed for getLatestMarketPulse:', snapErr.message || snapErr);
+          }
+        }
+        try {
+          const res = await callDO('/internal/market-pulse', 'GET', null, DO_READ_TIMEOUT_MS);
           return res.pulse || null;
-        } catch {
-          // Fall back cleanly
+        } catch (err) {
+          console.error('[CareerBrainDO] market-pulse failed, falling back to local KG:', err && err.message ? err.message : err);
         }
       }
       return getLocalFallbackInstance(env).getLatestMarketPulse();
@@ -1683,9 +1949,9 @@ export function getCareerBrainClient(env = {}) {
     async inspectStatus() {
       if (hasDO) {
         try {
-          return await callDO('/internal/status', 'GET');
-        } catch {
-          // Fall back cleanly
+          return await callDO('/internal/status', 'GET', null, DO_READ_TIMEOUT_MS);
+        } catch (err) {
+          console.error('[CareerBrainDO] inspect-status failed, falling back to local KG:', err && err.message ? err.message : err);
         }
       }
       return getLocalFallbackInstance(env).inspectStatus();

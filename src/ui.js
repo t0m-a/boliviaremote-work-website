@@ -20,6 +20,18 @@ import { FAVICON_DATA_URI } from './favicon.js';
 import { LEGAL_TAX_GUIDE_HTML } from './legal_tax_guide.js';
 import { computeMarketPulseMetrics, buildDeterministicPulseNarrative } from './nightly_sleep.js';
 
+const SSR_DESCRIPTION_MAX_CHARS = 450;
+
+function compactOpportunityForClient(opp) {
+  if (!opp || typeof opp !== 'object') return opp;
+  const rawDesc = String(opp.description || '');
+  if (rawDesc.length <= SSR_DESCRIPTION_MAX_CHARS) return opp;
+  const cut = rawDesc.slice(0, SSR_DESCRIPTION_MAX_CHARS);
+  const lastSpace = cut.lastIndexOf(' ');
+  const trimmedDesc = (lastSpace > 260 ? cut.slice(0, lastSpace) : cut).trim() + '...';
+  return { ...opp, description: trimmedDesc };
+}
+
 export function renderAppHtml(initialState, options = {}) {
   const {
     opportunities = [],
@@ -42,14 +54,16 @@ export function renderAppHtml(initialState, options = {}) {
       ? 'Síntesis nocturna del mercado laboral remoto elegible desde Bolivia: categorías más demandadas en español e inglés, tarifas USD observadas y empresas directas ATS verificadas.'
       : 'Herramienta pública para filtrar y evaluar ofertas de trabajo remotas elegibles desde Bolivia según tus idiomas, área profesional, experiencia y tipo de contrato.');
 
-  const eligibleOpportunities = (opportunities || []).filter(o => checkBoliviaRemoteEligibility(o).eligible);
+  const eligibleOpportunities = (opportunities || [])
+    .filter(o => o && (o.bolivia_eligible === 1 || o.bolivia_eligible === true || checkBoliviaRemoteEligibility(o).eligible));
+  const clientOpportunities = eligibleOpportunities.map(compactOpportunityForClient);
   const activePlatforms = (platforms || []).filter(p => p && p.enabled !== false);
   const activePlatformsCount = activePlatforms.length;
   const fallbackMetrics = providedMarketPulse ? null : computeMarketPulseMetrics(eligibleOpportunities, platforms);
   const marketPulse = providedMarketPulse || { ...fallbackMetrics, ...buildDeterministicPulseNarrative(fallbackMetrics) };
 
   const clientPayload = JSON.stringify({
-    opportunities: eligibleOpportunities,
+    opportunities: clientOpportunities,
     platforms,
     lastScanAt,
     marketPulse,
@@ -4262,7 +4276,17 @@ ${LEGAL_TAX_GUIDE_HTML}
       renderResultsCards();
     }
 
+    let lazyStateHydrationTriggered = false;
+
     function switchMainView(viewName, opts) {
+      if (
+        opportunitiesState.length === 0 &&
+        !lazyStateHydrationTriggered &&
+        (viewName === 'results' || viewName === 'pulse' || viewName === 'platforms' || viewName === 'report')
+      ) {
+        lazyStateHydrationTriggered = true;
+        refreshLiveStateFromServer();
+      }
       const vResults = document.getElementById('view-results');
       const vManual = document.getElementById('view-manual');
       const vLegalTax = document.getElementById('view-legal-tax');

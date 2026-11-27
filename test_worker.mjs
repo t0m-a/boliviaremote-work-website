@@ -33,6 +33,8 @@ import {
   synthesizeMarketPulseWithAI,
   runNightlySleepCycle
 } from './src/nightly_sleep.js';
+import { getCareerBrainClient } from './src/career_brain_do.js';
+import { renderAppHtml } from './src/ui.js';
 
 const EMOJI_REGEX = /(?:[\u2700-\u27bf]|(?:\ud83c[\udde6-\uddff]){2}|[\ud800-\udbff][\udc00-\udfff]|[\u0023-\u0039]\ufe0f?\u20e3|\u3299|\u3297|\u303d|\u3030|\u24c2|\ud83c[\udd70-\udd71]|\ud83c[\udd7e-\udd7f]|\ud83c\udd8e|\ud83c[\udd91-\udd9a]|\ud83c[\udde6-\uddff]|[\ud83d\ud83e][\ud000-\udfff]|[\u200d\u20e3\ufe0f]|[\u2600-\u26ff])/g;
 
@@ -2032,6 +2034,307 @@ async function runTests() {
     ]
   }, mockLifecycleEnv);
   assert.equal(d1Rows.get(staleHash).status, 'STALE', 'Concurrent stale isolate saveState must NOT resurrect terminal STALE status in D1');
+
+  console.log('13. Testing Performance Optimizations (Zero-DB 404/Static/Guide Routing, O(1) DO Index & Snapshot Cache, Edge Cache, Delta Save)...');
+
+  // 13a. Zero-DB routing for 404 bot probes, /favicon.*, /robots.txt, and /guia-legal-fiscal
+  let zeroDbQueryCount = 0;
+  let zeroDoCallCount = 0;
+  const strictZeroTouchEnv = {
+    DB: {
+      prepare() {
+        zeroDbQueryCount++;
+        throw new Error('D1 should not be touched by zero-DB routes');
+      }
+    },
+    CAREER_BRAIN: {
+      idFromName(name) { return name; },
+      get() {
+        return {
+          async fetch() {
+            zeroDoCallCount++;
+            throw new Error('DO should not be touched by zero-DB routes');
+          }
+        };
+      }
+    }
+  };
+  const r404Probe = await worker.fetch(new Request('https://boliviaremote.work/wp-admin/install.php'), strictZeroTouchEnv, {});
+  assert.equal(r404Probe.status, 404, 'Unknown bot probe path must return 404');
+  const rEnvProbe = await worker.fetch(new Request('https://boliviaremote.work/.env.live'), strictZeroTouchEnv, {});
+  assert.equal(rEnvProbe.status, 404, 'Unknown .env probe must return 404');
+  const rFavFast = await worker.fetch(new Request('https://boliviaremote.work/favicon.png'), strictZeroTouchEnv, {});
+  assert.equal(rFavFast.status, 200, '/favicon.png must succeed without DB');
+  const rRobotsFast = await worker.fetch(new Request('https://boliviaremote.work/robots.txt'), strictZeroTouchEnv, {});
+  assert.equal(rRobotsFast.status, 200, '/robots.txt must succeed without DB');
+  const rGuideFast = await worker.fetch(new Request('https://boliviaremote.work/guia-legal-fiscal'), strictZeroTouchEnv, {});
+  assert.equal(rGuideFast.status, 200, '/guia-legal-fiscal must succeed without DB or DO');
+  assert.ok((rGuideFast.headers.get('Cache-Control') || '').includes('s-maxage=3600'), '/guia-legal-fiscal must set cacheable s-maxage header');
+  const guideFastHtml = await rGuideFast.text();
+  assert.ok(guideFastHtml.includes('"opportunities":[]'), '/guia-legal-fiscal SSR must not embed 2,000 jobs');
+  assert.ok(guideFastHtml.includes('lazyStateHydrationTriggered'), '/guia-legal-fiscal UI must include lazy catalog hydration hook');
+  assert.equal(zeroDbQueryCount, 0, `404/static/legal-guide routes must execute 0 D1 queries (got ${zeroDbQueryCount})`);
+  assert.equal(zeroDoCallCount, 0, `404/static/legal-guide routes must execute 0 DO calls (got ${zeroDoCallCount})`);
+
+  // 13b. O(1) cached DO lookup index & invalidation on mutation (mock SQLite storage)
+  let sqlEntityScans = 0;
+  let sqlEdgeScans = 0;
+  const mockSqlTables = { meta: new Map(), entities: new Map(), edges: [], playbooks: new Map() };
+  const mockSqlCtx = {
+    blockConcurrencyWhile(fn) { return fn(); },
+    storage: {
+      sql: {
+        exec(sql, ...params) {
+          const s = String(sql).trim();
+          if (s.startsWith('SELECT value FROM meta')) {
+            const v = mockSqlTables.meta.get(params[0]);
+            return { toArray: () => (v !== undefined ? [{ value: v }] : []) };
+          }
+          if (s.startsWith('INSERT OR REPLACE INTO meta')) {
+            mockSqlTables.meta.set(params[0], params[1]);
+            return { toArray: () => [] };
+          }
+          if (s.startsWith('INSERT OR REPLACE INTO entities')) {
+            mockSqlTables.entities.set(params[0], {
+              entity_id: params[0], entity_type: params[1], canonical_name: params[2],
+              domain: params[3], bolivia_tier: params[4], confidence: params[5],
+              pagerank_score: params[6], attributes_json: params[7], updated_at: params[8]
+            });
+            return { toArray: () => [] };
+          }
+          if (s.startsWith('INSERT OR REPLACE INTO edges')) {
+            mockSqlTables.edges.push({
+              source_id: params[0], target_id: params[1], relation: params[2],
+              weight: params[3], confidence: params[4], evidence_note: params[5],
+              valid_from: params[6], valid_until: params[7]
+            });
+            return { toArray: () => [] };
+          }
+          if (s.startsWith('SELECT * FROM entities')) {
+            sqlEntityScans++;
+            return { toArray: () => Array.from(mockSqlTables.entities.values()) };
+          }
+          if (s.startsWith('SELECT * FROM edges WHERE valid_until IS NULL')) {
+            sqlEdgeScans++;
+            return { toArray: () => mockSqlTables.edges.filter(e => !e.valid_until) };
+          }
+          return { toArray: () => [], one: () => ({ c: 0 }) };
+        }
+      }
+    }
+  };
+  const indexedDo = new BoliviaCareerBrainDO(mockSqlCtx, {});
+  const batch200 = Array.from({ length: 200 }, (_, i) => ({
+    job_hash: `perf_${i}`,
+    company: i % 2 === 0 ? 'Deel' : `UnknownCo_${i}`,
+    platform_id: 'remotive',
+    platform_name: 'Remotive',
+    url: `https://example.com/jobs/${i}`
+  }));
+  const batchRes = indexedDo.lookupEmployerRealityBatch(batch200);
+  assert.equal(Object.keys(batchRes).length, 200, 'Batch lookup must return all 200 job keys');
+  assert.equal(batchRes.perf_0.matched, true, 'Deel must resolve cleanly via cached O(1) index');
+  assert.equal(sqlEntityScans, 1, `200-item batch lookup must execute SELECT * FROM entities only ONCE (got ${sqlEntityScans})`);
+  assert.equal(sqlEdgeScans, 1, `200-item batch lookup must execute SELECT * FROM edges only ONCE (got ${sqlEdgeScans})`);
+  indexedDo.lookupEmployerRealityBatch(batch200);
+  assert.equal(sqlEntityScans, 1, 'Second batch lookup must reuse in-memory cached index with 0 new SQLite scans');
+  await indexedDo.upsertEmployerReality({
+    canonical_name: 'Salares Tech',
+    domain: 'salarestech.bo',
+    bolivia_tier: 'verified_friendly',
+    payout_rails: ['airtm_usdc']
+  });
+  const salaresCheck = indexedDo.lookupEmployerReality({ company: 'Salares Tech' });
+  assert.equal(salaresCheck.matched, true, 'DO mutation must invalidate lookup index so newly upserted employer resolves immediately');
+  assert.equal(sqlEntityScans, 2, 'Index must rebuild exactly once after mutation');
+
+  // 13c. Client snapshot caching, AbortSignal timeout, invalidation on write, and deduplicated fallback on 404
+  const doRequestsLog = [];
+  const liveMockDoInstance = new BoliviaCareerBrainDO(null, {});
+  liveMockDoInstance.saveMarketPulse({ pulse_date: '2026-11-27', total_active_eligible: 321, headline_es: 'Pulso de prueba' });
+  const mockDoNamespace = {
+    idFromName(name) { return name; },
+    get() {
+      return {
+        async fetch(url, opts) {
+          doRequestsLog.push({ url, method: opts && opts.method, hasSignal: Boolean(opts && opts.signal), body: opts && opts.body });
+          return liveMockDoInstance.fetch(new Request(url, opts));
+        }
+      };
+    }
+  };
+  const brainClient = getCareerBrainClient({ CAREER_BRAIN: mockDoNamespace });
+  const [snapBatch, snapPulse] = await Promise.all([
+    brainClient.lookupEmployerRealityBatch(batch200),
+    brainClient.getLatestMarketPulse()
+  ]);
+  assert.equal(Object.keys(snapBatch).length, 200);
+  assert.equal(snapPulse.pulse_date, '2026-11-27');
+  assert.equal(doRequestsLog.length, 1, `Concurrent lookup + market-pulse must coalesce into 1 /internal/read-snapshot call (got ${doRequestsLog.length})`);
+  assert.ok(doRequestsLog[0].url.endsWith('/internal/read-snapshot'), 'Client must use /internal/read-snapshot');
+  assert.equal(doRequestsLog[0].hasSignal, true, 'callDO must pass AbortSignal timeout');
+
+  // Second read hits isolate snapshot cache with 0 DO calls
+  await brainClient.lookupEmployerRealityBatch(batch200);
+  await brainClient.getLatestMarketPulse();
+  assert.equal(doRequestsLog.length, 1, 'Warm isolate reads must hit 2-minute DO snapshot cache (0 extra DO calls)');
+
+  // Mutation invalidates isolate snapshot cache
+  await brainClient.saveMarketPulse({ pulse_date: '2026-11-28', total_active_eligible: 400, headline_es: 'Pulso actualizado' });
+  const refreshedPulse = await brainClient.getLatestMarketPulse();
+  assert.equal(refreshedPulse.pulse_date, '2026-11-28', 'saveMarketPulse must invalidate isolate DO snapshot cache');
+
+  // Legacy DO mock returning 404 on /internal/read-snapshot must receive slimmed deduplicated /internal/lookup-batch payload
+  let legacyBatchPayload = null;
+  const legacyDoNamespace = {
+    idFromName(name) { return name; },
+    get() {
+      return {
+        async fetch(url, opts) {
+          const u = new URL(url);
+          if (u.pathname === '/internal/read-snapshot') {
+            return Response.json({ ok: false, error: 'Not Found' }, { status: 404 });
+          }
+          if (u.pathname === '/internal/lookup-batch') {
+            legacyBatchPayload = JSON.parse(opts.body);
+            return liveMockDoInstance.fetch(new Request(url, opts));
+          }
+          return Response.json({ ok: false, error: 'Not Found' }, { status: 404 });
+        }
+      };
+    }
+  };
+  const legacyClient = getCareerBrainClient({ CAREER_BRAIN: legacyDoNamespace });
+  const dupFullItems = Array.from({ length: 20 }, (_, i) => ({
+    job_hash: `dup_${i}`,
+    company: 'Deel',
+    platform_id: 'ashby_deel',
+    platform_name: 'Deel',
+    url: 'https://jobs.ashbyhq.com/deel/1',
+    description: 'X'.repeat(5000)
+  }));
+  const legacyRes = await legacyClient.lookupEmployerRealityBatch(dupFullItems);
+  assert.equal(Object.keys(legacyRes).length, 20, 'Deduplicated fallback must expand results back to all 20 job hashes');
+  assert.equal(legacyBatchPayload.items.length, 1, '20 identical company/platform jobs must deduplicate to 1 slim DO item');
+  assert.equal(legacyBatchPayload.items[0].description, undefined, 'Slim DO payload must strip bulky description text');
+
+  // 13d. Migrated D1 fast-path (1 sqlite_master check, 0 DDL), preCleaned loadState, delta saveState, and SSR description trimming
+  const migratedSqlLog = [];
+  const samplePersistedOpp = {
+    job_hash: 'preclean_hash_1',
+    title: 'Senior Cloud Engineer',
+    company: 'GitLab',
+    company_slug: 'company:gitlab',
+    canonical_role_key: 'senior cloud engineer|gitlab',
+    platform_id: 'ats_greenhouse_gitlab',
+    platform_name: 'GitLab (Greenhouse)',
+    category: 'devops',
+    track: 'Cloud',
+    url: 'https://boards.greenhouse.io/gitlab/jobs/12345',
+    location: 'Remote Worldwide',
+    contract_caveat: 'fractional_or_fulltime',
+    tags: 'cloud, devops',
+    description: 'Long description '.repeat(60),
+    lang_mask: 'en',
+    categories_csv: 'tech_dev',
+    experience_tier: 'senior',
+    contracts_csv: 'full_time',
+    published_at: '2026-11-26',
+    published_epoch: Math.floor(Date.now() / 1000) - 3600,
+    discovered_at: '2026-11-26T12:00:00Z',
+    first_seen_epoch: Math.floor(Date.now() / 1000) - 3600,
+    last_seen_epoch: Math.floor(Date.now() / 1000) - 1800,
+    sighting_count: 1,
+    repost_span_days: 0,
+    ghost_risk: 'none',
+    bolivia_eligible: 1,
+    compensation_usd: '$6,000/mo',
+    ai_summary_es: 'Rol remoto global en GitLab.',
+    ai_summary_en: 'Global remote role at GitLab.',
+    ai_verified: 1,
+    status: 'ACTIVE'
+  };
+  const preCleanedState = normalizeAndMergeState(
+    { opportunities: [samplePersistedOpp], platforms: [] },
+    { includeSeedOpportunities: false, preCleaned: true }
+  );
+  assert.equal(preCleanedState.opportunities.length, 1);
+  assert.equal(preCleanedState.opportunities[0].job_hash, 'preclean_hash_1');
+
+  const trimmedHtml = renderAppHtml({ opportunities: [samplePersistedOpp], platforms: [] });
+  assert.ok(!trimmedHtml.includes('Long description '.repeat(40)), 'renderAppHtml must trim oversized job descriptions in SSR payload');
+
+  const mockMigratedDb = {
+    prepare(sql) {
+      migratedSqlLog.push(sql.trim());
+      return {
+        bind() { return this; },
+        async all() {
+          if (sql.includes('sqlite_master')) return { results: [{ cnt: 7 }] };
+          return { results: [] };
+        },
+        async run() { return { success: true }; }
+      };
+    },
+    async batch(stmts) {
+      for (const s of stmts) await s.run();
+      return [];
+    }
+  };
+  await saveState(
+    { _d1Loaded: true, _hasLiveStorage: true, opportunities: [samplePersistedOpp, { ...samplePersistedOpp, job_hash: 'preclean_hash_2', title: 'Staff SRE', url: 'https://boards.greenhouse.io/gitlab/jobs/67890', canonical_role_key: 'staff sre|gitlab' }], platforms: [] },
+    { DB: mockMigratedDb },
+    { changedOpportunities: [samplePersistedOpp], skipPlatformsSync: true }
+  );
+  assert.equal(
+    migratedSqlLog.filter(s => s.startsWith('CREATE ') || s.startsWith('ALTER ')).length,
+    0,
+    'Migrated D1 (sqlite_master cnt=7) must execute 0 CREATE/ALTER DDL statements'
+  );
+  assert.equal(
+    migratedSqlLog.filter(s => s.includes('INSERT INTO opportunities')).length,
+    1,
+    'Delta saveState with 1 changedOpportunity must upsert only 1 row instead of entire catalog'
+  );
+
+  // 13e. Edge Cache HIT/MISS on GET /
+  const edgeCacheMap = new Map();
+  const prevCaches = globalThis.caches;
+  globalThis.caches = {
+    default: {
+      async match(req) {
+        const key = typeof req === 'string' ? req : req.url;
+        const stored = edgeCacheMap.get(key);
+        return stored ? stored.clone() : undefined;
+      },
+      async put(req, resp) {
+        const key = typeof req === 'string' ? req : req.url;
+        edgeCacheMap.set(key, resp.clone());
+      },
+      async delete(req) {
+        const key = typeof req === 'string' ? req : req.url;
+        return edgeCacheMap.delete(key);
+      }
+    }
+  };
+  try {
+    const waitPromises = [];
+    const mockCtx = { waitUntil(p) { waitPromises.push(p); } };
+    const rHomeMiss = await worker.fetch(new Request('https://boliviaremote.work/'), {}, mockCtx);
+    await Promise.all(waitPromises);
+    assert.equal(rHomeMiss.status, 200);
+    assert.equal(rHomeMiss.headers.get('X-Edge-Cache'), 'MISS', 'First GET / must be an Edge Cache MISS');
+    assert.ok((rHomeMiss.headers.get('Cache-Control') || '').includes('s-maxage=300'), 'GET / must set s-maxage=300');
+
+    const rHomeHit = await worker.fetch(new Request('https://boliviaremote.work/?utm_source=test'), strictZeroTouchEnv, mockCtx);
+    assert.equal(rHomeHit.status, 200);
+    assert.equal(rHomeHit.headers.get('X-Edge-Cache'), 'HIT', 'Second GET / (even with UTM query params) must serve Edge Cache HIT without touching D1/DO');
+    assert.equal(zeroDbQueryCount, 0, 'Edge Cache HIT must execute 0 D1 queries');
+    assert.equal(zeroDoCallCount, 0, 'Edge Cache HIT must execute 0 DO calls');
+  } finally {
+    if (prevCaches === undefined) delete globalThis.caches;
+    else globalThis.caches = prevCaches;
+  }
 
   console.log('ALL TESTS PASSED SUCCESSFULLY!');
 }
