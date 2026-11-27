@@ -37,7 +37,8 @@ export function renderAppHtml(initialState, options = {}) {
     opportunities = [],
     platforms = [],
     lastScanAt = new Date().toISOString(),
-    marketPulse: providedMarketPulse = null
+    marketPulse: providedMarketPulse = null,
+    totalCatalogCount: providedTotalCatalogCount = null
   } = initialState;
   const rawInitView = options && options.initialView ? String(options.initialView) : 'results';
   const initialView = rawInitView === 'legal-tax' ? 'legal-tax' : (rawInitView === 'pulse' ? 'pulse' : 'results');
@@ -57,6 +58,11 @@ export function renderAppHtml(initialState, options = {}) {
   const eligibleOpportunities = (opportunities || [])
     .filter(o => o && (o.bolivia_eligible === 1 || o.bolivia_eligible === true || checkBoliviaRemoteEligibility(o).eligible));
   const clientOpportunities = eligibleOpportunities.map(compactOpportunityForClient);
+  const totalCatalogCount = Math.max(
+    clientOpportunities.length,
+    Number(providedTotalCatalogCount) || clientOpportunities.length
+  );
+  const hasMoreCatalog = totalCatalogCount > clientOpportunities.length;
   const activePlatforms = (platforms || []).filter(p => p && p.enabled !== false);
   const activePlatformsCount = activePlatforms.length;
   const fallbackMetrics = providedMarketPulse ? null : computeMarketPulseMetrics(eligibleOpportunities, platforms);
@@ -64,6 +70,8 @@ export function renderAppHtml(initialState, options = {}) {
 
   const clientPayload = JSON.stringify({
     opportunities: clientOpportunities,
+    totalCatalogCount,
+    hasMoreCatalog,
     platforms,
     lastScanAt,
     marketPulse,
@@ -1157,6 +1165,29 @@ export function renderAppHtml(initialState, options = {}) {
     .opp-card:hover {
       border-color: var(--border-control);
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.035);
+    }
+    .load-more-bar {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin: 18px 0 12px;
+      padding: 16px 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-hairline);
+      border-radius: 10px;
+      text-align: center;
+    }
+    .load-more-meta {
+      font-size: 0.84em;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+    .btn-load-more {
+      min-height: 40px;
+      padding: 8px 22px;
+      touch-action: manipulation;
     }
     .opp-card.verdict-SKIP { opacity: 0.88; }
     .opp-card.verdict-GEO { opacity: 0.78; }
@@ -2793,6 +2824,7 @@ export function renderAppHtml(initialState, options = {}) {
     <section id="view-results"${(isInitialLegalTax || isInitialPulse) ? ' style="display:none;"' : ''}>
       <div id="semantic-status-bar" class="scan-alert success" style="display:none;margin-top:0;margin-bottom:14px;"></div>
       <div id="resultsCardsContainer"></div>
+      <div id="results-load-more-wrap" class="load-more-bar" style="display:none;"></div>
     </section>
 
     <!-- VIEW 2: INTERACTIVE USER MANUAL -->
@@ -3052,7 +3084,18 @@ ${LEGAL_TAX_GUIDE_HTML}
   <script id="initial-payload" type="application/json">${clientPayload}</script>
   <script>
     const PAYLOAD = JSON.parse(document.getElementById('initial-payload').textContent);
+    const RESULTS_PAGE_SIZE = 60;
     let opportunitiesState = PAYLOAD.opportunities || [];
+    let totalCatalogCountState = Math.max(
+      opportunitiesState.length,
+      Number(PAYLOAD.totalCatalogCount) || opportunitiesState.length
+    );
+    let hasMoreServerCatalog = Boolean(PAYLOAD.hasMoreCatalog) && opportunitiesState.length < totalCatalogCountState;
+    let catalogHydrated = !hasMoreServerCatalog;
+    let catalogHydrationPromise = null;
+    let visibleResultsLimit = RESULTS_PAGE_SIZE;
+    let lastFilteredResults = [];
+    let renderedCardsCount = 0;
     let platformsState = PAYLOAD.platforms || [];
     let lastScanAtState = PAYLOAD.lastScanAt || new Date().toISOString();
     let marketPulseState = PAYLOAD.marketPulse || null;
@@ -3742,7 +3785,77 @@ ${LEGAL_TAX_GUIDE_HTML}
       reportMarkdownDirty = false;
     }
 
+    function mergeAdditionalOpportunities(extraItems) {
+      if (!Array.isArray(extraItems) || extraItems.length === 0) return false;
+      const seenHashes = new Set(opportunitiesState.map(o => o && o.job_hash).filter(Boolean));
+      let added = 0;
+      for (const item of extraItems) {
+        if (!item || !item.job_hash || seenHashes.has(item.job_hash)) continue;
+        seenHashes.add(item.job_hash);
+        opportunitiesState.push(item);
+        added++;
+      }
+      return added > 0;
+    }
+
+    async function ensureFullCatalogHydrated() {
+      if (catalogHydrated || !hasMoreServerCatalog) return false;
+      if (typeof fetch !== 'function') {
+        catalogHydrated = true;
+        hasMoreServerCatalog = false;
+        return false;
+      }
+      if (catalogHydrationPromise) return catalogHydrationPromise;
+
+      const isHttpOrigin =
+        typeof window !== 'undefined' &&
+        window.location &&
+        /^https?:$/i.test(window.location.protocol || '');
+      if (!isHttpOrigin) {
+        catalogHydrated = true;
+        hasMoreServerCatalog = false;
+        return false;
+      }
+
+      catalogHydrationPromise = (async () => {
+        renderLoadMoreControl(true);
+        try {
+          const offset = opportunitiesState.length;
+          const remaining = Math.max(500, Math.min(2000 - offset, 1700));
+          const resp = await fetch('/api/opportunities?offset=' + offset + '&limit=' + remaining, {
+            method: 'GET',
+            cache: 'default'
+          });
+          if (!resp.ok) return false;
+          const data = await resp.json();
+          if (typeof data.total_active === 'number' && data.total_active > 0) {
+            totalCatalogCountState = Math.min(data.total_active, 2000);
+          }
+          const merged = mergeAdditionalOpportunities(data.opportunities || []);
+          hasMoreServerCatalog = false;
+          catalogHydrated = true;
+          if (merged) {
+            recomputeAndRender({ preserveLimit: true });
+          } else {
+            renderLoadMoreControl(false);
+          }
+          return merged;
+        } catch (e) {
+          return false;
+        } finally {
+          catalogHydrationPromise = null;
+          renderLoadMoreControl(false);
+        }
+      })();
+
+      return catalogHydrationPromise;
+    }
+    window.ensureFullCatalogHydrated = ensureFullCatalogHydrated;
+
     function scheduleRecomputeAndRender() {
+      if (!catalogHydrated && hasMoreServerCatalog) {
+        ensureFullCatalogHydrated();
+      }
       if (typeof requestAnimationFrame !== 'function') {
         recomputeAndRender();
         return;
@@ -3779,7 +3892,11 @@ ${LEGAL_TAX_GUIDE_HTML}
       if (manPlatCntEl) manPlatCntEl.textContent = activeCount;
     }
 
-    function recomputeAndRender() {
+    function recomputeAndRender(opts) {
+      const preserveLimit = Boolean(opts && opts.preserveLimit);
+      if (!preserveLimit) {
+        visibleResultsLimit = RESULTS_PAGE_SIZE;
+      }
       if (semanticOverrideResults !== null) {
         semanticOverrideResults = null;
         const clearBtn = document.getElementById('btn-clear-semantic');
@@ -3802,7 +3919,7 @@ ${LEGAL_TAX_GUIDE_HTML}
       updateActivePlatformsCountUi();
       document.getElementById('val-last-sync').textContent = String(lastScanAtState || '').replace('T', ' ').slice(0, 16);
 
-      renderResultsCards();
+      renderResultsCards({ preserveLimit });
 
       reportMarkdownDirty = true;
       const vReport = document.getElementById('view-report');
@@ -3850,6 +3967,9 @@ ${LEGAL_TAX_GUIDE_HTML}
 
     function onSearchInputChange(val) {
       syncSearchClearButton(val);
+      if (!catalogHydrated && hasMoreServerCatalog && String(val || '').trim()) {
+        ensureFullCatalogHydrated();
+      }
       if (!String(val || '').trim() && semanticOverrideResults) {
         clearSemanticSearch();
         return;
@@ -3978,9 +4098,164 @@ ${LEGAL_TAX_GUIDE_HTML}
     }
     window.clearSemanticSearch = clearSemanticSearch;
 
-    function renderResultsCards() {
+    function buildOpportunityCardHtml(r, idx, ctx) {
+      const { isEs, t, contractNameMap, langFlagMap, todayIso } = ctx;
+      const vKey = r.bolivia_eligible ? r.verdict : 'GEO';
+      const vLabel = t.verdictLabels[vKey] || vKey;
+      const bolBadge = isEs ? r.bolivia_badge_es : r.bolivia_badge_en;
+      const notes = isEs ? r.notes_es : r.notes_en;
+      const skillsArr = String(r.matched_skills || '').split(',').map(s => s.trim()).filter(Boolean);
+      const skillTagsHtml = skillsArr.map(s => '<span class="skill-tag">' + escapeHtml(s) + '</span>').join('');
+      const contractTagsHtml = (r.detected_contracts || []).map(cid =>
+        '<span class="contract-tag">' + escapeHtml(contractNameMap[cid] || cid) + '</span>'
+      ).join('');
+      const langTagsHtml = (r.detected_languages || []).map(lid =>
+        '<span class="lang-tag">' + escapeHtml(langFlagMap[lid] || lid.toUpperCase()) + '</span>'
+      ).join('');
+
+      const empReal = r.employer_reality || null;
+      const realityText = empReal ? (isEs ? empReal.reality_badge_es : empReal.reality_badge_en) : '';
+      const realityPillHtml = realityText
+        ? '<span class="reality-pill' + (empReal.bolivia_tier === 'caution_friction' ? ' caution' : '') + '"' +
+          (empReal.caution_note_es ? ' title="' + escapeHtml(empReal.caution_note_es) + '"' : '') +
+          '>' + escapeHtml(realityText) + '</span>'
+        : '';
+
+      let freshnessOrGhostHtml = '';
+      if (r.ghost_risk === 'high' || r.ghost_risk === 'watch') {
+        const hits = Number(r.sighting_count) || 2;
+        const spanDays = Number(r.repost_span_days) || 30;
+        freshnessOrGhostHtml = '<span class="ghost-pill ' + escapeHtml(r.ghost_risk) + '">Re-publicada ' + hits + 'x (' + spanDays + ' días)</span>';
+      } else if (String(r.published_at || '').slice(0, 10) === todayIso) {
+        freshnessOrGhostHtml = '<span class="fresh-pill">Nueva hoy</span>';
+      }
+
+      return '<article class="opp-card verdict-' + vKey + '" data-job-hash="' + escapeHtml(r.job_hash) + '">' +
+        '<div class="opp-header">' +
+          '<h3 class="opp-title">#' + (idx + 1) + '. [' + r.total_score + '/100] ' + escapeHtml(r.title) +
+            ' — <span class="opp-company">' + escapeHtml(r.company) + '</span></h3>' +
+          '<span class="badge badge-' + vKey + '">' + escapeHtml(vLabel) + ' · ' + r.total_score + '/100</span>' +
+        '</div>' +
+        '<div class="meta-line">' +
+          '<span class="bolivia-pill ' + (r.bolivia_eligible ? '' : 'restricted') + '">' + escapeHtml(bolBadge) + '</span>' +
+          realityPillHtml +
+          freshnessOrGhostHtml +
+          (typeof r.semantic_score === 'number' ? '<span class="semantic-pill">' + escapeHtml(t.semanticBadge || 'Afinidad Vectorial:') + ' ' + r.semantic_score + '%</span>' : '') +
+          (r.compensation_usd ? '<span class="comp-pill">USD: ' + escapeHtml(r.compensation_usd) + '</span>' : '') +
+          '<span><strong>Plataforma:</strong> ' + escapeHtml(r.platform_name) + '</span>' +
+          '<span><strong>Ubicación:</strong> ' + escapeHtml(r.location) + '</span>' +
+          '<span><strong>' + escapeHtml(t.categoryLabel || 'Categoría') + ':</strong> ' + escapeHtml(cleanTrackName(r.track)) + '</span>' +
+        '</div>' +
+        '<div class="score-pills">' +
+          '<span class="score-pill">' + escapeHtml(t.scorePos) + ': ' + r.position_score + '/35</span>' +
+          '<span class="score-pill">' + escapeHtml(t.scoreBol) + ': ' + r.bolivia_score + '/25</span>' +
+          '<span class="score-pill">' + escapeHtml(t.scoreCont) + ': ' + r.contract_exp_score + '/20</span>' +
+          '<span class="score-pill">' + escapeHtml(t.scoreLang) + ': ' + r.language_score + '/20</span>' +
+        '</div>' +
+        '<div class="opp-tags-row">' +
+          '<span class="opp-tag-group"><strong style="font-size:0.82em;">' + escapeHtml(t.contractsLabel) + '</strong> ' + contractTagsHtml + '</span>' +
+          (langTagsHtml ? '<span class="opp-tag-group"><strong style="font-size:0.82em;">' + escapeHtml(t.matchedLangs) + '</strong> ' + langTagsHtml + '</span>' : '') +
+          (skillTagsHtml ? '<span class="opp-tag-group"><strong style="font-size:0.82em;">' + escapeHtml(t.matchedSkills) + '</strong> ' + skillTagsHtml + '</span>' : '') +
+        '</div>' +
+        '<div class="opp-notes">' +
+          escapeHtml(notes) +
+        '</div>' +
+        '<div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">' +
+          '<a class="btn-action btn-primary" href="' + escapeHtml(r.url) + '" target="_blank" rel="noopener">' +
+            escapeHtml(t.openOfferBtn) + '</a>' +
+          '<button type="button" class="btn-action btn-ai-info" onclick="openAiProposalForJob(\\'' + escapeHtml(r.job_hash) + '\\', this)">' +
+            escapeHtml(t.draftAiBtn || 'Más información con IA') + '</button>' +
+        '</div>' +
+      '</article>';
+    }
+
+    function buildCardRenderContext() {
       const isEs = userFilters.ui_lang !== 'en';
       const t = I18N[userFilters.ui_lang] || I18N.es;
+      const contractNameMap = {};
+      CONTRACT_OPTIONS.forEach(c => {
+        contractNameMap[c.id] = isEs ? c.label_es : c.label_en;
+      });
+      const langFlagMap = { es: 'Español', en: 'Inglés', pt: 'Portugués', de: 'Alemán' };
+      const todayIso = new Date().toISOString().slice(0, 10);
+      return { isEs, t, contractNameMap, langFlagMap, todayIso };
+    }
+
+    function renderLoadMoreControl(isHydrating) {
+      const wrap = document.getElementById('results-load-more-wrap');
+      if (!wrap) return;
+      const totalMatched = lastFilteredResults.length;
+      const remainingLocal = Math.max(0, totalMatched - renderedCardsCount);
+      const loadingMoreCatalog = Boolean(isHydrating || catalogHydrationPromise);
+
+      if (totalMatched === 0 && !hasMoreServerCatalog) {
+        wrap.style.display = 'none';
+        wrap.innerHTML = '';
+        return;
+      }
+
+      if (remainingLocal === 0 && !hasMoreServerCatalog && !loadingMoreCatalog) {
+        wrap.style.display = 'none';
+        wrap.innerHTML = '';
+        return;
+      }
+
+      const nextStep = remainingLocal > 0 ? Math.min(RESULTS_PAGE_SIZE, remainingLocal) : RESULTS_PAGE_SIZE;
+      const syncNote = (hasMoreServerCatalog || loadingMoreCatalog)
+        ? ' · Actualizando catálogo completo (' + totalCatalogCountState + ' ofertas activas)...'
+        : '';
+      const metaText = 'Mostrando ' + renderedCardsCount + ' de ' + totalMatched + ' ofertas' + syncNote;
+      const btnText = remainingLocal > 0
+        ? 'Cargar más (+' + nextStep + ')'
+        : (loadingMoreCatalog ? 'Cargando más ofertas...' : 'Cargar más ofertas');
+
+      wrap.style.display = 'flex';
+      wrap.innerHTML =
+        '<div class="load-more-meta" id="results-load-more-meta">' + escapeHtml(metaText) + '</div>' +
+        '<button type="button" class="btn-action btn-primary btn-load-more" id="btn-load-more-cards" onclick="loadMoreResultsCards()"' +
+          (remainingLocal === 0 && loadingMoreCatalog ? ' disabled' : '') + '>' +
+          escapeHtml(btnText) +
+        '</button>';
+    }
+
+    async function loadMoreResultsCards() {
+      if (!catalogHydrated && hasMoreServerCatalog) {
+        const hydrationTask = ensureFullCatalogHydrated();
+        if (renderedCardsCount >= lastFilteredResults.length) {
+          await hydrationTask;
+        }
+      }
+
+      const prevCount = renderedCardsCount;
+      visibleResultsLimit += RESULTS_PAGE_SIZE;
+      const nextSlice = lastFilteredResults.slice(prevCount, visibleResultsLimit);
+      if (nextSlice.length === 0) {
+        renderLoadMoreControl(false);
+        return;
+      }
+
+      const container = document.getElementById('resultsCardsContainer');
+      const ctx = buildCardRenderContext();
+      const chunkHtml = nextSlice.map((r, offset) => buildOpportunityCardHtml(r, prevCount + offset, ctx)).join('');
+      if (container) {
+        if (typeof container.insertAdjacentHTML === 'function') {
+          container.insertAdjacentHTML('beforeend', chunkHtml);
+        } else {
+          container.innerHTML += chunkHtml;
+        }
+        renderedCardsCount = prevCount + nextSlice.length;
+        initCardScrollReveal(container);
+      }
+      renderLoadMoreControl(false);
+    }
+    window.loadMoreResultsCards = loadMoreResultsCards;
+
+    function renderResultsCards(opts) {
+      if (!(opts && opts.preserveLimit)) {
+        visibleResultsLimit = RESULTS_PAGE_SIZE;
+      }
+      const ctx = buildCardRenderContext();
+      const { t } = ctx;
       const q = normalizeSearchText(document.getElementById('searchInput').value || '');
       const qTokens = q ? q.split(/\\s+/).filter(Boolean) : [];
 
@@ -4008,6 +4283,8 @@ ${LEGAL_TAX_GUIDE_HTML}
         return true;
       });
 
+      lastFilteredResults = filtered;
+
       const container = document.getElementById('resultsCardsContainer');
       const aiPanel = document.getElementById('ai-cv-panel');
       const viewResults = document.getElementById('view-results');
@@ -4016,95 +4293,18 @@ ${LEGAL_TAX_GUIDE_HTML}
         viewResults.parentNode.insertBefore(aiPanel, viewResults);
       }
       if (filtered.length === 0) {
+        renderedCardsCount = 0;
         container.innerHTML = '<div class="panel-card" style="text-align:center;color:#64748b;padding:32px;">' +
           escapeHtml(t.noResults) + '</div>';
+        renderLoadMoreControl(false);
         return;
       }
 
-      const contractNameMap = {};
-      CONTRACT_OPTIONS.forEach(c => {
-        contractNameMap[c.id] = isEs ? c.label_es : c.label_en;
-      });
-
-      const langFlagMap = {
-        es: 'Español',
-        en: 'Inglés',
-        pt: 'Portugués',
-        de: 'Alemán'
-      };
-
-      const todayIso = new Date().toISOString().slice(0, 10);
-
-      container.innerHTML = filtered.map((r, idx) => {
-        const vKey = r.bolivia_eligible ? r.verdict : 'GEO';
-        const vLabel = t.verdictLabels[vKey] || vKey;
-        const bolBadge = isEs ? r.bolivia_badge_es : r.bolivia_badge_en;
-        const notes = isEs ? r.notes_es : r.notes_en;
-        const skillsArr = String(r.matched_skills || '').split(',').map(s => s.trim()).filter(Boolean);
-        const skillTagsHtml = skillsArr.map(s => '<span class="skill-tag">' + escapeHtml(s) + '</span>').join('');
-        const contractTagsHtml = (r.detected_contracts || []).map(cid =>
-          '<span class="contract-tag">' + escapeHtml(contractNameMap[cid] || cid) + '</span>'
-        ).join('');
-        const langTagsHtml = (r.detected_languages || []).map(lid =>
-          '<span class="lang-tag">' + escapeHtml(langFlagMap[lid] || lid.toUpperCase()) + '</span>'
-        ).join('');
-
-        const empReal = r.employer_reality || null;
-        const realityText = empReal ? (isEs ? empReal.reality_badge_es : empReal.reality_badge_en) : '';
-        const realityPillHtml = realityText
-          ? '<span class="reality-pill' + (empReal.bolivia_tier === 'caution_friction' ? ' caution' : '') + '"' +
-            (empReal.caution_note_es ? ' title="' + escapeHtml(empReal.caution_note_es) + '"' : '') +
-            '>' + escapeHtml(realityText) + '</span>'
-          : '';
-
-        let freshnessOrGhostHtml = '';
-        if (r.ghost_risk === 'high' || r.ghost_risk === 'watch') {
-          const hits = Number(r.sighting_count) || 2;
-          const spanDays = Number(r.repost_span_days) || 30;
-          freshnessOrGhostHtml = '<span class="ghost-pill ' + escapeHtml(r.ghost_risk) + '">Re-publicada ' + hits + 'x (' + spanDays + ' días)</span>';
-        } else if (String(r.published_at || '').slice(0, 10) === todayIso) {
-          freshnessOrGhostHtml = '<span class="fresh-pill">Nueva hoy</span>';
-        }
-
-        return '<article class="opp-card verdict-' + vKey + '" data-job-hash="' + escapeHtml(r.job_hash) + '">' +
-          '<div class="opp-header">' +
-            '<h3 class="opp-title">#' + (idx + 1) + '. [' + r.total_score + '/100] ' + escapeHtml(r.title) +
-              ' — <span class="opp-company">' + escapeHtml(r.company) + '</span></h3>' +
-            '<span class="badge badge-' + vKey + '">' + escapeHtml(vLabel) + ' · ' + r.total_score + '/100</span>' +
-          '</div>' +
-          '<div class="meta-line">' +
-            '<span class="bolivia-pill ' + (r.bolivia_eligible ? '' : 'restricted') + '">' + escapeHtml(bolBadge) + '</span>' +
-            realityPillHtml +
-            freshnessOrGhostHtml +
-            (typeof r.semantic_score === 'number' ? '<span class="semantic-pill">' + escapeHtml(t.semanticBadge || 'Afinidad Vectorial:') + ' ' + r.semantic_score + '%</span>' : '') +
-            (r.compensation_usd ? '<span class="comp-pill">USD: ' + escapeHtml(r.compensation_usd) + '</span>' : '') +
-            '<span><strong>Plataforma:</strong> ' + escapeHtml(r.platform_name) + '</span>' +
-            '<span><strong>Ubicación:</strong> ' + escapeHtml(r.location) + '</span>' +
-            '<span><strong>' + escapeHtml(t.categoryLabel || 'Categoría') + ':</strong> ' + escapeHtml(cleanTrackName(r.track)) + '</span>' +
-          '</div>' +
-          '<div class="score-pills">' +
-            '<span class="score-pill">' + escapeHtml(t.scorePos) + ': ' + r.position_score + '/35</span>' +
-            '<span class="score-pill">' + escapeHtml(t.scoreBol) + ': ' + r.bolivia_score + '/25</span>' +
-            '<span class="score-pill">' + escapeHtml(t.scoreCont) + ': ' + r.contract_exp_score + '/20</span>' +
-            '<span class="score-pill">' + escapeHtml(t.scoreLang) + ': ' + r.language_score + '/20</span>' +
-          '</div>' +
-          '<div class="opp-tags-row">' +
-            '<span class="opp-tag-group"><strong style="font-size:0.82em;">' + escapeHtml(t.contractsLabel) + '</strong> ' + contractTagsHtml + '</span>' +
-            (langTagsHtml ? '<span class="opp-tag-group"><strong style="font-size:0.82em;">' + escapeHtml(t.matchedLangs) + '</strong> ' + langTagsHtml + '</span>' : '') +
-            (skillTagsHtml ? '<span class="opp-tag-group"><strong style="font-size:0.82em;">' + escapeHtml(t.matchedSkills) + '</strong> ' + skillTagsHtml + '</span>' : '') +
-          '</div>' +
-          '<div class="opp-notes">' +
-            escapeHtml(notes) +
-          '</div>' +
-          '<div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">' +
-            '<a class="btn-action btn-primary" href="' + escapeHtml(r.url) + '" target="_blank" rel="noopener">' +
-              escapeHtml(t.openOfferBtn) + '</a>' +
-            '<button type="button" class="btn-action btn-ai-info" onclick="openAiProposalForJob(\\'' + escapeHtml(r.job_hash) + '\\', this)">' +
-              escapeHtml(t.draftAiBtn || 'Más información con IA') + '</button>' +
-          '</div>' +
-        '</article>';
-      }).join('');
+      const visibleSlice = filtered.slice(0, visibleResultsLimit);
+      renderedCardsCount = visibleSlice.length;
+      container.innerHTML = visibleSlice.map((r, idx) => buildOpportunityCardHtml(r, idx, ctx)).join('');
       initCardScrollReveal(container);
+      renderLoadMoreControl(false);
     }
 
     let cardRevealObserver = null;
@@ -4270,6 +4470,9 @@ ${LEGAL_TAX_GUIDE_HTML}
 
     function setVerdictFilter(verdict) {
       currentVerdictFilter = verdict;
+      if (!catalogHydrated && hasMoreServerCatalog) {
+        ensureFullCatalogHydrated();
+      }
       document.querySelectorAll('#verdictFilterBar .btn-tab').forEach(btn => {
         btn.classList.toggle('active', btn.getAttribute('data-verdict') === verdict);
       });
@@ -4685,6 +4888,9 @@ ${LEGAL_TAX_GUIDE_HTML}
         const data = await resp.json();
         if (Array.isArray(data.opportunities)) {
           opportunitiesState = data.opportunities;
+          totalCatalogCountState = data.opportunities.length;
+          hasMoreServerCatalog = false;
+          catalogHydrated = true;
         }
         if (Array.isArray(data.platforms)) {
           platformsState = data.platforms;
@@ -4695,7 +4901,7 @@ ${LEGAL_TAX_GUIDE_HTML}
         if (data.market_pulse) {
           marketPulseState = data.market_pulse;
         }
-        recomputeAndRender();
+        recomputeAndRender({ preserveLimit: true });
         renderPlatformsDirectory();
         renderMarketPulseView();
       } catch (e) {
@@ -5074,6 +5280,15 @@ ${LEGAL_TAX_GUIDE_HTML}
     }
     updateBackToTopPosition();
     updateNavbarStickyState();
+
+    // Lazily hydrate remaining active catalog (> 300) right after first paint so niche filters have instant real counts
+    if (hasMoreServerCatalog && PAYLOAD.initialView !== 'legal-tax') {
+      if (typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(() => { ensureFullCatalogHydrated(); }, { timeout: 900 });
+      } else if (typeof setTimeout === 'function') {
+        setTimeout(() => { ensureFullCatalogHydrated(); }, 450);
+      }
+    }
 
     // Read-only refresh from the 15-minute cron state while the page stays open
     setInterval(() => {

@@ -62,17 +62,60 @@ export { BoliviaCareerBrainDO };
 
 const CACHE_KEY_URL = 'https://bolivia-remote-scout.internal/state-v6.1';
 const EDGE_CACHE_ORIGIN = 'https://boliviaremote.work';
-const EDGE_CACHE_PURGE_PATHS = ['/', '/pulso', '/guia-legal-fiscal', '/api/state', '/api/pulse'];
+const SSR_INITIAL_LIMIT = 300;
+const MAX_CATALOG_LIMIT = 2000;
+const SSR_DESCRIPTION_LIMIT = 450;
+const EDGE_CACHE_PURGE_PATHS = [
+  '/',
+  '/pulso',
+  '/guia-legal-fiscal',
+  '/api/state',
+  '/api/pulse',
+  `/api/opportunities?offset=${SSR_INITIAL_LIMIT}&limit=${MAX_CATALOG_LIMIT - SSR_INITIAL_LIMIT}`
+];
 const EMOJI_STRIP_RE = /[\uD83C-\uDBFF\uDC00-\uDFFF\u2600-\u27BF]/g;
 const STALE_THRESHOLD_SECONDS = 30 * 86400; // 30 days unseen -> STALE
 const LAST_SEEN_BUMP_INTERVAL_SECONDS = 6 * 3600; // Bump D1 last_seen_epoch at most every 6h to cut FTS5 rewrites
 const MEMORY_STATE_TTL_MS = 5 * 60 * 1000; // Refresh warm isolate D1 snapshot every 5 min
 
+const LEAN_OPPORTUNITY_COLUMNS_SQL = `
+  job_hash, title, company, company_slug, canonical_role_key,
+  platform_id, platform_name, category, track, url,
+  location, contract_caveat, tags,
+  SUBSTR(COALESCE(description, ''), 1, 500) AS description,
+  lang_mask, categories_csv, experience_tier, contracts_csv,
+  published_at, published_epoch, discovered_at,
+  first_seen_epoch, last_seen_epoch, sighting_count, repost_span_days, ghost_risk,
+  bolivia_eligible, compensation_usd, ai_summary_es, ai_summary_en, ai_verified, status
+`;
+
 let MEMORY_STATE = null;
+let LEAN_HOME_CACHE = null;
 const MEMORY_SIGHTINGS = new Map();
 const D1_SCHEMA_VERIFIED = new WeakSet();
 
-function canonicalEdgeCachePath(path) {
+function parseOpportunitiesPageParams(url) {
+  const rawOffset = Number(url.searchParams.get('offset') || 0);
+  const rawLimit = Number(url.searchParams.get('limit') || 500);
+  const offset = Number.isFinite(rawOffset) && rawOffset >= 0 ? Math.min(Math.floor(rawOffset), MAX_CATALOG_LIMIT) : 0;
+  const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(Math.floor(rawLimit), MAX_CATALOG_LIMIT) : 500;
+  return { offset, limit };
+}
+
+function compactOpportunityForApi(opp) {
+  if (!opp || typeof opp !== 'object') return opp;
+  const rawDesc = String(opp.description || '');
+  let description = rawDesc;
+  if (rawDesc.length > SSR_DESCRIPTION_LIMIT) {
+    const cut = rawDesc.slice(0, SSR_DESCRIPTION_LIMIT);
+    const lastSpace = cut.lastIndexOf(' ');
+    description = (lastSpace > 260 ? cut.slice(0, lastSpace) : cut).trim() + '...';
+  }
+  const { embedding_id, ...rest } = opp;
+  return { ...rest, description };
+}
+
+function canonicalEdgeCachePath(path, url = null) {
   if (path === '/' || path === '/index.html') return '/';
   if (path === '/pulso' || path === '/pulso/') return '/pulso';
   if (path === '/guia-legal-fiscal' || path === '/guia-legal-fiscal/' || path === '/legal-fiscal' || path === '/legal-fiscal/') {
@@ -80,6 +123,10 @@ function canonicalEdgeCachePath(path) {
   }
   if (path === '/api/state') return '/api/state';
   if (path === '/api/pulse') return '/api/pulse';
+  if (path === '/api/opportunities' && url) {
+    const { offset, limit } = parseOpportunitiesPageParams(url);
+    return `/api/opportunities?offset=${offset}&limit=${limit}`;
+  }
   return null;
 }
 
@@ -101,6 +148,7 @@ function isKnownRoute(method, path) {
       path === '/sitemap.xml' ||
       path === '/robots.txt' ||
       path === '/api/state' ||
+      path === '/api/opportunities' ||
       path === '/api/pulse' ||
       path === '/api/results.md' ||
       path === '/results.md' ||
@@ -787,7 +835,7 @@ async function loadState(env) {
   if (MEMORY_STATE) {
     if (!hasD1) return MEMORY_STATE;
     const ageMs = Date.now() - Number(MEMORY_STATE._loadedAt || 0);
-    if (MEMORY_STATE._d1Loaded && ageMs < MEMORY_STATE_TTL_MS) {
+    if (MEMORY_STATE._d1Loaded && (!MEMORY_STATE._dbRef || MEMORY_STATE._dbRef === env.DB) && ageMs < MEMORY_STATE_TTL_MS) {
       return MEMORY_STATE;
     }
   }
@@ -816,6 +864,7 @@ async function loadState(env) {
           lastScanAt: new Date().toISOString()
         }, { includeSeedOpportunities: !hasLiveOpps, preCleaned: hasLiveOpps });
         MEMORY_STATE._d1Loaded = true;
+        MEMORY_STATE._dbRef = env.DB;
         MEMORY_STATE._hasLiveStorage = hasLiveOpps;
         MEMORY_STATE._loadedAt = Date.now();
         return MEMORY_STATE;
@@ -873,7 +922,151 @@ async function loadState(env) {
   return MEMORY_STATE;
 }
 
+async function loadLeanHomeState(env, limit = SSR_INITIAL_LIMIT) {
+  const hasD1 = Boolean(env && env.DB && typeof env.DB.prepare === 'function');
+  const now = Date.now();
+
+  if (MEMORY_STATE) {
+    const sameDb = !hasD1 || !MEMORY_STATE._dbRef || MEMORY_STATE._dbRef === env.DB;
+    if ((!hasD1 || (MEMORY_STATE._d1Loaded && sameDb && now - Number(MEMORY_STATE._loadedAt || 0) < MEMORY_STATE_TTL_MS))) {
+      return {
+        opportunities: MEMORY_STATE.opportunities.slice(0, limit),
+        totalCatalogCount: Math.min(MEMORY_STATE.opportunities.length, MAX_CATALOG_LIMIT),
+        platforms: MEMORY_STATE.platforms,
+        lastScanAt: MEMORY_STATE.lastScanAt
+      };
+    }
+  }
+
+  if (hasD1 && LEAN_HOME_CACHE && LEAN_HOME_CACHE._dbRef === env.DB && LEAN_HOME_CACHE._limit === limit && now - Number(LEAN_HOME_CACHE._loadedAt || 0) < MEMORY_STATE_TTL_MS) {
+    return LEAN_HOME_CACHE;
+  }
+
+  if (hasD1) {
+    try {
+      await ensureD1Tables(env.DB);
+      const [oppsRes, countRes, platsRes] = await Promise.all([
+        env.DB.prepare(
+          `SELECT ${LEAN_OPPORTUNITY_COLUMNS_SQL}
+           FROM opportunities
+           WHERE (status = 'ACTIVE' OR status IS NULL)
+             AND (bolivia_eligible = 1 OR bolivia_eligible IS NULL)
+           ORDER BY published_epoch DESC, discovered_at DESC
+           LIMIT ?`
+        ).bind(limit).all(),
+        env.DB.prepare(
+          `SELECT COUNT(*) AS cnt
+           FROM opportunities
+           WHERE (status = 'ACTIVE' OR status IS NULL)
+             AND (bolivia_eligible = 1 OR bolivia_eligible IS NULL)`
+        ).all(),
+        env.DB.prepare('SELECT * FROM custom_platforms ORDER BY created_at DESC LIMIT 300').all()
+      ]);
+
+      const dbOpps = Array.isArray(oppsRes && oppsRes.results) ? oppsRes.results : [];
+      const dbPlats = Array.isArray(platsRes && platsRes.results) ? platsRes.results : [];
+      const dbTotal = Number(countRes && Array.isArray(countRes.results) && countRes.results[0] && countRes.results[0].cnt) || dbOpps.length;
+
+      if (dbOpps.length > 0 || dbPlats.length > 0) {
+        const hasLiveOpps = dbOpps.length > 0;
+        const normalized = normalizeAndMergeState(
+          {
+            opportunities: hasLiveOpps ? dbOpps : [],
+            platforms: dbPlats,
+            lastScanAt: new Date().toISOString()
+          },
+          { includeSeedOpportunities: !hasLiveOpps, preCleaned: hasLiveOpps }
+        );
+        const totalCatalogCount = Math.min(Math.max(normalized.opportunities.length, dbTotal), MAX_CATALOG_LIMIT);
+        LEAN_HOME_CACHE = {
+          ...normalized,
+          totalCatalogCount,
+          _dbRef: env.DB,
+          _limit: limit,
+          _loadedAt: Date.now()
+        };
+        return LEAN_HOME_CACHE;
+      }
+    } catch (err) {
+      console.error('[loadLeanHomeState] D1 lean read failed, falling back to full loadState:', err && err.message ? err.message : err);
+    }
+  }
+
+  const full = await loadState(env);
+  return {
+    opportunities: full.opportunities.slice(0, limit),
+    totalCatalogCount: Math.min(full.opportunities.length, MAX_CATALOG_LIMIT),
+    platforms: full.platforms,
+    lastScanAt: full.lastScanAt
+  };
+}
+
+async function loadOpportunitiesPage(env, offset = 0, limit = 500) {
+  const hasD1 = Boolean(env && env.DB && typeof env.DB.prepare === 'function');
+  const now = Date.now();
+
+  if (MEMORY_STATE) {
+    const sameDb = !hasD1 || !MEMORY_STATE._dbRef || MEMORY_STATE._dbRef === env.DB;
+    if (!hasD1 || (MEMORY_STATE._d1Loaded && sameDb && now - Number(MEMORY_STATE._loadedAt || 0) < MEMORY_STATE_TTL_MS)) {
+      const totalActive = Math.min(MEMORY_STATE.opportunities.length, MAX_CATALOG_LIMIT);
+      const slice = MEMORY_STATE.opportunities.slice(offset, offset + limit);
+      return {
+        opportunities: slice,
+        totalActive,
+        lastScanAt: MEMORY_STATE.lastScanAt
+      };
+    }
+  }
+
+  if (hasD1) {
+    try {
+      await ensureD1Tables(env.DB);
+      const [oppsRes, countRes] = await Promise.all([
+        env.DB.prepare(
+          `SELECT ${LEAN_OPPORTUNITY_COLUMNS_SQL}
+           FROM opportunities
+           WHERE (status = 'ACTIVE' OR status IS NULL)
+             AND (bolivia_eligible = 1 OR bolivia_eligible IS NULL)
+           ORDER BY published_epoch DESC, discovered_at DESC
+           LIMIT ? OFFSET ?`
+        ).bind(limit, offset).all(),
+        env.DB.prepare(
+          `SELECT COUNT(*) AS cnt
+           FROM opportunities
+           WHERE (status = 'ACTIVE' OR status IS NULL)
+             AND (bolivia_eligible = 1 OR bolivia_eligible IS NULL)`
+        ).all()
+      ]);
+
+      const dbOpps = Array.isArray(oppsRes && oppsRes.results) ? oppsRes.results : [];
+      const dbTotal = Number(countRes && Array.isArray(countRes.results) && countRes.results[0] && countRes.results[0].cnt) || 0;
+      if (dbOpps.length > 0 || dbTotal > 0) {
+        const normalized = normalizeAndMergeState(
+          { opportunities: dbOpps, platforms: [], lastScanAt: new Date().toISOString() },
+          { includeSeedOpportunities: false, preCleaned: true }
+        );
+        return {
+          opportunities: normalized.opportunities,
+          totalActive: Math.min(dbTotal, MAX_CATALOG_LIMIT),
+          lastScanAt: normalized.lastScanAt
+        };
+      }
+    } catch (err) {
+      console.error('[loadOpportunitiesPage] D1 page read failed, falling back:', err && err.message ? err.message : err);
+    }
+  }
+
+  const full = await loadState(env);
+  const totalActive = Math.min(full.opportunities.length, MAX_CATALOG_LIMIT);
+  return {
+    opportunities: full.opportunities.slice(offset, offset + limit),
+    totalActive,
+    lastScanAt: full.lastScanAt
+  };
+}
+
 export async function saveState(state, env, options = {}) {
+  LEAN_HOME_CACHE = null;
   const hadLiveStorage = Boolean(
     state._hasLiveStorage ||
     (MEMORY_STATE && MEMORY_STATE._hasLiveStorage) ||
@@ -886,6 +1079,7 @@ export async function saveState(state, env, options = {}) {
   MEMORY_STATE._hasLiveStorage = hadLiveStorage;
   if (state._d1Loaded || (env && env.DB)) {
     MEMORY_STATE._d1Loaded = true;
+    if (env && env.DB) MEMORY_STATE._dbRef = env.DB;
     MEMORY_STATE._loadedAt = Date.now();
   }
   state.opportunities = MEMORY_STATE.opportunities;
@@ -1140,7 +1334,7 @@ Sitemap: https://boliviaremote.work/sitemap.xml
     }
 
     // 0b. Edge Cache lookup for public read routes BEFORE loading D1/DO state
-    const cachePath = request.method === 'GET' ? canonicalEdgeCachePath(path) : null;
+    const cachePath = request.method === 'GET' ? canonicalEdgeCachePath(path, url) : null;
     if (cachePath) {
       const cachedResp = await matchEdgeCache(request, url, cachePath);
       if (cachedResp) {
@@ -1171,10 +1365,8 @@ Sitemap: https://boliviaremote.work/sitemap.xml
       return resp;
     }
 
-    const state = await loadState(env);
-
     // Helper: resolve latest nightly Market Pulse from BoliviaCareerBrainDO (or compute deterministic fallback)
-    const resolveMarketPulse = async () => {
+    const resolveMarketPulse = async (fallbackState) => {
       try {
         const brain = getCareerBrainClient(env);
         const stored = await brain.getLatestMarketPulse();
@@ -1182,17 +1374,24 @@ Sitemap: https://boliviaremote.work/sitemap.xml
       } catch (err) {
         console.error('[resolveMarketPulse] failed, falling back:', err && err.message ? err.message : err);
       }
-      const metrics = computeMarketPulseMetrics(state.opportunities, state.platforms);
+      const src = fallbackState || { opportunities: [], platforms: INITIAL_PLATFORMS };
+      const metrics = computeMarketPulseMetrics(src.opportunities, src.platforms);
       return { ...metrics, ...buildDeterministicPulseNarrative(metrics) };
     };
 
-    // 1. Main Web Interface (Spanish Bolivia first, with Employer Reality, Ghost-Job badges & Market Pulse)
+    // 1. Main Web Interface (Lean SSR: newest 300 listings + projected D1 columns; client paginates 60/page & hydrates remainder in background)
     if (request.method === 'GET' && (path === '/' || path === '/index.html')) {
+      const leanState = await loadLeanHomeState(env, SSR_INITIAL_LIMIT);
       const [enrichedOpps, marketPulse] = await Promise.all([
-        attachEmployerReality(state.opportunities, env),
-        resolveMarketPulse()
+        attachEmployerReality(leanState.opportunities, env),
+        resolveMarketPulse(leanState)
       ]);
-      const html = renderAppHtml({ ...state, opportunities: enrichedOpps, marketPulse });
+      const html = renderAppHtml({
+        ...leanState,
+        opportunities: enrichedOpps,
+        totalCatalogCount: leanState.totalCatalogCount,
+        marketPulse
+      });
       const resp = new Response(html, {
         status: 200,
         headers: {
@@ -1205,13 +1404,50 @@ Sitemap: https://boliviaremote.work/sitemap.xml
       return resp;
     }
 
+    // 2a. Edge-Cached Paginated Opportunities API (backs background catalog hydration & "Cargar más")
+    if (request.method === 'GET' && path === '/api/opportunities') {
+      const { offset, limit } = parseOpportunitiesPageParams(url);
+      const page = await loadOpportunitiesPage(env, offset, limit);
+      const enrichedSlice = await attachEmployerReality(page.opportunities, env);
+      const compactSlice = enrichedSlice.map(compactOpportunityForApi);
+      const resp = jsonResponse(
+        {
+          ok: true,
+          offset,
+          limit,
+          total_active: page.totalActive,
+          has_more: offset + compactSlice.length < page.totalActive,
+          count: compactSlice.length,
+          lastScanAt: page.lastScanAt,
+          opportunities: compactSlice
+        },
+        200,
+        {
+          'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
+          'X-Edge-Cache': 'MISS'
+        }
+      );
+      putEdgeCache(cachePath, resp, ctx);
+      return resp;
+    }
+
+    const state = await loadState(env);
+
     // 1a2. Dedicated Market Pulse Page ("Pulso del Mercado Remoto desde Bolivia")
     if (request.method === 'GET' && (path === '/pulso' || path === '/pulso/')) {
       const [enrichedOpps, marketPulse] = await Promise.all([
-        attachEmployerReality(state.opportunities, env),
-        resolveMarketPulse()
+        attachEmployerReality(state.opportunities.slice(0, SSR_INITIAL_LIMIT), env),
+        resolveMarketPulse(state)
       ]);
-      const html = renderAppHtml({ ...state, opportunities: enrichedOpps, marketPulse }, { initialView: 'pulse' });
+      const html = renderAppHtml(
+        {
+          ...state,
+          opportunities: enrichedOpps,
+          totalCatalogCount: Math.min(state.opportunities.length, MAX_CATALOG_LIMIT),
+          marketPulse
+        },
+        { initialView: 'pulse' }
+      );
       const resp = new Response(html, {
         status: 200,
         headers: {
@@ -1282,7 +1518,7 @@ Sitemap: https://boliviaremote.work/sitemap.xml
     if (request.method === 'GET' && path === '/api/state') {
       const [enrichedOpps, marketPulse] = await Promise.all([
         attachEmployerReality(state.opportunities, env),
-        resolveMarketPulse()
+        resolveMarketPulse(state)
       ]);
       const activePlatforms = state.platforms.filter(p => p && p.enabled !== false);
       const resp = jsonResponse(
@@ -1319,7 +1555,7 @@ Sitemap: https://boliviaremote.work/sitemap.xml
 
     // 2b. Read-Only Market Pulse API ("Pulso del Mercado Remoto desde Bolivia")
     if (request.method === 'GET' && path === '/api/pulse') {
-      const marketPulse = await resolveMarketPulse();
+      const marketPulse = await resolveMarketPulse(state);
       const resp = jsonResponse(
         {
           ok: true,

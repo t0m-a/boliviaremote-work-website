@@ -456,33 +456,48 @@ async function runTests() {
   assert.ok(!domElements['chips-languages'].innerHTML.includes("toggleLanguageChip('pt')") && !domElements['chips-languages'].innerHTML.includes('Portugués'), 'Must remove Portugués from languages filter');
   assert.equal(typeof vmSandbox.window.toggleLanguageChip, 'function', 'toggleLanguageChip must be bound on window');
 
-  // Verify live language chip toggling refreshes KPI counts and rendered cards across ES-only, Both, and EN-only
+  // Verify live language chip toggling refreshes KPI counts, surfaced totals, and 60-card paginated DOM across ES-only, Both, and EN-only
   const countCards = () => (domElements['resultsCardsContainer'].innerHTML.match(/class="opp-card /g) || []).length;
+  const countSurfaced = () => Number(domElements['nav-cnt-results'].textContent);
   const esOnlyCards = countCards();
+  const esOnlyTotal = countSurfaced();
   const esOnlyApply = Number(domElements['kpi-apply-cnt'].textContent);
-  assert.ok(esOnlyCards > 0, 'Initial Spanish-only mode must render Spanish-compatible job cards');
+  assert.ok(esOnlyCards > 0 && esOnlyCards <= 60, `Initial Spanish-only mode must render <= 60 cards (got ${esOnlyCards})`);
+  assert.ok(esOnlyTotal >= esOnlyCards, 'Surfaced count must be >= rendered card count');
 
   // Toggle English ON -> Both ['es', 'en']
   vmSandbox.window.toggleLanguageChip('en');
   const bothCards = countCards();
+  const bothTotal = countSurfaced();
   const bothApply = Number(domElements['kpi-apply-cnt'].textContent);
-  assert.ok(bothCards > esOnlyCards, `Selecting both ES+EN must expand results (${bothCards} > ${esOnlyCards})`);
+  assert.ok(bothTotal > esOnlyTotal, `Selecting both ES+EN must expand surfaced results (${bothTotal} > ${esOnlyTotal})`);
+  assert.equal(bothCards, Math.min(60, bothTotal), 'Initial DOM render must cap at 60 cards before clicking Cargar más');
+  assert.equal(typeof vmSandbox.window.loadMoreResultsCards, 'function', 'loadMoreResultsCards must be bound on window');
+  assert.equal(typeof vmSandbox.window.ensureFullCatalogHydrated, 'function', 'ensureFullCatalogHydrated must be bound on window');
+  if (bothTotal > 60) {
+    assert.ok(domElements['results-load-more-wrap'].innerHTML.includes('Cargar más'), 'Load-more bar must display Cargar más button when > 60 offers match');
+    await vmSandbox.window.loadMoreResultsCards();
+    assert.equal(countCards(), Math.min(120, bothTotal), 'Clicking Cargar más once must append +60 cards');
+  }
   assert.ok(bothApply >= esOnlyApply, `Selecting both ES+EN must not drop APPLY count (${bothApply} >= ${esOnlyApply})`);
 
-  // Toggle Spanish OFF -> English-only ['en']
+  // Toggle Spanish OFF -> English-only ['en'] (must also reset visible DOM limit back to 60)
   vmSandbox.window.toggleLanguageChip('es');
   const enOnlyCards = countCards();
+  const enOnlyTotal = countSurfaced();
   const enOnlyApply = Number(domElements['kpi-apply-cnt'].textContent);
-  assert.ok(enOnlyCards > esOnlyCards && enOnlyCards < bothCards, `Selecting EN-only must exclude Spanish-only offers (${esOnlyCards} < ${enOnlyCards} < ${bothCards})`);
+  assert.ok(enOnlyTotal > esOnlyTotal && enOnlyTotal < bothTotal, `Selecting EN-only must exclude Spanish-only offers (${esOnlyTotal} < ${enOnlyTotal} < ${bothTotal})`);
+  assert.equal(enOnlyCards, Math.min(60, enOnlyTotal), 'Changing filters must reset visible DOM limit back to 60');
   assert.ok(enOnlyApply > 0 && enOnlyApply <= bothApply, `EN-only APPLY count (${enOnlyApply}) must be positive and <= Both (${bothApply})`);
 
   // Attempt to deselect last active language ('en') -> must keep 'en' selected
   vmSandbox.window.toggleLanguageChip('en');
-  assert.equal(countCards(), enOnlyCards, 'Cannot deselect the last remaining active language');
+  assert.equal(countSurfaced(), enOnlyTotal, 'Cannot deselect the last remaining active language');
 
   // Switch back to Spanish-only ['es']
   vmSandbox.window.toggleLanguageChip('es');
   vmSandbox.window.toggleLanguageChip('en');
+  assert.equal(countSurfaced(), esOnlyTotal, 'Switching back to Spanish-only must restore exact Spanish-only surfaced count');
   assert.equal(countCards(), esOnlyCards, 'Switching back to Spanish-only must restore exact Spanish-only card count');
   assert.equal(Number(domElements['kpi-apply-cnt'].textContent), esOnlyApply, 'Switching back to Spanish-only must restore exact APPLY count');
   assert.ok(domElements['chips-experience'].innerHTML.includes('toggleExperienceChip'), 'Must render interactive experience options on load');
@@ -2335,6 +2350,155 @@ async function runTests() {
     if (prevCaches === undefined) delete globalThis.caches;
     else globalThis.caches = prevCaches;
   }
+
+  // 13f. Lean 300-row SSR + Edge-Cached GET /api/opportunities pagination + niche-filter background hydration
+  const pagedMockRows = Array.from({ length: 420 }, (_, i) => ({
+    job_hash: `paged_hash_${i}`,
+    title: i >= 350 ? `Abogado Compliance Remoto #${i}` : `Senior Backend Engineer #${i}`,
+    company: `GlobalCo_${i}`,
+    company_slug: `company:globalco_${i}`,
+    canonical_role_key: `${i >= 350 ? 'abogado compliance remoto' : 'senior backend engineer'} ${i}|globalco ${i}`,
+    platform_id: 'remotive_api',
+    platform_name: 'Remotive',
+    category: i >= 350 ? 'legal_compliance' : 'tech_dev',
+    track: i >= 350 ? 'Legal' : 'Software',
+    url: `https://globalco.example/jobs/${i}`,
+    location: 'LATAM Remote / Bolivia',
+    contract_caveat: 'fractional_or_fulltime',
+    tags: i >= 350 ? 'legal, compliance, abogado, español' : 'python, backend, cloud',
+    description: i >= 350
+      ? 'Asesoría legal y cumplimiento normativo 100% remoto en español desde Bolivia.'
+      : 'Remote backend software engineering role open worldwide including Bolivia and LATAM.',
+    lang_mask: i >= 350 ? 'es' : 'en',
+    categories_csv: i >= 350 ? 'legal_compliance' : 'tech_dev',
+    experience_tier: 'mid',
+    contracts_csv: 'full_time',
+    published_at: '2026-11-26',
+    published_epoch: Math.floor(Date.now() / 1000) - i * 60,
+    discovered_at: '2026-11-26T12:00:00Z',
+    first_seen_epoch: Math.floor(Date.now() / 1000) - i * 60,
+    last_seen_epoch: Math.floor(Date.now() / 1000) - 60,
+    sighting_count: 1,
+    repost_span_days: 0,
+    ghost_risk: 'none',
+    bolivia_eligible: 1,
+    compensation_usd: '$3,500/mo',
+    ai_summary_es: 'Oferta remota elegible desde Bolivia.',
+    ai_summary_en: 'Remote offer eligible from Bolivia.',
+    ai_verified: 1,
+    status: 'ACTIVE'
+  }));
+  let leanSelectLimitSeen = null;
+  const mockPagedDbEnv = {
+    DB: {
+      prepare(sql) {
+        const stmt = {
+          _args: [],
+          bind(...args) {
+            this._args = args;
+            return this;
+          },
+          async all() {
+            if (sql.includes('sqlite_master')) return { results: [{ cnt: 7 }] };
+            if (sql.includes('SELECT COUNT(*) AS cnt')) return { results: [{ cnt: pagedMockRows.length }] };
+            if (sql.includes('FROM custom_platforms')) return { results: [] };
+            if (sql.includes('FROM opportunities')) {
+              const limit = Number(this._args[0] || 2000);
+              const offset = Number(this._args[1] || 0);
+              if (sql.includes('SUBSTR(COALESCE(description') && offset === 0) {
+                leanSelectLimitSeen = limit;
+              }
+              return { results: pagedMockRows.slice(offset, offset + limit) };
+            }
+            return { results: [] };
+          },
+          async run() { return { success: true }; }
+        };
+        return stmt;
+      }
+    }
+  };
+  const respPage1 = await worker.fetch(new Request('https://boliviaremote.work/api/opportunities?offset=300&limit=1700'), mockPagedDbEnv, {});
+  assert.equal(respPage1.status, 200, 'GET /api/opportunities must return 200');
+  assert.ok((respPage1.headers.get('Cache-Control') || '').includes('s-maxage=300'), 'GET /api/opportunities must set s-maxage=300');
+  const page1Json = await respPage1.json();
+  assert.equal(page1Json.ok, true);
+  assert.equal(page1Json.offset, 300);
+  assert.equal(page1Json.count, 120, 'Offset 300 on 420 rows must return remaining 120 rows');
+  assert.equal(page1Json.total_active, 420);
+  assert.equal(page1Json.has_more, false);
+
+  // Verify lean SSR payload metadata + client-side hydration reveals niche Spanish Legal roles at #350-#419 while capping DOM at 60
+  const leanHtml = renderAppHtml({
+    opportunities: pagedMockRows.slice(0, 300),
+    totalCatalogCount: 420,
+    platforms: [],
+    lastScanAt: '2026-11-27T00:00:00Z'
+  });
+  const leanScripts = [...leanHtml.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)];
+  const leanPayloadJson = JSON.parse(leanScripts[1][1]);
+  assert.equal(leanPayloadJson.opportunities.length, 300, 'Lean SSR HTML must embed at most 300 initial opportunities');
+  assert.equal(leanPayloadJson.totalCatalogCount, 420, 'Lean SSR HTML must carry totalCatalogCount metadata');
+  assert.equal(leanPayloadJson.hasMoreCatalog, true, 'Lean SSR HTML must flag hasMoreCatalog=true when catalog > 300');
+
+  const leanDom = {};
+  const mkEl = (id) => ({
+    id, innerHTML: '', textContent: '', value: '', checked: false,
+    style: { display: '' }, attributes: {},
+    classList: {
+      _set: new Set(),
+      add(c) { this._set.add(c); },
+      remove(c) { this._set.delete(c); },
+      toggle(c, f) { if (f === undefined) { if (this._set.has(c)) { this._set.delete(c); return false; } this._set.add(c); return true; } if (f) this._set.add(c); else this._set.delete(c); return Boolean(f); },
+      contains(c) { return this._set.has(c); }
+    },
+    setAttribute(k, v) { this.attributes[k] = String(v); },
+    getAttribute(k) { return this.attributes[k] || null; },
+    addEventListener() {},
+    querySelector() { return null; },
+    querySelectorAll() { return []; }
+  });
+  leanDom['initial-payload'] = { textContent: leanScripts[1][1] };
+  let fetchedOpportunitiesUrl = '';
+  const leanVm = {
+    window: { location: { protocol: 'https:', pathname: '/' }, history: { replaceState() {} }, addEventListener() {}, scrollTo() {}, innerWidth: 1280, innerHeight: 900, scrollY: 0 },
+    document: {
+      title: '', documentElement: mkEl('html'), body: mkEl('body'),
+      getElementById(id) { if (!leanDom[id]) leanDom[id] = mkEl(id); return leanDom[id]; },
+      querySelector() { return null; }, querySelectorAll() { return []; }, addEventListener() {}
+    },
+    localStorage: { getItem: () => null, setItem: () => {} },
+    navigator: { clipboard: { writeText: async () => {} } },
+    fetch: async (u) => {
+      fetchedOpportunitiesUrl = String(u);
+      return { ok: true, json: async () => page1Json };
+    },
+    setInterval: () => {},
+    setTimeout: () => 1,
+    clearTimeout: () => {},
+    URL, Blob: class {}, console
+  };
+  vm.createContext(leanVm);
+  new vm.Script(leanScripts[2][1], { filename: 'lean-client.js' }).runInContext(leanVm);
+  // Initially rendered DOM must cap at 60 even when 300 offers are in SSR payload
+  const initialLeanCards = (leanDom['resultsCardsContainer'].innerHTML.match(/class="opp-card /g) || []).length;
+  assert.equal(initialLeanCards, 60, `Initial lean SSR render must cap DOM at 60 cards (got ${initialLeanCards})`);
+  assert.ok(leanDom['results-load-more-wrap'].innerHTML.includes('Cargar más (+60)'), 'Initial load-more button must offer Cargar más (+60)');
+
+  // User selects niche filter "legal_compliance" + Postular tab — 0 APPLY matches in first 300, 70 matches at #350..#419!
+  leanVm.togglePositionChip('legal_compliance');
+  leanVm.setVerdictFilter('APPLY');
+  // Selecting a filter must automatically trigger hydration of /api/opportunities?offset=300
+  await leanVm.window.ensureFullCatalogHydrated();
+  assert.ok(fetchedOpportunitiesUrl.startsWith('/api/opportunities?offset=300'), `Filter interaction must fetch /api/opportunities?offset=300 (got ${fetchedOpportunitiesUrl})`);
+  assert.equal(Number(leanDom['kpi-apply-cnt'].textContent), 70, 'After hydration, real niche Legal APPLY count (70) must display immediately');
+  const leanRenderedBefore = (leanDom['resultsCardsContainer'].innerHTML.match(/class="opp-card /g) || []).length;
+  assert.equal(leanRenderedBefore, 60, 'DOM must stay capped at 60 cards even after hydrating 70 niche matches');
+  assert.ok(leanDom['results-load-more-wrap'].innerHTML.includes('Cargar más (+10)'), 'Load-more button must show exact remaining +10 count');
+  await leanVm.window.loadMoreResultsCards();
+  const leanRenderedAfter = (leanDom['resultsCardsContainer'].innerHTML.match(/class="opp-card /g) || []).length;
+  assert.equal(leanRenderedAfter, 70, 'Clicking Cargar más must append the remaining 10 cards to reach all 70');
+  assert.equal(leanDom['results-load-more-wrap'].style.display, 'none', 'Load-more bar must hide once all matching offers are displayed');
 
   console.log('ALL TESTS PASSED SUCCESSFULLY!');
 }
