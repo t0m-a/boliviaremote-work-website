@@ -1830,6 +1830,59 @@ async function runTests() {
   assert.equal(pulseAiRes.synthesis_mode, 'workers-ai-llama-3.3');
   assert.ok(pulseAiRes.summary_es.includes('5 vacantes'));
 
+  // 11c-2. Regression: pre-parsed JS object `response` returned by live Workers AI Llama 3.3 70B
+  let capturedPulseSystemPrompt = '';
+  const pulseAiPreParsedObjRes = await synthesizeMarketPulseWithAI(pulseMetrics, {
+    AI: {
+      async run(model, input) {
+        assert.equal(model, '@cf/meta/llama-3.3-70b-instruct-fp8-fast');
+        capturedPulseSystemPrompt = input?.messages?.[0]?.content || '';
+        return {
+          response: {
+            headline_es: 'Pulso Remoto Bolivia: 5 vacantes elegibles activas',
+            summary_es: 'Se detectaron 5 vacantes remotas elegibles desde Bolivia con mediana salarial mensual de $4,000 USD.',
+            highlights_es: [
+              '5 vacantes activas verificadas.',
+              'Mediana mensual: $4,000 USD.',
+              'Deel activo como ATS directo.',
+              'Sin alertas de vacantes fantasma.',
+              'Quinto elemento debe recortarse a 4.'
+            ]
+          },
+          choices: [{ message: { content: '{}' } }]
+        };
+      }
+    }
+  });
+  assert.equal(pulseAiPreParsedObjRes.synthesis_mode, 'workers-ai-llama-3.3', 'Must parse pre-parsed JS object in resp.response');
+  assert.equal(pulseAiPreParsedObjRes.model_used, '@cf/meta/llama-3.3-70b-instruct-fp8-fast');
+  assert.ok(pulseAiPreParsedObjRes.summary_es.includes('5 vacantes remotas'));
+  assert.equal(pulseAiPreParsedObjRes.highlights_es.length, 4, 'Must cap highlights_es at 4 items');
+  assert.ok(capturedPulseSystemPrompt.includes('VACANTES') && capturedPulseSystemPrompt.includes('MEDIANA'));
+
+  // 11c-3. Regression: OpenAI-compatible choices[0].message.content shape
+  const pulseAiChoicesRes = await synthesizeMarketPulseWithAI(pulseMetrics, {
+    AI: {
+      async run() {
+        return {
+          choices: [
+            {
+              message: {
+                content: '```json\n' + JSON.stringify({
+                  headline_es: 'Pulso Remoto desde choices',
+                  summary_es: 'Resumen sintetizado desde choices[0].message.content con 5 vacantes elegibles.',
+                  highlights_es: ['5 vacantes elegibles desde Bolivia.']
+                }) + '\n```'
+              }
+            }
+          ]
+        };
+      }
+    }
+  });
+  assert.equal(pulseAiChoicesRes.synthesis_mode, 'workers-ai-llama-3.3', 'Must parse OpenAI choices[0].message.content');
+  assert.ok(pulseAiChoicesRes.summary_es.includes('choices[0].message.content'));
+
   // 11d. Two-Stage (30d Stage 1 / 60d Stage 2) Auto-Healing Policy Contradiction Watchdog
   assert.equal(WATCHDOG_CONFIG.STAGE1_DRIFT_DAYS, 30);
   assert.equal(WATCHDOG_CONFIG.STAGE2_DRIFT_DAYS, 60);

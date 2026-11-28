@@ -274,6 +274,58 @@ export function buildDeterministicPulseNarrative(metrics) {
 }
 
 /**
+ * Extracts a parsed JSON object from a Workers AI response, supporting both
+ * pre-parsed JS object responses (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`),
+ * raw JSON strings, and OpenAI-style `choices[0].message.content` envelopes.
+ */
+function extractJsonObjectFromPulseAiResponse(resp) {
+  if (!resp) return null;
+  if (typeof resp === 'string') {
+    const m = resp.match(/\{[\s\S]*\}/);
+    return m ? JSON.parse(m[0]) : null;
+  }
+  if (typeof resp !== 'object' || Array.isArray(resp)) {
+    return null;
+  }
+
+  const candidates = [];
+  if ('response' in resp && resp.response != null) candidates.push(resp.response);
+  if (resp.result && typeof resp.result === 'object' && 'response' in resp.result && resp.result.response != null) {
+    candidates.push(resp.result.response);
+  }
+  if (Array.isArray(resp.choices) && resp.choices[0]?.message && 'content' in resp.choices[0].message) {
+    candidates.push(resp.choices[0].message.content);
+  }
+  if (resp.result && Array.isArray(resp.result.choices) && resp.result.choices[0]?.message && 'content' in resp.result.choices[0].message) {
+    candidates.push(resp.result.choices[0].message.content);
+  }
+  if (typeof resp.summary_es === 'string') {
+    candidates.push(resp);
+  }
+
+  for (const cand of candidates) {
+    if (!cand) continue;
+    if (typeof cand === 'object' && !Array.isArray(cand)) {
+      return cand;
+    }
+    if (typeof cand === 'string') {
+      const m = cand.match(/\{[\s\S]*\}/);
+      if (m) {
+        try {
+          const obj = JSON.parse(m[0]);
+          if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+            return obj;
+          }
+        } catch {
+          // Try next candidate
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * Generates the nightly Spanish Market Pulse narrative using `@cf/meta/llama-3.3-70b-instruct-fp8-fast`
  * strictly grounded in the pre-computed D1/catalog metrics.
  */
@@ -304,8 +356,9 @@ export async function synthesizeMarketPulseWithAI(metrics, env) {
           role: 'system',
           content:
             'Eres el analista nocturno de Bolivia Remote Work. Redacta un resumen ejecutivo claro, objetivo y útil en Español (Bolivia) basado EXCLUSIVAMENTE en las cifras JSON proporcionadas. ' +
-            'REGLAS ESTRICTAS: Nunca inventes cifras, salarios ni empresas fuera del JSON. Si sufficient_sample es false, indica que la muestra salarial es insuficiente sin inventar montos. ' +
-            'Sin emojis. Responde UNICAMENTE con JSON valido: {"headline_es":"...","summary_es":"...","highlights_es":["...","...","..."]}.'
+            'REGLAS ESTRICTAS: total_active_eligible y new_last_24h son VACANTES / OFERTAS LABORALES remotas (nunca trabajadores ni candidatos); median_monthly_usd es la MEDIANA mensual en USD (nunca promedio) y p25/p75 es el rango intercuartil. ' +
+            'Nunca inventes cifras, salarios ni empresas fuera del JSON. Si sufficient_sample es false, indica que la muestra salarial es insuficiente sin inventar montos. ' +
+            'Sin emojis. Devuelve máximo 4 elementos en highlights_es. Responde UNICAMENTE con JSON valido: {"headline_es":"...","summary_es":"...","highlights_es":["...","...","..."]}.'
         },
         {
           role: 'user',
@@ -316,11 +369,15 @@ export async function synthesizeMarketPulseWithAI(metrics, env) {
       temperature: 0.2
     });
 
-    const rawText = String((resp && (resp.response || resp.result?.response)) || '').trim();
-    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return fallback;
-    const parsed = JSON.parse(jsonMatch[0]);
+    const parsed = extractJsonObjectFromPulseAiResponse(resp);
     if (!parsed || typeof parsed.summary_es !== 'string' || parsed.summary_es.trim().length < 25) {
+      console.error(
+        '[nightly_sleep] synthesizeMarketPulseWithAI invalid payload, using deterministic fallback:',
+        JSON.stringify({
+          respKeys: resp && typeof resp === 'object' ? Object.keys(resp) : typeof resp,
+          responseType: resp && typeof resp === 'object' ? typeof resp.response : null
+        })
+      );
       return fallback;
     }
 
@@ -333,7 +390,11 @@ export async function synthesizeMarketPulseWithAI(metrics, env) {
       synthesis_mode: 'workers-ai-llama-3.3',
       model_used: SLEEP_LLM_MODEL
     };
-  } catch {
+  } catch (err) {
+    console.error(
+      '[nightly_sleep] synthesizeMarketPulseWithAI failed, using deterministic fallback:',
+      err && err.message ? err.message : String(err)
+    );
     return fallback;
   }
 }
