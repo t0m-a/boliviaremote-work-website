@@ -24,7 +24,12 @@ import {
   normalizeJobKey
 } from './scanner.js';
 import { renderAppHtml } from './ui.js';
-import { FAVICON_SVG } from './favicon.js';
+import {
+  FAVICON_SVG,
+  FAVICON_ICO_BYTES,
+  FAVICON_96_PNG_BYTES,
+  APPLE_TOUCH_ICON_BYTES
+} from './favicon.js';
 import {
   buildDeterministicSummaries,
   enrichOpportunityWithAI,
@@ -171,6 +176,8 @@ function isKnownRoute(method, path) {
       path === '/favicon.ico' ||
       path === '/favicon.svg' ||
       path === '/favicon.png' ||
+      path === '/favicon-96x96.png' ||
+      path === '/apple-touch-icon.png' ||
       path === '/sitemap.xml' ||
       path === '/robots.txt' ||
       path === '/api/state' ||
@@ -1330,11 +1337,37 @@ export default {
     }
 
     // 0. Zero-DB static routes & immediate 404 rejection BEFORE touching D1 or Durable Objects
-    if (request.method === 'GET' && (path === '/favicon.ico' || path === '/favicon.svg' || path === '/favicon.png')) {
-      return new Response(FAVICON_SVG, {
+    if (
+      request.method === 'GET' &&
+      (path === '/favicon.ico' ||
+        path === '/favicon.svg' ||
+        path === '/favicon.png' ||
+        path === '/favicon-96x96.png' ||
+        path === '/apple-touch-icon.png')
+    ) {
+      if (path === '/favicon.svg') {
+        return new Response(FAVICON_SVG, {
+          status: 200,
+          headers: {
+            'Content-Type': 'image/svg+xml',
+            'Cache-Control': 'public, max-age=86400'
+          }
+        });
+      }
+      if (path === '/favicon.ico') {
+        return new Response(FAVICON_ICO_BYTES, {
+          status: 200,
+          headers: {
+            'Content-Type': 'image/x-icon',
+            'Cache-Control': 'public, max-age=86400'
+          }
+        });
+      }
+      const pngBytes = path === '/apple-touch-icon.png' ? APPLE_TOUCH_ICON_BYTES : FAVICON_96_PNG_BYTES;
+      return new Response(pngBytes, {
         status: 200,
         headers: {
-          'Content-Type': path.endsWith('.ico') ? 'image/x-icon' : (path.endsWith('.png') ? 'image/png' : 'image/svg+xml'),
+          'Content-Type': 'image/png',
           'Cache-Control': 'public, max-age=86400'
         }
       });

@@ -77,7 +77,7 @@ Buscar trabajo remoto internacional desde Bolivia suele ser frustrante: la mayor
 - **Guardia Zero-PII en RAM (`src/privacy_guard.js`):** Limpia en memoria correos, teléfonos, URLs, `@usuarios` e IDs numéricos largos antes de ejecutar embeddings o consultas FTS5 (sin guardar consultas de usuarios), y elimina parámetros de rastreo (`utm_*`, `fbclid`, `gclid`, `ref`, `gh_src`, credenciales) en URLs escaneadas.
 - **Filtro Estricto de Idiomas (`Español` / `Inglés`) y 25 Categorías Profesionales:** Refresco instantáneo en cliente y servidor con 3 modos simétricos (`Solo Español`, `Solo Inglés`, `Ambos`) y 25 áreas profesionales multi-selección.
 - **Servidor MCP Fail-Closed (8 Herramientas):** Expone 5 herramientas de búsqueda/escaneo/análisis más 3 herramientas administrativas sobre `BoliviaCareerBrainDO`, protegido por `MCP_API_KEY`.
-- **Interfaz Responsiva con Identidad Boliviana:** Modo claro/oscuro, barra fija con desenfoque translúcido, botón **Información Útil** con ciclo de colores patrios (**rojo → amarillo → verde**), favicon vectorial patrio (`/favicon.svg`, `/favicon.ico`, `/favicon.png`) y compatibilidad completa para HTML autónomo (`index.html`).
+- **Interfaz Responsiva con Identidad Boliviana:** Modo claro/oscuro, barra fija con desenfoque translúcido, botón **Información Útil** con ciclo de colores patrios (**rojo → amarillo → verde**), suite de favicon suizo minimalista (`/favicon.svg`, `/favicon.ico`, `/favicon-96x96.png`, `/apple-touch-icon.png`) y compatibilidad completa para HTML autónomo (`index.html`).
 
 > [!NOTE]
 > Todo el procesamiento ocurre en los servidores perimetrales de **Cloudflare Workers** o localmente en tu navegador. Cero cuentas obligatorias, cero cookies de rastreo y cero almacenamiento de datos personales.
@@ -429,7 +429,7 @@ Empaqueta los datos semilla, el evaluador, las guías y el analizador determiní
 | `POST` | `/api/vectors/index` | JSON `{ max_items, deduplicate }` | Genera embeddings `@cf/baai/bge-m3` en lotes de 25 (1024d), indexa en `bolivia-remote-jobs-m3` y persiste el estado en D1. |
 | `GET` / `POST` | `/mcp` (`/.well-known/mcp.json`) | JSON-RPC 2.0 (`Bearer MCP_API_KEY`) | Servidor **MCP** fail-closed sobre Streamable HTTP con **8 herramientas**: `search_bolivia_remote_jobs`, `semantic_search_bolivia_jobs`, `scan_career_page_url`, `analyze_position_for_bolivia`, `list_monitored_platforms`, `upsert_employer_reality`, `upsert_bolivia_playbook` e `inspect_career_brain_status`. |
 | `GET` | `/api/results.md` | `?lang=es` o `?lang=en` | Genera y descarga el reporte de resultados en Markdown puro. |
-| `GET` | `/favicon.svg` / `.ico` / `.png` | Ninguno | Favicon vectorial/raster del planeta Tierra con los colores de la bandera de Bolivia. |
+| `GET` | `/favicon.svg` / `.ico` / `-96x96.png` / `/apple-touch-icon.png` | Ninguno | Suite de favicon suizo minimalista (`B` geométrica + puntos tricolores de Bolivia). |
 
 #### Ejemplo con `curl`: Búsqueda Híbrida v2 Zero-PII
 ```bash

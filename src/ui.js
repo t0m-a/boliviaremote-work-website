@@ -116,10 +116,10 @@ export function renderAppHtml(initialState, options = {}) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${pageTitle}</title>
+  <link rel="icon" href="/favicon.ico" sizes="48x48">
+  <link rel="icon" href="/favicon-96x96.png" type="image/png" sizes="96x96">
   <link rel="icon" type="image/svg+xml" href="${FAVICON_DATA_URI}">
-  <link rel="alternate icon" type="image/x-icon" href="/favicon.ico">
-  <link rel="alternate icon" type="image/png" href="/favicon.png">
-  <link rel="apple-touch-icon" href="/favicon.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
   <meta name="description" content="${pageDescription}">
   <script>
     (function() {

@@ -1221,18 +1221,34 @@ async function runTests() {
   );
   assert.equal(respMcpValidQueryKey.status, 200, 'MCP server must allow valid ?key= query parameter');
 
-  console.log('7. Testing GET /favicon.svg and /favicon.ico (Earth with Bolivian flag colors)...');
+  console.log('7. Testing GET /favicon.svg, /favicon.ico, /favicon-96x96.png, /favicon.png, and /apple-touch-icon.png (Swiss Minimalist B + Bolivian tricolor dots)...');
   const respFavSvg = await worker.fetch(new Request('https://bolivia-remote-scout.workers.dev/favicon.svg'), {}, {});
   assert.equal(respFavSvg.status, 200);
   assert.equal(respFavSvg.headers.get('Content-Type'), 'image/svg+xml');
   const favSvgText = await respFavSvg.text();
   assert.ok(favSvgText.includes('<svg'), 'Must return valid SVG');
-  assert.ok(favSvgText.includes('bol-red'), 'Must contain Bolivian red');
-  assert.ok(favSvgText.includes('bol-yellow'), 'Must contain Bolivian yellow');
-  assert.ok(favSvgText.includes('bol-green'), 'Must contain Bolivian green');
+  assert.ok(favSvgText.includes('#18181b'), 'Must use Swiss zinc-ink tile background');
+  assert.ok(favSvgText.includes('bol-red') && favSvgText.includes('#dc2626'), 'Must contain Bolivian red dot');
+  assert.ok(favSvgText.includes('bol-yellow') && favSvgText.includes('#eab308'), 'Must contain Bolivian yellow dot');
+  assert.ok(favSvgText.includes('bol-green') && favSvgText.includes('#16a34a'), 'Must contain Bolivian green dot');
 
   const respFavIco = await worker.fetch(new Request('https://bolivia-remote-scout.workers.dev/favicon.ico'), {}, {});
   assert.equal(respFavIco.status, 200);
+  assert.equal(respFavIco.headers.get('Content-Type'), 'image/x-icon');
+  const favIcoBytes = new Uint8Array(await respFavIco.arrayBuffer());
+  assert.ok(favIcoBytes.length > 100 && favIcoBytes[0] === 0 && favIcoBytes[1] === 0 && favIcoBytes[2] === 1 && favIcoBytes[3] === 0, 'Must return valid binary ICO header');
+
+  const respFav96 = await worker.fetch(new Request('https://bolivia-remote-scout.workers.dev/favicon-96x96.png'), {}, {});
+  assert.equal(respFav96.status, 200);
+  assert.equal(respFav96.headers.get('Content-Type'), 'image/png');
+  const fav96Bytes = new Uint8Array(await respFav96.arrayBuffer());
+  assert.ok(fav96Bytes.length > 100 && fav96Bytes[0] === 0x89 && fav96Bytes[1] === 0x50 && fav96Bytes[2] === 0x4e && fav96Bytes[3] === 0x47, 'Must return valid PNG signature for favicon-96x96.png');
+
+  const respAppleTouch = await worker.fetch(new Request('https://bolivia-remote-scout.workers.dev/apple-touch-icon.png'), {}, {});
+  assert.equal(respAppleTouch.status, 200);
+  assert.equal(respAppleTouch.headers.get('Content-Type'), 'image/png');
+  const appleTouchBytes = new Uint8Array(await respAppleTouch.arrayBuffer());
+  assert.ok(appleTouchBytes.length > 100 && appleTouchBytes[0] === 0x89 && appleTouchBytes[1] === 0x50 && appleTouchBytes[2] === 0x4e && appleTouchBytes[3] === 0x47, 'Must return valid PNG signature for apple-touch-icon.png');
 
   console.log('7b. Testing GET /sitemap.xml and /robots.txt...');
   const respSitemap = await worker.fetch(new Request('https://boliviaremote.work/sitemap.xml'), {}, {});
@@ -2158,6 +2174,10 @@ async function runTests() {
   assert.equal(rEnvProbe.status, 404, 'Unknown .env probe must return 404');
   const rFavFast = await worker.fetch(new Request('https://boliviaremote.work/favicon.png'), strictZeroTouchEnv, {});
   assert.equal(rFavFast.status, 200, '/favicon.png must succeed without DB');
+  const rFav96Fast = await worker.fetch(new Request('https://boliviaremote.work/favicon-96x96.png'), strictZeroTouchEnv, {});
+  assert.equal(rFav96Fast.status, 200, '/favicon-96x96.png must succeed without DB');
+  const rAppleFast = await worker.fetch(new Request('https://boliviaremote.work/apple-touch-icon.png'), strictZeroTouchEnv, {});
+  assert.equal(rAppleFast.status, 200, '/apple-touch-icon.png must succeed without DB');
   const rRobotsFast = await worker.fetch(new Request('https://boliviaremote.work/robots.txt'), strictZeroTouchEnv, {});
   assert.equal(rRobotsFast.status, 200, '/robots.txt must succeed without DB');
   const rGuideFast = await worker.fetch(new Request('https://boliviaremote.work/guia-legal-fiscal'), strictZeroTouchEnv, {});

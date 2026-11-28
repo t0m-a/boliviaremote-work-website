@@ -77,7 +77,7 @@ Searching for legitimate international remote jobs from Bolivia is often frustra
 - **RAM-Only Zero-PII Privacy Guard (`src/privacy_guard.js`):** Scrubs emails, phone numbers, URLs, `@handles`, and long numeric IDs in memory before embedding or FTS5 querying (zero user query persistence) and strips tracking parameters (`utm_*`, `fbclid`, `gclid`, `ref`, `gh_src`, credentials) from scanned URLs.
 - **Strict Symmetric Language Filtering (`Spanish` / `English`) & 25 Professional Categories:** Instant client/server filtering across `Spanish-only`, `English-only`, and `Both` modes.
 - **Fail-Closed MCP Server (8 Tools):** Exposes 5 job search/scan/analysis tools plus 3 `BoliviaCareerBrainDO` governance tools, locked behind `MCP_API_KEY`.
-- **Responsive Bolivian-Themed UI:** Light/dark mode, frosted sticky navbar, patriotic color-cycling **Información Útil** button (red -> yellow -> green), Earth-Bolivia SVG/ICO/PNG favicon, and standalone offline `index.html` support.
+- **Responsive Bolivian-Themed UI:** Light/dark mode, frosted sticky navbar, patriotic color-cycling **Información Útil** button (red -> yellow -> green), Swiss minimalist SVG/ICO/PNG/Apple Touch favicon suite, and standalone offline `index.html` support.
 
 > [!NOTE]
 > All processing runs at the edge on **Cloudflare Workers** or locally in the browser. Zero required accounts, zero tracking cookies, and zero personal data storage.
@@ -345,7 +345,7 @@ Packages the seed data, evaluator, guides, and deterministic offline position an
 | `POST` | `/api/vectors/index` | JSON `{ max_items, deduplicate }` | Batch-embeds 1024d `@cf/baai/bge-m3` vectors (chunks of 25), upserts into `bolivia-remote-jobs-m3`, and persists to D1. |
 | `GET` / `POST` | `/mcp` (`/.well-known/mcp.json`) | JSON-RPC 2.0 (`Bearer MCP_API_KEY`) | Fail-closed Streamable HTTP **MCP server** with **8 tools**: `search_bolivia_remote_jobs`, `semantic_search_bolivia_jobs`, `scan_career_page_url`, `analyze_position_for_bolivia`, `list_monitored_platforms`, `upsert_employer_reality`, `upsert_bolivia_playbook`, and `inspect_career_brain_status`. |
 | `GET` | `/api/results.md` | `?lang=es` or `?lang=en` | Streams a live Markdown evaluation report. |
-| `GET` | `/favicon.svg` / `.ico` / `.png` | None | Vector/raster Earth-Bolivia flag favicon. |
+| `GET` | `/favicon.svg` / `.ico` / `-96x96.png` / `/apple-touch-icon.png` | None | Swiss minimalist vector/raster favicon suite (geometric `B` + Bolivian tricolor dots). |
 
 #### Example `curl`: Zero-PII Hybrid Search v2
 ```bash
